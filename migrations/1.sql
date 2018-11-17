@@ -68,5 +68,5 @@ CREATE TABLE submissions (
 );
 
 CREATE TABLE git_repos (
-    id bytea PRIMARY KEY NOT NULL,
+    id bytea PRIMARY KEY NOT NULL
 );

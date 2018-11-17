@@ -20,8 +20,8 @@ type RegisterResponse struct {
 }
 func (srv *ApiServer) HandleAuthRegister(w http.ResponseWriter, r *http.Request) {
 	decoder := json.NewDecoder(r.Body)
-	req := new(RegisterRequest)
-	if err := decoder.Decode(req); err != nil {
+	var req RegisterRequest
+	if err := decoder.Decode(&req); err != nil {
 		srv.BadRequest(w, err)
 		return
 	}

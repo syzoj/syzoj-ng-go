@@ -47,6 +47,7 @@ func (srv *ApiServer) GetSession(req *http.Request) (sess *Session) {
 }
 
 func (srv *ApiServer) SaveSession(r *http.Request, w http.ResponseWriter, sess *Session) error {
+	var setExpire = false
 	if sess.SessionId == "" {
 		var buf [32]byte
 		_, err := rand.Read(buf[:])
@@ -63,6 +64,7 @@ func (srv *ApiServer) SaveSession(r *http.Request, w http.ResponseWriter, sess *
 			Expires: time.Now().Add(24 * time.Hour),
 			HttpOnly: true,
 		})
+		setExpire = true
 	}
 
 	key := fmt.Sprintf("sess:%s", sess.SessionId)
@@ -78,5 +80,10 @@ func (srv *ApiServer) SaveSession(r *http.Request, w http.ResponseWriter, sess *
 		return err
 	}
 
+	if setExpire {
+		if _, err := srv.redis.Expire(key, 24 * time.Hour).Result(); err != nil {
+			return err
+		}
+	}
 	return nil
 }
