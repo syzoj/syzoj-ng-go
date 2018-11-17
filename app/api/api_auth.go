@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"net/http"
 
+	"github.com/syzoj/syzoj-ng-go/app/model"
 	"github.com/syzoj/syzoj-ng-go/app/util"
 )
 
@@ -31,7 +32,7 @@ func (srv *ApiServer) HandleAuthRegister(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	authInfo, err := PasswordAuth(req.Password)
+	authInfo, err := model.PasswordAuth(req.Password)
 	if err != nil {
 		srv.InternalServerError(w, err)
 		return
@@ -106,7 +107,7 @@ func (srv *ApiServer) HandleAuthLogin(w http.ResponseWriter, r *http.Request) {
 		srv.InternalServerError(w, err)
 		return
 	}
-	var authInfo = UserAuthInfo{
+	var authInfo = model.UserAuthInfo{
 		UseTwoFactor: false,
 	}
 	err = json.Unmarshal(authInfoJson, &authInfo)

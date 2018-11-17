@@ -26,7 +26,7 @@ func (srv *ApiServer) GetSession(req *http.Request) (sess *Session) {
 	sessId := cookie.Value
 
 	sess_map, err := srv.redis.HGetAll(fmt.Sprintf("sess:%s", sessId)).Result()
-	if err == redis.Nil {
+	if err == redis.Nil || len(sess_map) == 0 {
 		return
 	}
 

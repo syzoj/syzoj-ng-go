@@ -1,4 +1,4 @@
-package api
+package model
 
 import (
 	"errors"
@@ -7,13 +7,17 @@ import (
 )
 
 type UserAuthInfo struct {
-	UseTwoFactor bool
-	PasswordInfo UserPasswordInfo
+	UseTwoFactor bool `json:"use_two_factor"`
+	PasswordInfo UserPasswordInfo `json:"password_info"`
 }
 
 type UserPasswordInfo struct {
 	Type int `json:"type"`
 	Data interface{} `json:"data"`
+}
+
+type UserProfileInfo struct {
+	Biography string `json:"biography"`
 }
 
 func BcryptPassword(password string) (UserPasswordInfo, error) {
