@@ -4,5 +4,6 @@
     "redis": {
         "Addr": "localhost:6379",
         "DB": 0
-    }
+    },
+    "git_path": "/tmp/git"
 }

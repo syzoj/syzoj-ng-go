@@ -39,8 +39,8 @@ func (app *App) SetupRedis(options *redis.Options) error {
     return err
 }
 
-func (app *App) SetupGitServer() error {
-	server, err := git.CreateGitServer(app.db)
+func (app *App) SetupGitServer(gitPath string) error {
+	server, err := git.CreateGitServer(app.db, gitPath)
 	if err != nil {
 		return err
 	}

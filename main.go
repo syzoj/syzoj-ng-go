@@ -15,6 +15,7 @@ type syzoj_config struct {
     Database string `json:"database"`
     Redis redis.Options `json:"redis"`
     Addr string `json:"addr"`
+    GitPath string `json:"git_path"`
 }
 
 func main() {
@@ -52,7 +53,7 @@ func main() {
         log.Fatal("Error setting up http server:", err)
     }
 
-    err = app_instance.SetupGitServer()
+    err = app_instance.SetupGitServer(config.GitPath)
     if err != nil {
         log.Fatal("Error setting up git server:", err)
     }

@@ -15,11 +15,13 @@ import (
 type GitServer struct {
     cgiScript string
     db *sql.DB
+    pathPrefix string
 }
 
-func CreateGitServer(db *sql.DB) (*GitServer, error) {
+func CreateGitServer(db *sql.DB, pathPrefix string) (*GitServer, error) {
     srv := &GitServer{
         db: db,
+        pathPrefix: pathPrefix,
     }
     dir, err := exec.Command("git", "--exec-path").Output()
     if err != nil {
@@ -32,7 +34,7 @@ func CreateGitServer(db *sql.DB) (*GitServer, error) {
 
 func (srv *GitServer) Handle(w http.ResponseWriter, r *http.Request) {
     env := []string{
-        "PATH_TRANSLATED=/tmp/git/" + strings.TrimPrefix(r.URL.Path, "/git/"),
+        "PATH_TRANSLATED=" + srv.pathPrefix + strings.TrimPrefix(r.URL.Path, "/git/"),
         "GIT_HTTP_EXPORT_ALL=",
     }
     vars := mux.Vars(r)
