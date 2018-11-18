@@ -36,7 +36,9 @@ CREATE TABLE team_users (
 CREATE TABLE problemsets (
     id bytea PRIMARY KEY NOT NULL,
     name varchar(64) NOT NULL,
-    group_id bytea REFERENCES users(id)
+    group_id bytea REFERENCES users(id),
+    type int NOT NULL,
+    info jsonb NOT NULL
 );
 CREATE TABLE problemset_teams (
     problemset_id bytea NOT NULL REFERENCES problemsets(id),
