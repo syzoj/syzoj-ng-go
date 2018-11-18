@@ -10,13 +10,14 @@ CREATE UNIQUE INDEX users_user_name ON users (user_name);
 
 CREATE TABLE groups (
     id bytea PRIMARY KEY NOT NULL,
-    group_name varchar(64) NOT NULL
+    group_name varchar(64) NOT NULL,
+    policy_info jsonb NOT NULL
 );
 CREATE UNIQUE INDEX groups_group_name ON groups (group_name);
 CREATE TABLE group_users (
     group_id bytea NOT NULL REFERENCES groups(id),
     user_id bytea NOT NULL REFERENCES users(id),
-    role int NOT NULL,
+    role_info jsonb NOT NULL,
     PRIMARY KEY (group_id, user_id)
 );
 

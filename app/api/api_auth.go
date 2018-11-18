@@ -67,6 +67,11 @@ type LoginResponse struct {
 	Success bool `json:"success"`
 	Reason string `json:"reason"`
 }
+const AlreadyLoggedInMessage = "Already logged in"
+const UnknownUsernameMessage = "Unknown username"
+const CannotLoginMessage = "Cannot login yet"
+const TwoFactorNotSupportedMessage = "Two factor auth not supported"
+const PasswordIncorrectMessage = "Password incorrect"
 func (srv *ApiServer) HandleAuthLogin(w http.ResponseWriter, r *http.Request) {
 	session := srv.GetSession(r)
 	decoder := json.NewDecoder(r.Body)
@@ -77,7 +82,7 @@ func (srv *ApiServer) HandleAuthLogin(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if session.LoggedIn {
-		srv.Success(w, LoginResponse{Success: false, Reason: "Already logged in"})
+		srv.Success(w, LoginResponse{Success: false, Reason: AlreadyLoggedInMessage})
 		return
 	}
 
@@ -89,7 +94,7 @@ func (srv *ApiServer) HandleAuthLogin(w http.ResponseWriter, r *http.Request) {
 	defer rows.Close()
 
 	if !rows.Next() {
-		srv.Success(w, LoginResponse{Success: false, Reason: "Unknown username"})
+		srv.Success(w, LoginResponse{Success: false, Reason: UnknownUsernameMessage})
 		return
 	}
 
@@ -116,12 +121,12 @@ func (srv *ApiServer) HandleAuthLogin(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if !canLogin {
-		srv.Success(w, LoginResponse{Success: false, Reason: "Cannot login yet"})
+		srv.Success(w, LoginResponse{Success: false, Reason: CannotLoginMessage})
 		return
 	}
 
 	if authInfo.UseTwoFactor {
-		srv.Success(w, LoginResponse{Success: false, Reason: "Two factor auth not supported"})
+		srv.Success(w, LoginResponse{Success: false, Reason: TwoFactorNotSupportedMessage})
 		return
 	}
 
@@ -131,7 +136,7 @@ func (srv *ApiServer) HandleAuthLogin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if !ok {
-		srv.Success(w, LoginResponse{Success: false, Reason: "Password incorrect"})
+		srv.Success(w, LoginResponse{Success: false, Reason: PasswordIncorrectMessage})
 		return
 	}
 

@@ -23,6 +23,9 @@ type SuccessResponse struct {
 }
 
 var ApiEndpointNotFoundError = errors.New("API endpoint not found")
+var GroupNotFoundError = errors.New("Group not found")
+var CreateProblemsetDeniedError = errors.New("Cannot create problemset")
+var NotLoggedInError = errors.New("Not logged in")
 // Internal error
 var InvalidAuthUserIdError = errors.New("Invalid AuthUserId")
 
@@ -43,6 +46,18 @@ func (*ApiServer) NotFound(w http.ResponseWriter, e error) {
 	}
 
 	http.Error(w, string(json), 404)
+}
+
+func (*ApiServer) Forbidden(w http.ResponseWriter, e error) {
+	response := ErrorResponse{
+		Error: e.Error(),
+	}
+	json, err := json.Marshal(response)
+	if err != nil {
+		panic(err)
+	}
+
+	http.Error(w, string(json), 403)
 }
 
 func (*ApiServer) BadRequest(w http.ResponseWriter, e error) {
