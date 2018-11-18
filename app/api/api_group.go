@@ -1,10 +1,12 @@
 package api
 
 import (
-	"log"
-	"github.com/lib/pq"
 	"encoding/json"
+	"log"
 	"net/http"
+
+	"github.com/lib/pq"
+	"github.com/syzoj/syzoj-ng-go/app/model"
 	"github.com/syzoj/syzoj-ng-go/app/util"
 )
 
@@ -12,9 +14,10 @@ type GroupCreateRequest struct {
 	GroupName string `json:"group_name"`
 }
 type GroupCreateResponse struct {
-	Success bool `json:"success"`
-	Reason string `json:"reason"`
+	Success bool   `json:"success"`
+	Reason  string `json:"reason"`
 }
+
 func (srv *ApiServer) HandleGroupCreate(w http.ResponseWriter, r *http.Request) {
 	jsonDecoder := json.NewDecoder(r.Body)
 	var req GroupCreateRequest
@@ -54,7 +57,7 @@ func (srv *ApiServer) HandleGroupCreate(w http.ResponseWriter, r *http.Request) 
 		srv.InternalServerError(w, err)
 		return
 	}
-	_, err = trans.Exec("INSERT INTO groups (id, group_name) VALUES ($1, $2)", group_id.ToBytes(), req.GroupName)
+	_, err = trans.Exec("INSERT INTO groups (id, group_name, policy_info) VALUES ($1, $2, '{}'::jsonb)", group_id.ToBytes(), req.GroupName)
 	if err != nil {
 		if sqlErr, ok := err.(*pq.Error); ok {
 			if sqlErr.Code == "23505" && sqlErr.Constraint == "groups_group_name" {
@@ -66,7 +69,12 @@ func (srv *ApiServer) HandleGroupCreate(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	_, err = trans.Exec("INSERT INTO group_users (group_id, user_id, role) VALUES ($1, $2, 3)", group_id.ToBytes(), session.AuthUserId.ToBytes())
+	roleInfoBytes, err := json.Marshal(model.GroupOwnerRole)
+	if err != nil {
+		srv.InternalServerError(w, err)
+		return
+	}
+	_, err = trans.Exec("INSERT INTO group_users (group_id, user_id, role_info) VALUES ($1, $2, $3)", group_id.ToBytes(), session.AuthUserId.ToBytes(), roleInfoBytes)
 	if err != nil {
 		srv.InternalServerError(w, err)
 		return

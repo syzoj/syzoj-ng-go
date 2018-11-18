@@ -12,11 +12,13 @@ type UserRoleInfo struct {
 	Role int `json:"role"`
 }
 
+var GroupOwnerRole = UserRoleInfo{Role: 3}
+
 const (
 	GroupCreateProblemsetPrivilege = iota // Create problemsets
-	GroupViewProblemsetPrivilege // View private problemsets
-	GroupManageProblemsetPrivilege // Manage problemsets
-	GroupManageGroupPrivilege // Mange group users
+	GroupViewProblemsetPrivilege          // View private problemsets
+	GroupManageProblemsetPrivilege        // Manage problemsets
+	GroupManageGroupPrivilege             // Mange group users
 )
 
 var rolePermission = map[int]map[int]bool{

@@ -2,20 +2,22 @@ package api
 
 import (
 	"encoding/json"
-	"github.com/syzoj/syzoj-ng-go/app/model"
-	"github.com/gorilla/mux"
-	"github.com/syzoj/syzoj-ng-go/app/util"
-	"net/http"
 	"log"
+	"net/http"
+
+	"github.com/gorilla/mux"
+	"github.com/syzoj/syzoj-ng-go/app/model"
+	"github.com/syzoj/syzoj-ng-go/app/util"
 )
 
 type CreateProblemsetRequest struct {
 	ProblemsetName string `json:"problemset_name"`
 }
 type CreateProblemsetResponse struct {
-	Success bool `json:"success"`
-	Reason string `json:"reason"`
+	Success bool   `json:"success"`
+	Reason  string `json:"reason"`
 }
+
 func (srv *ApiServer) HandleProblemsetCreate(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	groupName := vars["group-name"]
@@ -39,7 +41,7 @@ func (srv *ApiServer) HandleProblemsetCreate(w http.ResponseWriter, r *http.Requ
 		srv.InternalServerError(w, err)
 		return
 	} else if !perm {
-		srv.Forbidden(w, err)
+		srv.Forbidden(w, CreateProblemsetDeniedError)
 		return
 	}
 
@@ -48,7 +50,7 @@ func (srv *ApiServer) HandleProblemsetCreate(w http.ResponseWriter, r *http.Requ
 		srv.InternalServerError(w, err)
 		return
 	}
-	_, err = srv.db.Query("INSERT INTO problemsets (id, name, group_id, type, info) VALUES ($1, $2, $3, $4, $5)", problemsetId, req.ProblemsetName, groupId.ToBytes(), 1, "{}")
+	_, err = srv.db.Query("INSERT INTO problemsets (id, name, group_id, type, info) VALUES ($1, $2, $3, $4, '{}'::jsonb)", problemsetId.ToBytes(), req.ProblemsetName, groupId.ToBytes(), 1)
 	if err != nil {
 		srv.InternalServerError(w, err)
 		return

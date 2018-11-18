@@ -35,11 +35,12 @@ CREATE TABLE team_users (
 
 CREATE TABLE problemsets (
     id bytea PRIMARY KEY NOT NULL,
-    name varchar(64) NOT NULL,
-    group_id bytea REFERENCES users(id),
+    name varchar(64) NOT NULL CHECK(length(name) >= 3),
+    group_id bytea REFERENCES groups(id),
     type int NOT NULL,
     info jsonb NOT NULL
 );
+CREATe UNIQUE INDEX problemset_name ON problemsets (group_id, name);
 CREATE TABLE problemset_teams (
     problemset_id bytea NOT NULL REFERENCES problemsets(id),
     team_id bytea NOT NULL REFERENCES teams(id),

@@ -1,8 +1,9 @@
 package api
 
 import (
-	"github.com/syzoj/syzoj-ng-go/app/model"
 	"encoding/json"
+
+	"github.com/syzoj/syzoj-ng-go/app/model"
 	"github.com/syzoj/syzoj-ng-go/app/util"
 )
 
@@ -29,14 +30,17 @@ func (srv *ApiServer) CheckGroupPermission(groupName string, userId util.UUID, p
 	}
 
 	var roleInfo model.UserRoleInfo
-	rows, err = srv.db.Query("SELECT role_info FROM group_users WHERE groups.id=$1 AND users.id=$2", groupId.ToBytes(), userId.ToBytes())
+	rows, err = srv.db.Query("SELECT role_info FROM group_users WHERE group_id=$1 AND user_id=$2", groupId.ToBytes(), userId.ToBytes())
 	if err != nil {
 		return
 	}
 	if rows.Next() {
 		var roleInfoBytes []byte
-		rows.Scan(roleInfoBytes)
-		json.Unmarshal(roleInfoBytes, &roleInfo)
+		rows.Scan(&roleInfoBytes)
+		err = json.Unmarshal(roleInfoBytes, &roleInfo)
+		if err != nil {
+			return
+		}
 	}
 	success, err = groupPolicyInfo.CheckPrivilege(roleInfo, privilege)
 	return
