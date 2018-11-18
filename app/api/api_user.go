@@ -2,7 +2,6 @@ package api
 
 import (
 	"encoding/json"
-	"errors"
 	"net/http"
 
 	"github.com/syzoj/syzoj-ng-go/app/util"
@@ -28,7 +27,7 @@ func (srv *ApiServer) HandleUserInfo(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if !rows.Next() {
-		srv.InternalServerError(w, errors.New("Invalid AuthUserId"))
+		srv.InternalServerError(w, InvalidAuthUserIdError)
 		return
 	}
 	var userInfoData []byte

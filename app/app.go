@@ -84,12 +84,12 @@ func (app *App) AddGitServer() {
 }
 
 func (app *App) AddApiServer() {
-	apiRouter := mux.NewRouter()
-	apiRouter.HandleFunc("/api/auth/register", app.apiServer.HandleAuthRegister).Methods("POST")
-    apiRouter.HandleFunc("/api/auth/login", app.apiServer.HandleAuthLogin).Methods("POST")
-    apiRouter.HandleFunc("/api/user/info", app.apiServer.HandleUserInfo).Methods("GET")
-    apiRouter.HandleFunc("/api/group/create", app.apiServer.HandleGroupCreate).Methods("POST")
-	app.router.PathPrefix("/api/").Handler(apiRouter)
+	apiRouter := app.router.PathPrefix("/api").Subrouter()
+	apiRouter.HandleFunc("/auth/register", app.apiServer.HandleAuthRegister).Methods("POST")
+    apiRouter.HandleFunc("/auth/login", app.apiServer.HandleAuthLogin).Methods("POST")
+    apiRouter.HandleFunc("/user/info", app.apiServer.HandleUserInfo).Methods("GET")
+    apiRouter.HandleFunc("/group/create", app.apiServer.HandleGroupCreate).Methods("POST")
+    apiRouter.PathPrefix("/").HandlerFunc(app.apiServer.HandleCatchAll)
 }
 
 func (app *App) Run() {

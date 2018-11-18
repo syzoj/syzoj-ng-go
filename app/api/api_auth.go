@@ -16,7 +16,6 @@ type RegisterRequest struct {
 type RegisterResponse struct {
 	Success bool `json:"success"`
 	Reason string `json:"reason"`
-	UserId util.UUID `json:"user_id"`
 }
 func (srv *ApiServer) HandleAuthRegister(w http.ResponseWriter, r *http.Request) {
 	decoder := json.NewDecoder(r.Body)
@@ -57,7 +56,7 @@ func (srv *ApiServer) HandleAuthRegister(w http.ResponseWriter, r *http.Request)
 	}
 	defer rows.Close()
 	
-	srv.Success(w, RegisterResponse{Success: true, UserId: userId,})
+	srv.Success(w, RegisterResponse{Success: true})
 }
 
 type LoginRequest struct {

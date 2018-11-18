@@ -71,6 +71,6 @@ func (srv *ApiServer) HandleGroupCreate(w http.ResponseWriter, r *http.Request) 
 		srv.InternalServerError(w, err)
 		return
 	}
-	srv.Success(w, GroupCreateResponse{Success: true})
 	success = true
+	srv.Success(w, GroupCreateResponse{Success: true})
 }
