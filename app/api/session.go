@@ -1,19 +1,18 @@
 package api
 
 import (
-	"time"
-	"encoding/hex"
 	"crypto/rand"
-	"log"
+	"encoding/hex"
 	"fmt"
 	"net/http"
+	"time"
+
 	"github.com/go-redis/redis"
 	"github.com/syzoj/syzoj-ng-go/app/util"
 )
 
 type Session struct {
-	SessionId string
-	LoggedIn bool
+	SessionId  string
 	AuthUserId util.UUID
 }
 
@@ -31,37 +30,32 @@ func (srv *ApiServer) GetSession(req *http.Request) (sess *Session) {
 	}
 
 	sess.SessionId = sessId
-	val, ok := sess_map["user-id"]
-	if ok {
-		userId, err := util.UUIDFromBytes([]byte(val))
-		if err == nil {
-			sess.LoggedIn = true
+	if val, ok := sess_map["user-id"]; ok {
+		if userId, err := util.UUIDFromBytes([]byte(val)); err != nil {
 			sess.AuthUserId = userId
 		} else {
-			log.Printf("Warning: invalid user-id field for session %s, err %s\n", sessId, err.Error())
+			panic(fmt.Sprintf("Invalid user-id field for session %s, err %s", sessId, err.Error()))
 		}
-	} else {
-		sess.LoggedIn = false
 	}
 	return
 }
 
-func (srv *ApiServer) SaveSession(r *http.Request, w http.ResponseWriter, sess *Session) error {
+func (srv *ApiServer) SaveSession(r *http.Request, w http.ResponseWriter, sess *Session) {
 	var setExpire = false
 	if sess.SessionId == "" {
 		var buf [32]byte
 		_, err := rand.Read(buf[:])
 		if err != nil {
-			return err
+			panic(err)
 		}
 
 		sessId := make([]byte, 64)
 		hex.Encode(sessId, buf[:])
 		sess.SessionId = string(sessId)
 		http.SetCookie(w, &http.Cookie{
-			Name: "SYZOJSESSION",
-			Value: sess.SessionId,
-			Expires: time.Now().Add(24 * time.Hour),
+			Name:     "SYZOJSESSION",
+			Value:    sess.SessionId,
+			Expires:  time.Now().Add(24 * time.Hour),
 			HttpOnly: true,
 		})
 		setExpire = true
@@ -69,21 +63,23 @@ func (srv *ApiServer) SaveSession(r *http.Request, w http.ResponseWriter, sess *
 
 	key := fmt.Sprintf("sess:%s", sess.SessionId)
 	if _, err := srv.redis.Del(key).Result(); err != nil {
-		return err
+		panic(err)
 	}
 	rmap := make(map[string]interface{})
-	if sess.LoggedIn {
+	if sess.IsLoggedIn() {
 		rmap["user-id"] = sess.AuthUserId
 	}
-	log.Println(key, rmap)
 	if _, err := srv.redis.HMSet(key, rmap).Result(); err != nil {
-		return err
+		panic(err)
 	}
 
 	if setExpire {
-		if _, err := srv.redis.Expire(key, 24 * time.Hour).Result(); err != nil {
-			return err
+		if _, err := srv.redis.Expire(key, 24*time.Hour).Result(); err != nil {
+			panic(err)
 		}
 	}
-	return nil
+}
+
+func (sess *Session) IsLoggedIn() bool {
+	return sess.AuthUserId == (util.UUID{})
 }

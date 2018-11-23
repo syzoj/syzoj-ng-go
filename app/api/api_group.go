@@ -6,36 +6,31 @@ import (
 	"net/http"
 
 	"github.com/lib/pq"
-	"github.com/syzoj/syzoj-ng-go/app/model"
+	"github.com/syzoj/syzoj-ng-go/app/model/group"
 	"github.com/syzoj/syzoj-ng-go/app/util"
 )
 
 type GroupCreateRequest struct {
 	GroupName string `json:"group_name"`
 }
-type GroupCreateResponse struct {
-	Success bool   `json:"success"`
-	Reason  string `json:"reason"`
-}
+type GroupCreateResponse struct{}
 
 func (srv *ApiServer) HandleGroupCreate(w http.ResponseWriter, r *http.Request) {
-	jsonDecoder := json.NewDecoder(r.Body)
+	sess := srv.GetSession(r)
+	reqDecoder := json.NewDecoder(r.Body)
 	var req GroupCreateRequest
-	if err := jsonDecoder.Decode(&req); err != nil {
+	if err := reqDecoder.Decode(&req); err != nil {
 		srv.BadRequest(w, err)
 		return
 	}
 
-	session := srv.GetSession(r)
-	if !session.LoggedIn {
-		srv.Success(w, GroupCreateResponse{Success: false, Reason: "Not logged in"})
+	if !sess.IsLoggedIn() {
+		srv.Forbidden(w, NotLoggedInError)
 		return
 	}
-
 	trans, err := srv.db.Begin()
 	if err != nil {
-		srv.InternalServerError(w, err)
-		return
+		panic(err)
 	}
 	success := false
 	defer func() {
@@ -52,33 +47,29 @@ func (srv *ApiServer) HandleGroupCreate(w http.ResponseWriter, r *http.Request) 
 		}
 	}()
 
-	group_id, err := util.GenerateUUID()
+	groupId, err := util.GenerateUUID()
 	if err != nil {
-		srv.InternalServerError(w, err)
-		return
+		panic(err)
 	}
-	_, err = trans.Exec("INSERT INTO groups (id, group_name, policy_info) VALUES ($1, $2, '{}'::jsonb)", group_id.ToBytes(), req.GroupName)
+	groupProvider := group.GetGroupType()
+	groupPolicy := groupProvider.GetDefaultGroupPolicy()
+	_, err = trans.Exec("INSERT INTO groups (id, group_name, policy_info) VALUES ($1, $2, $3)", groupId.ToBytes(), req.GroupName, marshalJson(groupPolicy))
 	if err != nil {
 		if sqlErr, ok := err.(*pq.Error); ok {
-			if sqlErr.Code == "23505" && sqlErr.Constraint == "groups_group_name" {
-				srv.Success(w, GroupCreateResponse{Success: false, Reason: "Duplicate group name"})
+			if sqlErr.Code == "23505" && sqlErr.Constraint == "groups_group_name_unique" {
+				srv.SuccessWithError(w, DuplicateGroupNameError)
 				return
 			}
 		}
-		srv.InternalServerError(w, err)
-		return
+		panic(err)
 	}
 
-	roleInfoBytes, err := json.Marshal(model.GroupOwnerRole)
+	groupCreatorRole := groupPolicy.GetCreatorRole()
+	_, err = trans.Exec("INSERT INTO group_users (group_id, user_id, role_info) VALUES ($1, $2, $3)", groupId.ToBytes(), sess.AuthUserId.ToBytes(), marshalJson(groupCreatorRole))
 	if err != nil {
-		srv.InternalServerError(w, err)
-		return
+		panic(err)
 	}
-	_, err = trans.Exec("INSERT INTO group_users (group_id, user_id, role_info) VALUES ($1, $2, $3)", group_id.ToBytes(), session.AuthUserId.ToBytes(), roleInfoBytes)
-	if err != nil {
-		srv.InternalServerError(w, err)
-		return
-	}
+
 	success = true
-	srv.Success(w, GroupCreateResponse{Success: true})
+	srv.Success(w, GroupCreateResponse{})
 }

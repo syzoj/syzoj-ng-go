@@ -84,7 +84,8 @@ func (app *App) AddGitServer() {
 }
 
 func (app *App) AddApiServer() {
-	apiRouter := app.router.PathPrefix("/api").Subrouter()
+    apiRouter := app.router.PathPrefix("/api").Subrouter()
+    apiRouter.Use(app.apiServer.InternalServerErrorMiddleware)
 	apiRouter.HandleFunc("/auth/register", app.apiServer.HandleAuthRegister).Methods("POST")
     apiRouter.HandleFunc("/auth/login", app.apiServer.HandleAuthLogin).Methods("POST")
     apiRouter.HandleFunc("/user/info", app.apiServer.HandleUserInfo).Methods("GET")

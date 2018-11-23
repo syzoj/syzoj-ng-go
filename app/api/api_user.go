@@ -4,39 +4,32 @@ import (
 	"encoding/json"
 	"net/http"
 
+	model_user "github.com/syzoj/syzoj-ng-go/app/model/user"
 	"github.com/syzoj/syzoj-ng-go/app/util"
-	"github.com/syzoj/syzoj-ng-go/app/model"
 )
 
 type UserInfoResponse struct {
-	LoggedIn bool `json:"logged_in"`
-	UserId util.UUID `json:"user_id"`
-	Biography string `json:"biography"`
+	UserId    util.UUID `json:"user_id"`
+	Biography string    `json:"biography"`
 }
+
 func (srv *ApiServer) HandleUserInfo(w http.ResponseWriter, r *http.Request) {
-	session := srv.GetSession(r)
-	if !session.LoggedIn {
-		srv.Success(w, UserInfoResponse{LoggedIn: false})
+	sess := srv.GetSession(r)
+	if !sess.IsLoggedIn() {
+		srv.SuccessWithError(w, NotLoggedInError)
 		return
 	}
 
-	userId := session.AuthUserId
-	rows, err := srv.db.Query("SELECT user_profile_info FROM users WHERE Id=$1", userId.ToBytes())
-	if err != nil {
-		srv.InternalServerError(w, err)
-		return
-	}
-	if !rows.Next() {
-		srv.InternalServerError(w, InvalidAuthUserIdError)
-		return
-	}
+	userId := sess.AuthUserId
+	row := srv.db.QueryRow("SELECT user_profile_info FROM users WHERE Id=$1", userId.ToBytes())
 	var userInfoData []byte
-	rows.Scan(&userInfoData)
-	var userInfo model.UserProfileInfo
-	if err := json.Unmarshal(userInfoData, &userInfo); err != nil {
-		srv.InternalServerError(w, err)
-		return
+	if err := row.Scan(&userInfoData); err != nil {
+		panic(err)
 	}
-	
-	srv.Success(w, UserInfoResponse{LoggedIn: true, UserId: userId, Biography: userInfo.Biography})
+	var userInfo model_user.UserProfileInfo
+	if err := json.Unmarshal(userInfoData, &userInfo); err != nil {
+		panic(err)
+	}
+
+	srv.Success(w, UserInfoResponse{UserId: userId, Biography: userInfo.Biography})
 }

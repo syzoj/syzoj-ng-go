@@ -1,11 +1,14 @@
 package api
 
 import (
-	"github.com/lib/pq"
+	"database/sql"
 	"encoding/json"
 	"net/http"
 
-	"github.com/syzoj/syzoj-ng-go/app/model"
+	"github.com/lib/pq"
+	"github.com/pkg/errors"
+
+	model_user "github.com/syzoj/syzoj-ng-go/app/model/user"
 	"github.com/syzoj/syzoj-ng-go/app/util"
 )
 
@@ -14,48 +17,37 @@ type RegisterRequest struct {
 	Password string `json:"password"`
 }
 type RegisterResponse struct {
-	Success bool `json:"success"`
-	Reason string `json:"reason"`
+	Success bool   `json:"success"`
+	Reason  string `json:"reason"`
 }
+
 func (srv *ApiServer) HandleAuthRegister(w http.ResponseWriter, r *http.Request) {
 	decoder := json.NewDecoder(r.Body)
-	var req RegisterRequest
-	if err := decoder.Decode(&req); err != nil {
+	req := new(RegisterRequest)
+	if err := decoder.Decode(req); err != nil {
 		srv.BadRequest(w, err)
 		return
 	}
 
 	userId, err := util.GenerateUUID()
 	if err != nil {
-		srv.InternalServerError(w, err)
-		return
+		panic(errors.Wrap(err, "Failed to generate UUID"))
 	}
-
-	authInfo, err := model.PasswordAuth(req.Password)
-	if err != nil {
-		srv.InternalServerError(w, err)
-		return
-	}
-
+	authInfo := model_user.PasswordAuth(req.Password)
 	authInfoJson, err := json.Marshal(authInfo)
 	if err != nil {
-		srv.InternalServerError(w, err)
-		return
+		panic(err)
 	}
-
-	rows, err := srv.db.Query("INSERT INTO users (id, user_name, auth_info, can_login) VALUES ($1, $2, $3, true)", userId.ToBytes(), req.UserName, authInfoJson)
-	if err != nil {
+	if _, err := srv.db.Exec("INSERT INTO users (id, user_name, auth_info, can_login) VALUES ($1, $2, $3, true)", userId.ToBytes(), req.UserName, authInfoJson); err != nil {
 		if sqlErr, ok := err.(*pq.Error); ok {
-			if sqlErr.Code == "23505" && sqlErr.Constraint == "users_user_name" {
-				srv.Success(w, RegisterResponse{Success: false, Reason: "Duplicate user name"})
+			if sqlErr.Code == "23505" && sqlErr.Constraint == "users_user_name_unique" {
+				srv.SuccessWithError(w, DuplicateUserNameError)
 				return
 			}
 		}
-		srv.InternalServerError(w, err)
-		return
+		panic(err)
 	}
-	defer rows.Close()
-	
+
 	srv.Success(w, RegisterResponse{Success: true})
 }
 
@@ -63,88 +55,56 @@ type LoginRequest struct {
 	UserName string `json:"username"`
 	Password string `json:"password"`
 }
-type LoginResponse struct {
-	Success bool `json:"success"`
-	Reason string `json:"reason"`
-}
-const AlreadyLoggedInMessage = "Already logged in"
-const UnknownUsernameMessage = "Unknown username"
-const CannotLoginMessage = "Cannot login yet"
-const TwoFactorNotSupportedMessage = "Two factor auth not supported"
-const PasswordIncorrectMessage = "Password incorrect"
+type LoginResponse struct{}
+
 func (srv *ApiServer) HandleAuthLogin(w http.ResponseWriter, r *http.Request) {
-	session := srv.GetSession(r)
-	decoder := json.NewDecoder(r.Body)
-	req := new(LoginRequest)
-	if err := decoder.Decode(req); err != nil {
+	sess := srv.GetSession(r)
+	reqDecoder := json.NewDecoder(r.Body)
+	var req LoginRequest
+	if err := reqDecoder.Decode(&req); err != nil {
 		srv.BadRequest(w, err)
 		return
 	}
 
-	if session.LoggedIn {
-		srv.Success(w, LoginResponse{Success: false, Reason: AlreadyLoggedInMessage})
+	if sess.IsLoggedIn() {
+		srv.SuccessWithError(w, AlreadyLoggedInError)
 		return
 	}
-
-	rows, err := srv.db.Query("SELECT id, auth_info, can_login FROM users WHERE user_name = $1", req.UserName)
-	if err != nil {
-		srv.InternalServerError(w, err)
-		return
-	}
-	defer rows.Close()
-
-	if !rows.Next() {
-		srv.Success(w, LoginResponse{Success: false, Reason: UnknownUsernameMessage})
-		return
-	}
-
+	row := srv.db.QueryRow("SELECT id, auth_info, can_login FROM users WHERE user_name = $1", req.UserName)
 	var userIdBytes []byte
 	var authInfoJson []byte
 	var canLogin bool
-	err = rows.Scan(&userIdBytes, &authInfoJson, &canLogin)
-	if err != nil {
-		srv.InternalServerError(w, err)
-		return
+	if err := row.Scan(&userIdBytes, &authInfoJson, &canLogin); err != nil {
+		if err == sql.ErrNoRows {
+			srv.SuccessWithError(w, UnknownUsernameError)
+			return
+		}
+		panic(err)
 	}
 	userId, err := util.UUIDFromBytes(userIdBytes)
 	if err != nil {
-		srv.InternalServerError(w, err)
-		return
+		panic(err)
 	}
-	var authInfo = model.UserAuthInfo{
-		UseTwoFactor: false,
-	}
+	var authInfo model_user.UserAuthInfo
 	err = json.Unmarshal(authInfoJson, &authInfo)
 	if err != nil {
-		srv.InternalServerError(w, err)
-		return
+		panic(err)
 	}
-
 	if !canLogin {
-		srv.Success(w, LoginResponse{Success: false, Reason: CannotLoginMessage})
+		srv.SuccessWithError(w, CannotLoginError)
 		return
 	}
-
 	if authInfo.UseTwoFactor {
-		srv.Success(w, LoginResponse{Success: false, Reason: TwoFactorNotSupportedMessage})
+		srv.SuccessWithError(w, TwoFactorNotSupportedError)
 		return
 	}
-
-	ok, err := authInfo.PasswordInfo.Verify(req.Password)
+	err = authInfo.PasswordInfo.Verify(req.Password)
 	if err != nil {
-		srv.InternalServerError(w, err)
-		return
-	}
-	if !ok {
-		srv.Success(w, LoginResponse{Success: false, Reason: PasswordIncorrectMessage})
+		srv.SuccessWithError(w, PasswordIncorrectError)
 		return
 	}
 
-	session.LoggedIn = true
-	session.AuthUserId = userId
-	if err := srv.SaveSession(r, w, session); err != nil {
-		srv.InternalServerError(w, err)
-		return
-	}
-	srv.Success(w, LoginResponse{Success: true})
+	sess.AuthUserId = userId
+	srv.SaveSession(r, w, sess)
+	srv.Success(w, LoginResponse{})
 }

@@ -1,64 +1,59 @@
-package model
+package user
 
 import (
-	"errors"
 	"encoding/base64"
+	"errors"
+
 	"golang.org/x/crypto/bcrypt"
 )
 
 type UserAuthInfo struct {
-	UseTwoFactor bool `json:"use_two_factor"`
+	UseTwoFactor bool             `json:"use_two_factor"`
 	PasswordInfo UserPasswordInfo `json:"password_info"`
 }
 
 type UserPasswordInfo struct {
-	Type int `json:"type"`
+	Type int         `json:"type"`
 	Data interface{} `json:"data"`
 }
+
+var InvalidAuthInfoError = errors.New("Invalid auth info")
 
 type UserProfileInfo struct {
 	Biography string `json:"biography"`
 }
 
-func BcryptPassword(password string) (UserPasswordInfo, error) {
+func BcryptPassword(password string) UserPasswordInfo {
 	hash, err := bcrypt.GenerateFromPassword([]byte(password), 0)
 	if err != nil {
-		return UserPasswordInfo{}, err
+		panic(err)
 	}
 	hash_base64 := base64.StdEncoding.EncodeToString(hash)
 	return UserPasswordInfo{
 		Type: 1,
 		Data: hash_base64,
-	}, nil
+	}
 }
 
-func PasswordAuth(password string) (UserAuthInfo, error) {
-	info, err := BcryptPassword(password)
-	if err != nil {
-		return UserAuthInfo{}, err
-	}
-	return UserAuthInfo {
+func PasswordAuth(password string) UserAuthInfo {
+	info := BcryptPassword(password)
+	return UserAuthInfo{
 		UseTwoFactor: false,
 		PasswordInfo: info,
-	}, nil
+	}
 }
 
-func (info UserPasswordInfo) Verify(password string) (bool, error) {
+func (info UserPasswordInfo) Verify(password string) error {
 	switch info.Type {
 	case 1:
-		hash_base64, ok := info.Data.(string)
-		if !ok {
-			return false, errors.New("Invalid password info")
-		}
-
+		hash_base64 := info.Data.(string)
 		hash, err := base64.StdEncoding.DecodeString(hash_base64)
 		if err != nil {
-			return false, err
+			panic(InvalidAuthInfoError)
 		}
 
 		err = bcrypt.CompareHashAndPassword(hash, []byte(password))
-		return err == nil, nil
+		return err
 	}
-	
-	return false, errors.New("Invalid password info")
+	panic(InvalidAuthInfoError)
 }
