@@ -90,7 +90,7 @@ func (app *App) AddApiServer() {
     apiRouter.HandleFunc("/auth/login", app.apiServer.HandleAuthLogin).Methods("POST")
     apiRouter.HandleFunc("/user/info", app.apiServer.HandleUserInfo).Methods("GET")
     apiRouter.HandleFunc("/group/create", app.apiServer.HandleGroupCreate).Methods("POST")
-    apiRouter.HandleFunc("/group/{group-name}/problemset/create", app.apiServer.HandleProblemsetCreate).Methods("POST")
+    apiRouter.HandleFunc("/group/problemset/create", app.apiServer.HandleProblemsetCreate).Methods("POST")
     apiRouter.PathPrefix("/").HandlerFunc(app.apiServer.HandleCatchAll)
 }
 

@@ -32,9 +32,9 @@ func (srv *ApiServer) GetSession(req *http.Request) (sess *Session) {
 	sess.SessionId = sessId
 	if val, ok := sess_map["user-id"]; ok {
 		if userId, err := util.UUIDFromBytes([]byte(val)); err != nil {
-			sess.AuthUserId = userId
-		} else {
 			panic(fmt.Sprintf("Invalid user-id field for session %s, err %s", sessId, err.Error()))
+		} else {
+			sess.AuthUserId = userId
 		}
 	}
 	return
@@ -81,5 +81,5 @@ func (srv *ApiServer) SaveSession(r *http.Request, w http.ResponseWriter, sess *
 }
 
 func (sess *Session) IsLoggedIn() bool {
-	return sess.AuthUserId == (util.UUID{})
+	return sess.AuthUserId != (util.UUID{})
 }

@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"net/http"
 
-	"github.com/gorilla/mux"
 	"github.com/lib/pq"
 
 	model_group "github.com/syzoj/syzoj-ng-go/app/model/group"
@@ -13,6 +12,7 @@ import (
 )
 
 type CreateProblemsetRequest struct {
+    GroupName string `json:"group_name"`
 	ProblemsetName string `json:"problemset_name"`
 	ProblemsetType string `json:"problemset_type"`
 }
@@ -20,8 +20,6 @@ type CreateProblemsetResponse struct{}
 
 func (srv *ApiServer) HandleProblemsetCreate(w http.ResponseWriter, r *http.Request) {
 	sess := srv.GetSession(r)
-	vars := mux.Vars(r)
-	groupName := vars["group-name"]
 	reqDecoder := json.NewDecoder(r.Body)
 	var req CreateProblemsetRequest
 	if err := reqDecoder.Decode(&req); err != nil {
@@ -29,6 +27,7 @@ func (srv *ApiServer) HandleProblemsetCreate(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
+    groupName := req.GroupName
 	groupId, groupPolicy := srv.GetGroupPolicyByName(groupName)
 	if groupPolicy == nil {
 		srv.NotFound(w, GroupNotFoundError)

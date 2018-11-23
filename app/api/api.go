@@ -129,7 +129,7 @@ func (srv *ApiServer) GetGroupPolicyByName(groupName string) (groupId util.UUID,
 		}
 		panic(err)
 	}
-	groupId, err := util.ParseUUID(idBytes)
+	groupId, err := util.UUIDFromBytes(idBytes)
 	if err != nil {
 		panic(err)
 	}
@@ -142,15 +142,19 @@ func (srv *ApiServer) GetGroupPolicyByName(groupName string) (groupId util.UUID,
 }
 
 func (srv *ApiServer) GetGroupUserRole(groupId util.UUID, groupPolicy model_group.GroupPolicy, userId util.UUID) (userRole model_group.GroupUserRole) {
-	userRole = groupPolicy.GetDefaultRole()
+    if userId == (util.UUID{}) {
+        return groupPolicy.GetGuestRole()
+    }
 	row := srv.db.QueryRow("SELECT role_info FROM group_users WHERE group_id=$1 AND user_id=$2", groupId.ToBytes(), userId.ToBytes())
 	var infoBytes []byte
 	if err := row.Scan(&infoBytes); err != nil {
 		if err == sql.ErrNoRows {
+            userRole = groupPolicy.GetRegisteredUserRole()
 			return
 		}
 		panic(err)
 	}
+	userRole = groupPolicy.GetDefaultRole()
 	if err := json.Unmarshal(infoBytes, &userRole); err != nil {
 		panic(err)
 	}
