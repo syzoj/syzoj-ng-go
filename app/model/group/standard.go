@@ -1,5 +1,9 @@
 package group
 
+import (
+    model_problemset "github.com/syzoj/syzoj-ng-go/app/model/problemset"
+)
+
 type standardGroupUserRole struct {
 	Role int `json:"role"`
 }
@@ -57,5 +61,21 @@ func (g *standardGroupPolicy) CheckPrivilege(u_ GroupUserRole, p GroupPrivilege)
 	case 3: // Owner
 		return nil
 	}
-	panic(GroupPermissionInvalidError)
+	panic("Invalid group user role")
+}
+
+func (g *standardGroupPolicy) CheckProblemsetPrivilege(u_ GroupUserRole, p model_problemset.ProblemsetPrivilege) error {
+    u := u_.(*standardGroupUserRole)
+    switch u.Role {
+    case 0:
+        return GroupPermissionDeniedError
+    case 1:
+        return GroupPermissionDeniedError
+    case 2:
+        return nil
+    case 3:
+        return nil
+    }
+    panic("Invalid group user role")
+
 }

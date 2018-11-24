@@ -1,9 +1,6 @@
 package api
 
 import (
-	"encoding/json"
-	"net/http"
-
 	"github.com/lib/pq"
 
 	model_group "github.com/syzoj/syzoj-ng-go/app/model/group"
@@ -12,31 +9,29 @@ import (
 )
 
 type CreateProblemsetRequest struct {
-    GroupName string `json:"group_name"`
+	GroupName      string `json:"group_name"`
 	ProblemsetName string `json:"problemset_name"`
 	ProblemsetType string `json:"problemset_type"`
 }
-type CreateProblemsetResponse struct{}
 
-func (srv *ApiServer) HandleProblemsetCreate(w http.ResponseWriter, r *http.Request) {
-	sess := srv.GetSession(r)
-	reqDecoder := json.NewDecoder(r.Body)
+func HandleProblemsetCreate(cxt *ApiContext) *ApiError {
 	var req CreateProblemsetRequest
-	if err := reqDecoder.Decode(&req); err != nil {
-		srv.BadRequest(w, err)
-		return
+	if err := cxt.ReadBody(&req); err != nil {
+		return err
 	}
-
-    groupName := req.GroupName
-	groupId, groupPolicy := srv.GetGroupPolicyByName(groupName)
-	if groupPolicy == nil {
-		srv.NotFound(w, GroupNotFoundError)
-		return
+	UseTx(cxt)
+	cxt.groupName = req.GroupName
+	if err := GetGroupId(cxt); err != nil {
+		return err
 	}
-	userRole := srv.GetGroupUserRole(groupId, groupPolicy, sess.AuthUserId)
-	if err := groupPolicy.CheckPrivilege(userRole, model_group.GroupCreateProblemsetPrivilege); err != nil {
-		srv.Forbidden(w, CreateProblemsetDeniedError)
-		return
+	if err := GetGroupPolicy(cxt); err != nil {
+		return err
+	}
+	if err := GetGroupUserRole(cxt); err != nil {
+		return err
+	}
+	if err := CheckGroupPrivilege(cxt, model_group.GroupCreateProblemsetPrivilege); err != nil {
+		return err
 	}
 
 	problemsetId, err := util.GenerateUUID()
@@ -45,26 +40,25 @@ func (srv *ApiServer) HandleProblemsetCreate(w http.ResponseWriter, r *http.Requ
 	}
 	problemsetProvider := model_problemset.GetProblemsetType(req.ProblemsetType)
 	if problemsetProvider == nil {
-		srv.BadRequest(w, InvalidProblemsetTypeError)
-		return
+		return InvalidProblemsetTypeError
 	}
 	problemsetInfo := problemsetProvider.GetDefaultProblemsetInfo()
-	_, err = srv.db.Exec(
+	_, err = cxt.tx.Exec(
 		"INSERT INTO problemsets (id, name, group_id, type, info) VALUES ($1, $2, $3, $4, $5)",
 		problemsetId.ToBytes(),
 		req.ProblemsetName,
-		groupId.ToBytes(),
+		cxt.groupId.ToBytes(),
 		"standard",
 		marshalJson(problemsetInfo),
 	)
 	if err != nil {
 		if sqlErr, ok := err.(*pq.Error); ok {
 			if sqlErr.Constraint == "problemsets_name_unique" {
-				srv.SuccessWithError(w, DuplicateProblemsetNameError)
-				return
+				return DuplicateProblemsetNameError
 			}
 		}
 		panic(err)
 	}
-	srv.Success(w, CreateProblemsetResponse{})
+	DoneTx(cxt)
+	return nil
 }

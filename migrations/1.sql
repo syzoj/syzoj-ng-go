@@ -1,19 +1,19 @@
 CREATE TABLE users (
     id bytea PRIMARY KEY NOT NULL,
-    user_name VARCHAR NOT NULL,
+    name VARCHAR NOT NULL,
     auth_info jsonb NOT NULL,
     profile_info jsonb NOT NULL DEFAULT '{}'::jsonb,
     can_login bool NOT NULL,
     git_password VARCHAR,
-	CONSTRAINT users_user_name_unique UNIQUE(user_name),
-	CONSTRAINT users_user_name_check CHECK(LENGTH(user_name) BETWEEN 3 AND 64)
+	CONSTRAINT users_name_unique UNIQUE(user_name),
+	CONSTRAINT users_name_check CHECK(LENGTH(user_name) BETWEEN 3 AND 64)
 );
 CREATE TABLE groups (
     id bytea PRIMARY KEY NOT NULL,
-    group_name VARCHAR NOT NULL,
+    name VARCHAR NOT NULL,
     policy_info jsonb NOT NULL DEFAULT '{}'::jsonb,
-	CONSTRAINT groups_group_name_unique UNIQUE(group_name),
-	CONSTRAINT groups_group_name_check CHECK(LENGTH(group_name) BETWEEN 3 AND 64)
+	CONSTRAINT groups_name_unique UNIQUE(group_name),
+	CONSTRAINT groups_name_check CHECK(LENGTH(group_name) BETWEEN 3 AND 64)
 );
 CREATE TABLE group_users (
     group_id bytea NOT NULL REFERENCES groups(id),

@@ -1,9 +1,9 @@
 package util
 
 import (
-	"encoding/json"
-	"encoding/hex"
 	"crypto/rand"
+	"encoding/hex"
+	"encoding/json"
 	"errors"
 )
 
@@ -44,6 +44,15 @@ func (uuid *UUID) UnmarshalBinary(data []byte) error {
 	}
 	copy(uuid[:], data)
 	return nil
+}
+
+func (uuid UUID) MarshalText() ([]byte, error) {
+	return []byte(uuid.String()), nil
+}
+
+func (uuid *UUID) UnmarshalText(text []byte) (err error) {
+	*uuid, err = ParseUUID(text)
+	return
 }
 
 func UUIDFromBytes(data []byte) (uuid UUID, err error) {

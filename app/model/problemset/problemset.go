@@ -4,6 +4,13 @@ import "errors"
 
 type ProblemsetPrivilege int
 type ProblemsetUserRole interface{}
+type ProblemsetPolicy interface {
+	GetDefaultRole() ProblemsetUserRole
+	GetGuestRole() ProblemsetUserRole
+	GetRegisteredUserRole() ProblemsetUserRole
+	GetCreatorRole() ProblemsetUserRole
+	CheckPrivilege(u ProblemsetUserRole, p ProblemsetPrivilege) error
+}
 type ProblemsetInfo interface {
 	GetDefaultRole() ProblemsetUserRole
 	GetGuestRole() ProblemsetUserRole
@@ -30,9 +37,5 @@ var problemsetProviders = map[string]ProblemsetProvider{
 }
 
 func GetProblemsetType(ptype string) ProblemsetProvider {
-	if provider, ok := problemsetProviders[ptype]; ok {
-		return provider
-	} else {
-		return nil
-	}
+	return problemsetProviders[ptype]
 }

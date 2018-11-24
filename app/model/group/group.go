@@ -2,6 +2,8 @@ package group
 
 import (
 	"errors"
+
+    model_problemset "github.com/syzoj/syzoj-ng-go/app/model/problemset"
 )
 
 type GroupPrivilege int
@@ -12,6 +14,7 @@ type GroupPolicy interface {
 	GetRegisteredUserRole() GroupUserRole
 	GetCreatorRole() GroupUserRole
 	CheckPrivilege(u GroupUserRole, p GroupPrivilege) error
+    CheckProblemsetPrivilege(u GroupUserRole, p model_problemset.ProblemsetPrivilege) error
 }
 type GroupProvider interface {
 	GetDefaultGroupPolicy() GroupPolicy
@@ -27,7 +30,6 @@ const (
 var GroupPermissionDeniedError = errors.New("Permission denied")
 
 var InvalidUserRoleInfoError = errors.New("Invalid user role")
-var GroupPermissionInvalidError = errors.New("Invalid permission id")
 
 func GetGroupType() GroupProvider {
 	return standardGroupProvider{}
