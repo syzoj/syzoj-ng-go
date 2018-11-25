@@ -10,7 +10,7 @@ type GroupCreateRequest struct {
 	GroupName string `json:"group_name"`
 }
 
-func HandleGroupCreate(cxt *ApiContext) *ApiError {
+func HandleGroupCreate(cxt *ApiContext) ApiResponse {
 	var req GroupCreateRequest
 	if err := cxt.ReadBody(&req); err != nil {
 		return err
@@ -44,5 +44,5 @@ func HandleGroupCreate(cxt *ApiContext) *ApiError {
 	}
 
 	DoneTx(cxt)
-	return nil
+	return Success(nil)
 }

@@ -15,7 +15,7 @@ type RegisterRequest struct {
 }
 type RegisterResponse struct{}
 
-func HandleAuthRegister(cxt *ApiContext) *ApiError {
+func HandleAuthRegister(cxt *ApiContext) ApiResponse {
 	var req RegisterRequest
 	if err := cxt.ReadBody(&req); err != nil {
 		return err
@@ -42,7 +42,7 @@ func HandleAuthRegister(cxt *ApiContext) *ApiError {
 	}
 
 	DoneTx(cxt)
-	return nil
+	return Success(nil)
 }
 
 type LoginRequest struct {
@@ -51,7 +51,7 @@ type LoginRequest struct {
 }
 type LoginResponse struct{}
 
-func HandleAuthLogin(cxt *ApiContext) *ApiError {
+func HandleAuthLogin(cxt *ApiContext) ApiResponse {
 	var req LoginRequest
 	if err := cxt.ReadBody(&req); err != nil {
 		return err
@@ -95,5 +95,5 @@ func HandleAuthLogin(cxt *ApiContext) *ApiError {
 	cxt.sess.AuthUserId = userId
 	cxt.sess.Save()
 	DoneTx(cxt)
-	return nil
+	return Success(nil)
 }

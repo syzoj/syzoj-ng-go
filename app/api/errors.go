@@ -10,6 +10,10 @@ type ApiError struct {
 func (e *ApiError) Error() string {
 	return e.Message
 }
+func (e *ApiError) Execute(cxt *ApiContext) {
+    cxt.code = e.Code
+    cxt.resp = ErrorResponse{Error: e.Message}
+}
 
 var ApiEndpointNotFoundError = &ApiError{404, "API endpoint not found"}
 var GroupNotFoundError = &ApiError{404, "Group not found"}

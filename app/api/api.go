@@ -46,7 +46,10 @@ type ApiContext struct {
 	tx        *sql.Tx
 	txSuccess bool
 }
-type ApiHandler func(*ApiContext) *ApiError
+type ApiHandler func(*ApiContext) ApiResponse
+type ApiResponse interface {
+    Execute(cxt *ApiContext)
+}
 type Session struct {
 	SessionId  string
 	AuthUserId util.UUID
@@ -58,6 +61,9 @@ type ErrorResponse struct {
 }
 type SuccessResponse struct {
 	Data interface{} `json:"data"`
+}
+type SuccessResponseType struct {
+    Value interface{}
 }
 
 func CreateApiServer(db *sql.DB, redis *redis.Client, judgeService judge.JudgeServiceProvider) (*ApiServer, error) {
@@ -91,6 +97,13 @@ func marshalJson(data interface{}) []byte {
 	return result
 }
 
+func Success(resp interface{}) ApiResponse {
+    return SuccessResponseType{Value: resp}
+}
+func (r SuccessResponseType) Execute(cxt *ApiContext) {
+    cxt.code = 200
+    cxt.resp = SuccessResponse{r.Value}
+}
 func (cxt *ApiContext) Complete() {
 	cxt.w.WriteHeader(cxt.code)
 	if data, err := json.Marshal(cxt.resp); err != nil {
@@ -206,18 +219,17 @@ func (srv *ApiServer) ApiHandler(h ApiHandler) http.Handler {
 			}
 		}()
 
-		if err := h(cxt); err != nil {
-			cxt.code = err.Code
-			cxt.resp = ErrorResponse{Error: err.Message}
+		if resp := h(cxt); resp != nil {
+            resp.Execute(cxt)
 		}
 	})
 }
 
-func (srv *ApiServer) HandleCatchAll(ctx *ApiContext) *ApiError {
+func (srv *ApiServer) HandleCatchAll(ctx *ApiContext) ApiResponse {
 	return ApiEndpointNotFoundError
 }
 
-func UseTx(cxt *ApiContext) *ApiError {
+func UseTx(cxt *ApiContext) ApiResponse {
 	if cxt.tx != nil {
 		panic("UseTx called twice")
 	}
@@ -229,7 +241,7 @@ func UseTx(cxt *ApiContext) *ApiError {
 	return nil
 }
 
-func DoneTx(cxt *ApiContext) *ApiError {
+func DoneTx(cxt *ApiContext) ApiResponse {
 	cxt.txSuccess = true
 	return nil
 }

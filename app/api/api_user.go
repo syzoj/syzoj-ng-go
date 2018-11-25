@@ -12,7 +12,7 @@ type UserInfoResponse struct {
 	Biography string    `json:"biography"`
 }
 
-func HandleUserInfo(cxt *ApiContext) *ApiError {
+func HandleUserInfo(cxt *ApiContext) ApiResponse {
 	if !cxt.sess.IsLoggedIn() {
 		return NotLoggedInError
 	}
@@ -26,6 +26,5 @@ func HandleUserInfo(cxt *ApiContext) *ApiError {
 		panic(err)
 	}
 
-	cxt.resp = UserInfoResponse{UserId: cxt.sess.AuthUserId, Biography: userInfo.Biography}
-	return nil
+	return Success(UserInfoResponse{UserId: cxt.sess.AuthUserId, Biography: userInfo.Biography})
 }

@@ -14,7 +14,7 @@ type CreateProblemsetRequest struct {
 	ProblemsetType string `json:"problemset_type"`
 }
 
-func HandleProblemsetCreate(cxt *ApiContext) *ApiError {
+func HandleProblemsetCreate(cxt *ApiContext) ApiResponse {
 	var req CreateProblemsetRequest
 	if err := cxt.ReadBody(&req); err != nil {
 		return err
@@ -60,5 +60,5 @@ func HandleProblemsetCreate(cxt *ApiContext) *ApiError {
 		panic(err)
 	}
 	DoneTx(cxt)
-	return nil
+	return Success(nil)
 }

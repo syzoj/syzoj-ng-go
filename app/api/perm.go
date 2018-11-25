@@ -8,7 +8,7 @@ import (
 	"github.com/syzoj/syzoj-ng-go/app/util"
 )
 
-func GetGroupId(cxt *ApiContext) *ApiError {
+func GetGroupId(cxt *ApiContext) ApiResponse {
 	row := cxt.tx.QueryRow("SELECT id FROM groups WHERE name=$1", cxt.groupName)
 	var groupIdBytes []byte
 	if err := row.Scan(&groupIdBytes); err != nil {
@@ -25,7 +25,7 @@ func GetGroupId(cxt *ApiContext) *ApiError {
 	return nil
 }
 
-func GetGroupProblemsetId(cxt *ApiContext) *ApiError {
+func GetGroupProblemsetId(cxt *ApiContext) ApiResponse {
 	row := cxt.tx.QueryRow("SELECT groups.id, problemsets.id FROM groups JOIN problemsets ON groups.id=problemsets.group_id WHERE groups.name=$1 AND problemsets.name=$2", cxt.groupName, cxt.problemsetName)
 	var groupIdBytes []byte
 	var problemsetIdBytes []byte
@@ -45,10 +45,10 @@ func GetGroupProblemsetId(cxt *ApiContext) *ApiError {
 	} else {
 		cxt.problemsetId = problemsetId
 	}
-	return nil
+	return Success(nil)
 }
 
-func GetGroupProblemsetProblemId(cxt *ApiContext) *ApiError {
+func GetGroupProblemsetProblemId(cxt *ApiContext) ApiResponse {
 	row := cxt.tx.QueryRow("SELECT groups.id, problemsets.id, problem.id FROM groups JOIN problemsets ON groups.id=problemsets.group_id JOIN problems on problemsets.id=problems.problemset_id WHERE groups.name=$1 AND problemsets.name=$2 AND problems.name=$3", cxt.groupName, cxt.problemsetName, cxt.problemName)
 	var groupIdBytes []byte
 	var problemsetIdBytes []byte
@@ -77,7 +77,7 @@ func GetGroupProblemsetProblemId(cxt *ApiContext) *ApiError {
 	return nil
 }
 
-func GetGroupPolicy(cxt *ApiContext) *ApiError {
+func GetGroupPolicy(cxt *ApiContext) ApiResponse {
 	row := cxt.tx.QueryRow("SELECT policy_info FROM groups WHERE id=$1", cxt.groupId.ToBytes())
 	var policyInfoBytes []byte
 	if err := row.Scan(&policyInfoBytes); err != nil {
@@ -92,7 +92,7 @@ func GetGroupPolicy(cxt *ApiContext) *ApiError {
 	return nil
 }
 
-func GetGroupUserRole(cxt *ApiContext) *ApiError {
+func GetGroupUserRole(cxt *ApiContext) ApiResponse {
 	if !cxt.sess.IsLoggedIn() {
 		cxt.groupUserRole = cxt.groupPolicy.GetGuestRole()
 	} else {
@@ -111,7 +111,7 @@ func GetGroupUserRole(cxt *ApiContext) *ApiError {
 	return nil
 }
 
-func CheckGroupPrivilege(cxt *ApiContext, priv model_group.GroupPrivilege) *ApiError {
+func CheckGroupPrivilege(cxt *ApiContext, priv model_group.GroupPrivilege) ApiResponse {
 	if cxt.groupPolicy.CheckPrivilege(cxt.groupUserRole, priv) != nil {
 		return PermissionDeniedError
 	} else {
