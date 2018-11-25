@@ -1,5 +1,5 @@
 {
-    "database": "postgres://hewenyang@localhost/syzoj",
+    "database": "postgres://postgres@localhost/syzoj",
     "addr": ":5900",
     "redis": {
         "Addr": "localhost:6379",
