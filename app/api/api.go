@@ -16,6 +16,7 @@ import (
 
 	"github.com/syzoj/syzoj-ng-go/app/judge"
 	model_group "github.com/syzoj/syzoj-ng-go/app/model/group"
+	model_problemset "github.com/syzoj/syzoj-ng-go/app/model/problemset"
 	"github.com/syzoj/syzoj-ng-go/app/util"
 )
 
@@ -40,15 +41,17 @@ type ApiContext struct {
 	problemName    string
 	problemId      util.UUID
 
-	groupPolicy   model_group.GroupPolicy
-	groupUserRole model_group.GroupUserRole
+	groupPolicy        model_group.GroupPolicy
+	groupUserRole      model_group.GroupUserRole
+	problemsetInfo     model_problemset.ProblemsetInfo
+	problemsetUserRole model_problemset.ProblemsetUserRole
 
 	tx        *sql.Tx
 	txSuccess bool
 }
 type ApiHandler func(*ApiContext) ApiResponse
 type ApiResponse interface {
-    Execute(cxt *ApiContext)
+	Execute(cxt *ApiContext)
 }
 type Session struct {
 	SessionId  string
@@ -63,7 +66,7 @@ type SuccessResponse struct {
 	Data interface{} `json:"data"`
 }
 type SuccessResponseType struct {
-    Value interface{}
+	Value interface{}
 }
 
 func CreateApiServer(db *sql.DB, redis *redis.Client, judgeService judge.JudgeServiceProvider) (*ApiServer, error) {
@@ -79,9 +82,7 @@ func CreateApiServer(db *sql.DB, redis *redis.Client, judgeService judge.JudgeSe
 	router.Handle("/api/group/create", srv.ApiHandler(HandleGroupCreate)).Methods("POST")
 	router.Handle("/api/user/info", srv.ApiHandler(HandleUserInfo)).Methods("GET")
 	router.Handle("/api/group/problemset/create", srv.ApiHandler(HandleProblemsetCreate)).Methods("POST")
-	/*
-	   router.Handle("/api/group/problemset/problem/create", srv.ApiHandler(HandleProblemCreate)).Methods("POST")
-	*/
+	router.Handle("/api/group/problemset/problem/create", srv.ApiHandler(HandleProblemCreate)).Methods("POST")
 	return srv, nil
 }
 
@@ -98,11 +99,12 @@ func marshalJson(data interface{}) []byte {
 }
 
 func Success(resp interface{}) ApiResponse {
-    return SuccessResponseType{Value: resp}
+	return SuccessResponseType{Value: resp}
 }
 func (r SuccessResponseType) Execute(cxt *ApiContext) {
-    cxt.code = 200
-    cxt.resp = SuccessResponse{r.Value}
+	cxt.code = 200
+	cxt.resp = SuccessResponse{r.Value}
+	fmt.Printf("Executing response %+v\n", r)
 }
 func (cxt *ApiContext) Complete() {
 	cxt.w.WriteHeader(cxt.code)
@@ -220,7 +222,7 @@ func (srv *ApiServer) ApiHandler(h ApiHandler) http.Handler {
 		}()
 
 		if resp := h(cxt); resp != nil {
-            resp.Execute(cxt)
+			resp.Execute(cxt)
 		}
 	})
 }

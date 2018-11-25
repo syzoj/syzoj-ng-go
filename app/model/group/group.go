@@ -3,7 +3,7 @@ package group
 import (
 	"errors"
 
-    model_problemset "github.com/syzoj/syzoj-ng-go/app/model/problemset"
+	model_problemset "github.com/syzoj/syzoj-ng-go/app/model/problemset"
 )
 
 type GroupPrivilege int
@@ -14,7 +14,7 @@ type GroupPolicy interface {
 	GetRegisteredUserRole() GroupUserRole
 	GetCreatorRole() GroupUserRole
 	CheckPrivilege(u GroupUserRole, p GroupPrivilege) error
-    CheckProblemsetPrivilege(u GroupUserRole, p model_problemset.ProblemsetPrivilege) error
+	CheckProblemsetPrivilege(u GroupUserRole, p model_problemset.ProblemsetPrivilege) error
 }
 type GroupProvider interface {
 	GetDefaultGroupPolicy() GroupPolicy

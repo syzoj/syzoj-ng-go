@@ -70,5 +70,5 @@ func main() {
 	}
 	app_instance.AddApiServer()
 
-	app_instance.Run()
+	app_instance.RunWeb()
 }

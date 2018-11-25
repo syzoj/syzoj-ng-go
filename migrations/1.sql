@@ -5,15 +5,15 @@ CREATE TABLE users (
     profile_info jsonb NOT NULL DEFAULT '{}'::jsonb,
     can_login bool NOT NULL,
     git_password VARCHAR,
-	CONSTRAINT users_name_unique UNIQUE(user_name),
-	CONSTRAINT users_name_check CHECK(LENGTH(user_name) BETWEEN 3 AND 64)
+	CONSTRAINT users_name_unique UNIQUE(name),
+	CONSTRAINT users_name_check CHECK(LENGTH(name) BETWEEN 3 AND 64)
 );
 CREATE TABLE groups (
     id bytea PRIMARY KEY NOT NULL,
     name VARCHAR NOT NULL,
     policy_info jsonb NOT NULL DEFAULT '{}'::jsonb,
-	CONSTRAINT groups_name_unique UNIQUE(group_name),
-	CONSTRAINT groups_name_check CHECK(LENGTH(group_name) BETWEEN 3 AND 64)
+	CONSTRAINT groups_name_unique UNIQUE(name),
+	CONSTRAINT groups_name_check CHECK(LENGTH(name) BETWEEN 3 AND 64)
 );
 CREATE TABLE group_users (
     group_id bytea NOT NULL REFERENCES groups(id),

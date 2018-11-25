@@ -109,7 +109,7 @@ func (app *App) AddApiServer() {
 	app.router.PathPrefix("/api").Handler(app.apiServer)
 }
 
-func (app *App) Run() {
+func (app *App) RunWeb() {
 	errChan := make(chan error)
 	go func() {
 		log.Println("Starting web server at", app.httpServer.Addr)

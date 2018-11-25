@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 
 	model_group "github.com/syzoj/syzoj-ng-go/app/model/group"
+	model_problemset "github.com/syzoj/syzoj-ng-go/app/model/problemset"
 	"github.com/syzoj/syzoj-ng-go/app/util"
 )
 
@@ -45,7 +46,7 @@ func GetGroupProblemsetId(cxt *ApiContext) ApiResponse {
 	} else {
 		cxt.problemsetId = problemsetId
 	}
-	return Success(nil)
+	return nil
 }
 
 func GetGroupProblemsetProblemId(cxt *ApiContext) ApiResponse {
@@ -81,7 +82,10 @@ func GetGroupPolicy(cxt *ApiContext) ApiResponse {
 	row := cxt.tx.QueryRow("SELECT policy_info FROM groups WHERE id=$1", cxt.groupId.ToBytes())
 	var policyInfoBytes []byte
 	if err := row.Scan(&policyInfoBytes); err != nil {
-		return GroupNotFoundError
+		if err == sql.ErrNoRows {
+			return GroupNotFoundError
+		}
+		panic(err)
 	}
 	groupProvider := model_group.GetGroupType()
 	groupPolicy := groupProvider.GetDefaultGroupPolicy()
@@ -96,7 +100,7 @@ func GetGroupUserRole(cxt *ApiContext) ApiResponse {
 	if !cxt.sess.IsLoggedIn() {
 		cxt.groupUserRole = cxt.groupPolicy.GetGuestRole()
 	} else {
-		row := cxt.tx.QueryRow("SELECT role_info FROM group_users WHERE group_id=$1 AND user_id=$2", cxt.groupId, cxt.sess.AuthUserId)
+		row := cxt.tx.QueryRow("SELECT role_info FROM group_users WHERE group_id=$1 AND user_id=$2", cxt.groupId.ToBytes(), cxt.sess.AuthUserId.ToBytes())
 		var roleInfoBytes []byte
 		if err := row.Scan(&roleInfoBytes); err != nil {
 			cxt.groupUserRole = cxt.groupPolicy.GetRegisteredUserRole()
@@ -111,10 +115,58 @@ func GetGroupUserRole(cxt *ApiContext) ApiResponse {
 	return nil
 }
 
-func CheckGroupPrivilege(cxt *ApiContext, priv model_group.GroupPrivilege) ApiResponse {
+func CheckGroupPrivilege(cxt *ApiContext, priv model_group.GroupPrivilege) bool {
 	if cxt.groupPolicy.CheckPrivilege(cxt.groupUserRole, priv) != nil {
-		return PermissionDeniedError
+		return false
 	} else {
-		return nil
+		return true
 	}
+}
+
+func GetProblemsetInfo(cxt *ApiContext) ApiResponse {
+	row := cxt.tx.QueryRow("SELECT type, info FROM problemsets WHERE id=$1", cxt.problemsetId.ToBytes())
+	var problemsetType string
+	var infoBytes []byte
+	if err := row.Scan(&problemsetType, &infoBytes); err != nil {
+		if err == sql.ErrNoRows {
+			return ProblemsetNotFoundError
+		}
+		panic(err)
+	}
+	problemsetProvider := model_problemset.GetProblemsetType(problemsetType)
+	problemsetInfo := problemsetProvider.GetDefaultProblemsetInfo()
+	if err := json.Unmarshal(infoBytes, &problemsetInfo); err != nil {
+		panic(err)
+	}
+	cxt.problemsetInfo = problemsetInfo
+	return nil
+}
+
+func GetProblemsetUserRole(cxt *ApiContext) ApiResponse {
+	if !cxt.sess.IsLoggedIn() {
+		cxt.problemsetUserRole = cxt.problemsetInfo.GetGuestRole()
+	} else {
+		row := cxt.tx.QueryRow("SELECT info FROM problemset_users WHERE problemset_id=$1 AND user_id=$2", cxt.problemsetId.ToBytes(), cxt.sess.AuthUserId.ToBytes())
+		var infoBytes []byte
+		if err := row.Scan(&infoBytes); err != nil {
+			cxt.problemsetUserRole = cxt.problemsetInfo.GetRegisteredUserRole()
+			return nil
+		}
+		problemsetUserRole := cxt.problemsetInfo.GetDefaultRole()
+		if err := json.Unmarshal(infoBytes, &problemsetUserRole); err != nil {
+			panic(err)
+		}
+		cxt.problemsetUserRole = problemsetUserRole
+	}
+	return nil
+}
+
+func CheckProblemsetPrivilege(cxt *ApiContext, priv model_problemset.ProblemsetPrivilege) bool {
+	if cxt.groupPolicy.CheckProblemsetPrivilege(cxt.groupUserRole, priv) == nil {
+		return true
+	}
+	if cxt.problemsetInfo.CheckPrivilege(cxt.problemsetUserRole, priv) == nil {
+		return true
+	}
+	return false
 }

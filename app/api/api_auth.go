@@ -32,9 +32,9 @@ func HandleAuthRegister(cxt *ApiContext) ApiResponse {
 	if err != nil {
 		panic(err)
 	}
-	if _, err := cxt.tx.Exec("INSERT INTO users (id, user_name, auth_info, can_login) VALUES ($1, $2, $3, true)", userId.ToBytes(), req.UserName, authInfoJson); err != nil {
+	if _, err := cxt.tx.Exec("INSERT INTO users (id, name, auth_info, can_login) VALUES ($1, $2, $3, true)", userId.ToBytes(), req.UserName, authInfoJson); err != nil {
 		if sqlErr, ok := err.(*pq.Error); ok {
-			if sqlErr.Code == "23505" && sqlErr.Constraint == "users_user_name_unique" {
+			if sqlErr.Code == "23505" && sqlErr.Constraint == "users_name_unique" {
 				return DuplicateUserNameError
 			}
 		}
@@ -62,7 +62,7 @@ func HandleAuthLogin(cxt *ApiContext) ApiResponse {
 	if err := UseTx(cxt); err != nil {
 		return err
 	}
-	row := cxt.tx.QueryRow("SELECT id, auth_info, can_login FROM users WHERE user_name = $1", req.UserName)
+	row := cxt.tx.QueryRow("SELECT id, auth_info, can_login FROM users WHERE name = $1", req.UserName)
 	var userIdBytes []byte
 	var authInfoJson []byte
 	var canLogin bool

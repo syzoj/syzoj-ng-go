@@ -30,7 +30,7 @@ func HandleGroupCreate(cxt *ApiContext) ApiResponse {
 	_, err = cxt.tx.Exec("INSERT INTO groups (id, name, policy_info) VALUES ($1, $2, $3)", groupId.ToBytes(), req.GroupName, marshalJson(groupPolicy))
 	if err != nil {
 		if sqlErr, ok := err.(*pq.Error); ok {
-			if sqlErr.Code == "23505" && sqlErr.Constraint == "groups_group_name_unique" {
+			if sqlErr.Code == "23505" && sqlErr.Constraint == "groups_name_unique" {
 				return DuplicateGroupNameError
 			}
 		}

@@ -19,6 +19,9 @@ func HandleProblemsetCreate(cxt *ApiContext) ApiResponse {
 	if err := cxt.ReadBody(&req); err != nil {
 		return err
 	}
+	if !cxt.sess.IsLoggedIn() {
+		return NotLoggedInError
+	}
 	UseTx(cxt)
 	cxt.groupName = req.GroupName
 	if err := GetGroupId(cxt); err != nil {
@@ -30,8 +33,8 @@ func HandleProblemsetCreate(cxt *ApiContext) ApiResponse {
 	if err := GetGroupUserRole(cxt); err != nil {
 		return err
 	}
-	if err := CheckGroupPrivilege(cxt, model_group.GroupCreateProblemsetPrivilege); err != nil {
-		return err
+	if !CheckGroupPrivilege(cxt, model_group.GroupCreateProblemsetPrivilege) {
+		return PermissionDeniedError
 	}
 
 	problemsetId, err := util.GenerateUUID()
@@ -57,6 +60,17 @@ func HandleProblemsetCreate(cxt *ApiContext) ApiResponse {
 				return DuplicateProblemsetNameError
 			}
 		}
+		panic(err)
+	}
+
+	problemsetUserRole := problemsetInfo.GetCreatorRole()
+	_, err = cxt.tx.Exec(
+		"INSERT INTO problemset_users (problemset_id, user_id, info) VALUES ($1, $2, $3)",
+		problemsetId.ToBytes(),
+		cxt.sess.AuthUserId.ToBytes(),
+		marshalJson(problemsetUserRole),
+	)
+	if err != nil {
 		panic(err)
 	}
 	DoneTx(cxt)
