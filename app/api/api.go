@@ -11,13 +11,13 @@ import (
 	"runtime/debug"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/go-redis/redis"
 	"github.com/gorilla/mux"
 
 	"github.com/syzoj/syzoj-ng-go/app/judge"
 	model_group "github.com/syzoj/syzoj-ng-go/app/model/group"
 	model_problemset "github.com/syzoj/syzoj-ng-go/app/model/problemset"
-	"github.com/syzoj/syzoj-ng-go/app/util"
 )
 
 type ApiServer struct {
@@ -35,11 +35,11 @@ type ApiContext struct {
 	code int
 
 	groupName      string
-	groupId        util.UUID
+	groupId        uuid.UUID
 	problemsetName string
-	problemsetId   util.UUID
+	problemsetId   uuid.UUID
 	problemName    string
-	problemId      util.UUID
+	problemId      uuid.UUID
 
 	groupPolicy        model_group.GroupPolicy
 	groupUserRole      model_group.GroupUserRole
@@ -55,7 +55,7 @@ type ApiResponse interface {
 }
 type Session struct {
 	SessionId  string
-	AuthUserId util.UUID
+	AuthUserId uuid.UUID
 	willSave   bool
 }
 
@@ -104,7 +104,6 @@ func Success(resp interface{}) ApiResponse {
 func (r SuccessResponseType) Execute(cxt *ApiContext) {
 	cxt.code = 200
 	cxt.resp = SuccessResponse{r.Value}
-	fmt.Printf("Executing response %+v\n", r)
 }
 func (cxt *ApiContext) Complete() {
 	cxt.w.WriteHeader(cxt.code)
@@ -117,7 +116,6 @@ func (cxt *ApiContext) Complete() {
 func (cxt *ApiContext) ReadBody(body interface{}) *ApiError {
 	decoder := json.NewDecoder(cxt.r.Body)
 	if err := decoder.Decode(body); err != nil {
-		log.Println("Bad request:", err)
 		return BadRequestError
 	}
 	return nil
@@ -127,7 +125,7 @@ func (sess *Session) Save() {
 	sess.willSave = true
 }
 func (sess *Session) IsLoggedIn() bool {
-	return sess.AuthUserId != (util.UUID{})
+	return sess.AuthUserId != (uuid.UUID{})
 }
 
 func (srv *ApiServer) ApiHandler(h ApiHandler) http.Handler {
@@ -156,7 +154,7 @@ func (srv *ApiServer) ApiHandler(h ApiHandler) http.Handler {
 			if err != redis.Nil && len(sess_map) != 0 {
 				sess.SessionId = sessId
 				if val, ok := sess_map["user-id"]; ok {
-					if userId, err := util.UUIDFromBytes([]byte(val)); err != nil {
+					if userId, err := uuid.FromBytes([]byte(val)); err != nil {
 						panic(InvalidAuthUserIdError)
 					} else {
 						sess.AuthUserId = userId

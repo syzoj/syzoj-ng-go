@@ -4,82 +4,59 @@ import (
 	"database/sql"
 	"encoding/json"
 
+	"github.com/google/uuid"
+
 	model_group "github.com/syzoj/syzoj-ng-go/app/model/group"
 	model_problemset "github.com/syzoj/syzoj-ng-go/app/model/problemset"
-	"github.com/syzoj/syzoj-ng-go/app/util"
 )
 
 func GetGroupId(cxt *ApiContext) ApiResponse {
 	row := cxt.tx.QueryRow("SELECT id FROM groups WHERE name=$1", cxt.groupName)
-	var groupIdBytes []byte
-	if err := row.Scan(&groupIdBytes); err != nil {
+	var groupId uuid.UUID
+	if err := row.Scan(&groupId); err != nil {
 		if err == sql.ErrNoRows {
 			return GroupNotFoundError
 		}
 		panic(err)
 	}
-	if groupId, err := util.UUIDFromBytes(groupIdBytes); err != nil {
-		panic(err)
-	} else {
-		cxt.groupId = groupId
-	}
+	cxt.groupId = groupId
 	return nil
 }
 
 func GetGroupProblemsetId(cxt *ApiContext) ApiResponse {
 	row := cxt.tx.QueryRow("SELECT groups.id, problemsets.id FROM groups JOIN problemsets ON groups.id=problemsets.group_id WHERE groups.name=$1 AND problemsets.name=$2", cxt.groupName, cxt.problemsetName)
-	var groupIdBytes []byte
-	var problemsetIdBytes []byte
-	if err := row.Scan(&groupIdBytes, &problemsetIdBytes); err != nil {
+	var groupId uuid.UUID
+	var problemsetId uuid.UUID
+	if err := row.Scan(&groupId, &problemsetId); err != nil {
 		if err == sql.ErrNoRows {
 			return ProblemsetNotFoundError
 		}
 		panic(err)
 	}
-	if groupId, err := util.UUIDFromBytes(groupIdBytes); err != nil {
-		panic(err)
-	} else {
-		cxt.groupId = groupId
-	}
-	if problemsetId, err := util.UUIDFromBytes(problemsetIdBytes); err != nil {
-		panic(err)
-	} else {
-		cxt.problemsetId = problemsetId
-	}
+	cxt.groupId = groupId
+	cxt.problemsetId = problemsetId
 	return nil
 }
 
 func GetGroupProblemsetProblemId(cxt *ApiContext) ApiResponse {
 	row := cxt.tx.QueryRow("SELECT groups.id, problemsets.id, problem.id FROM groups JOIN problemsets ON groups.id=problemsets.group_id JOIN problems on problemsets.id=problems.problemset_id WHERE groups.name=$1 AND problemsets.name=$2 AND problems.name=$3", cxt.groupName, cxt.problemsetName, cxt.problemName)
-	var groupIdBytes []byte
-	var problemsetIdBytes []byte
-	var problemIdBytes []byte
-	if err := row.Scan(&groupIdBytes, &problemsetIdBytes, &problemIdBytes); err != nil {
+	var groupId uuid.UUID
+	var problemsetId uuid.UUID
+	var problemId uuid.UUID
+	if err := row.Scan(&groupId, &problemsetId, &problemId); err != nil {
 		if err == sql.ErrNoRows {
 			return ProblemNotFoundError
 		}
 		panic(err)
 	}
-	if groupId, err := util.UUIDFromBytes(groupIdBytes); err != nil {
-		panic(err)
-	} else {
-		cxt.groupId = groupId
-	}
-	if problemsetId, err := util.UUIDFromBytes(problemsetIdBytes); err != nil {
-		panic(err)
-	} else {
-		cxt.problemsetId = problemsetId
-	}
-	if problemId, err := util.UUIDFromBytes(problemIdBytes); err != nil {
-		panic(err)
-	} else {
-		cxt.problemId = problemId
-	}
+	cxt.groupId = groupId
+	cxt.problemsetId = problemsetId
+	cxt.problemId = problemId
 	return nil
 }
 
 func GetGroupPolicy(cxt *ApiContext) ApiResponse {
-	row := cxt.tx.QueryRow("SELECT policy_info FROM groups WHERE id=$1", cxt.groupId.ToBytes())
+	row := cxt.tx.QueryRow("SELECT policy_info FROM groups WHERE id=$1", cxt.groupId[:])
 	var policyInfoBytes []byte
 	if err := row.Scan(&policyInfoBytes); err != nil {
 		if err == sql.ErrNoRows {
@@ -100,7 +77,7 @@ func GetGroupUserRole(cxt *ApiContext) ApiResponse {
 	if !cxt.sess.IsLoggedIn() {
 		cxt.groupUserRole = cxt.groupPolicy.GetGuestRole()
 	} else {
-		row := cxt.tx.QueryRow("SELECT role_info FROM group_users WHERE group_id=$1 AND user_id=$2", cxt.groupId.ToBytes(), cxt.sess.AuthUserId.ToBytes())
+		row := cxt.tx.QueryRow("SELECT role_info FROM group_users WHERE group_id=$1 AND user_id=$2", cxt.groupId[:], cxt.sess.AuthUserId[:])
 		var roleInfoBytes []byte
 		if err := row.Scan(&roleInfoBytes); err != nil {
 			cxt.groupUserRole = cxt.groupPolicy.GetRegisteredUserRole()
@@ -124,7 +101,7 @@ func CheckGroupPrivilege(cxt *ApiContext, priv model_group.GroupPrivilege) bool 
 }
 
 func GetProblemsetInfo(cxt *ApiContext) ApiResponse {
-	row := cxt.tx.QueryRow("SELECT type, info FROM problemsets WHERE id=$1", cxt.problemsetId.ToBytes())
+	row := cxt.tx.QueryRow("SELECT type, info FROM problemsets WHERE id=$1", cxt.problemsetId[:])
 	var problemsetType string
 	var infoBytes []byte
 	if err := row.Scan(&problemsetType, &infoBytes); err != nil {
@@ -146,7 +123,7 @@ func GetProblemsetUserRole(cxt *ApiContext) ApiResponse {
 	if !cxt.sess.IsLoggedIn() {
 		cxt.problemsetUserRole = cxt.problemsetInfo.GetGuestRole()
 	} else {
-		row := cxt.tx.QueryRow("SELECT info FROM problemset_users WHERE problemset_id=$1 AND user_id=$2", cxt.problemsetId.ToBytes(), cxt.sess.AuthUserId.ToBytes())
+		row := cxt.tx.QueryRow("SELECT info FROM problemset_users WHERE problemset_id=$1 AND user_id=$2", cxt.problemsetId[:], cxt.sess.AuthUserId[:])
 		var infoBytes []byte
 		if err := row.Scan(&infoBytes); err != nil {
 			cxt.problemsetUserRole = cxt.problemsetInfo.GetRegisteredUserRole()

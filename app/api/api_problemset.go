@@ -1,11 +1,11 @@
 package api
 
 import (
+	"github.com/google/uuid"
 	"github.com/lib/pq"
 
 	model_group "github.com/syzoj/syzoj-ng-go/app/model/group"
 	model_problemset "github.com/syzoj/syzoj-ng-go/app/model/problemset"
-	"github.com/syzoj/syzoj-ng-go/app/util"
 )
 
 type CreateProblemsetRequest struct {
@@ -37,20 +37,17 @@ func HandleProblemsetCreate(cxt *ApiContext) ApiResponse {
 		return PermissionDeniedError
 	}
 
-	problemsetId, err := util.GenerateUUID()
-	if err != nil {
-		panic(err)
-	}
+	problemsetId := uuid.New()
 	problemsetProvider := model_problemset.GetProblemsetType(req.ProblemsetType)
 	if problemsetProvider == nil {
 		return InvalidProblemsetTypeError
 	}
 	problemsetInfo := problemsetProvider.GetDefaultProblemsetInfo()
-	_, err = cxt.tx.Exec(
+	_, err := cxt.tx.Exec(
 		"INSERT INTO problemsets (id, name, group_id, type, info) VALUES ($1, $2, $3, $4, $5)",
-		problemsetId.ToBytes(),
+		problemsetId[:],
 		req.ProblemsetName,
-		cxt.groupId.ToBytes(),
+		cxt.groupId[:],
 		"standard",
 		marshalJson(problemsetInfo),
 	)
@@ -66,8 +63,8 @@ func HandleProblemsetCreate(cxt *ApiContext) ApiResponse {
 	problemsetUserRole := problemsetInfo.GetCreatorRole()
 	_, err = cxt.tx.Exec(
 		"INSERT INTO problemset_users (problemset_id, user_id, info) VALUES ($1, $2, $3)",
-		problemsetId.ToBytes(),
-		cxt.sess.AuthUserId.ToBytes(),
+		problemsetId[:],
+		cxt.sess.AuthUserId[:],
 		marshalJson(problemsetUserRole),
 	)
 	if err != nil {
