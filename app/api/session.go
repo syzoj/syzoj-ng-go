@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"time"
 
 	"github.com/go-redis/redis"
 	"github.com/google/uuid"
@@ -24,7 +25,7 @@ func (srv *ApiServer) createSession(ctx context.Context) (sessId uuid.UUID, err 
 		panic(err1)
 	}
 
-	err = srv.lockManager.WithLockExclusive(ctx, key, func(ctx context.Context, l lock.ExclusiveLock) error {
+	err = srv.lockManager.WithLockExclusive(ctx, key, false, func(ctx context.Context, l lock.ExclusiveLock) error {
 		_, err := srv.redis.SetNX(key, data, 0).Result()
 		return err
 	})
@@ -33,7 +34,7 @@ func (srv *ApiServer) createSession(ctx context.Context) (sessId uuid.UUID, err 
 
 func (srv *ApiServer) withSessionShared(ctx context.Context, sessId uuid.UUID, handler func(context.Context, *model_session.Session) error) error {
 	key := fmt.Sprintf("session:%s", sessId)
-	return srv.lockManager.WithLockShared(ctx, key, func(ctx context.Context, l lock.SharedLock) error {
+	return srv.lockManager.WithLockShared(ctx, key, true, func(ctx context.Context, l lock.SharedLock) error {
 		data, err := srv.redis.Get(key).Result()
 		if err != nil {
 			return err
@@ -48,7 +49,7 @@ func (srv *ApiServer) withSessionShared(ctx context.Context, sessId uuid.UUID, h
 
 func (srv *ApiServer) withSessionExclusive(ctx context.Context, sessId uuid.UUID, handler func(context.Context, *model_session.Session) error) error {
 	key := fmt.Sprintf("session:%s", sessId)
-	return srv.lockManager.WithLockExclusive(ctx, key, func(ctx context.Context, l lock.ExclusiveLock) error {
+	return srv.lockManager.WithLockExclusive(ctx, key, true, func(ctx context.Context, l lock.ExclusiveLock) error {
 		data, err := srv.redis.Get(key).Result()
 		if err != nil {
 			return err
@@ -80,6 +81,12 @@ func (srv *ApiServer) WithSessionShared(ctx context.Context, w http.ResponseWrit
 		if err != nil {
 			return err
 		} else {
+			http.SetCookie(w, &http.Cookie{
+				Name:     "SYZOJSESSION",
+				Value:    sessId.String(),
+				Expires:  time.Now().Add(time.Hour * 24 * 30),
+				HttpOnly: true,
+			})
 			return srv.withSessionShared(ctx, sessId, func(ctx context.Context, sess *model_session.Session) error {
 				return handler(ctx, sessId, sess)
 			})
@@ -108,6 +115,12 @@ func (srv *ApiServer) WithSessionExclusive(ctx context.Context, w http.ResponseW
 		if err != nil {
 			return err
 		} else {
+			http.SetCookie(w, &http.Cookie{
+				Name:     "SYZOJSESSION",
+				Value:    sessId.String(),
+				Expires:  time.Now().Add(time.Hour * 24 * 30),
+				HttpOnly: true,
+			})
 			return srv.withSessionExclusive(ctx, sessId, func(ctx context.Context, sess *model_session.Session) error {
 				return handler(ctx, sessId, sess)
 			})

@@ -14,7 +14,7 @@ func CreateMemoryLockManager() LockManager {
 	return new(memoryLockManager)
 }
 
-func (m *memoryLockManager) WithLockShared(ctx context.Context, id string, handler func(context.Context, SharedLock) error) error {
+func (m *memoryLockManager) WithLockShared(ctx context.Context, id string, wait bool, handler func(context.Context, SharedLock) error) error {
 	val, ok := m.data.Load(id)
 	if !ok {
 		val, _ = m.data.LoadOrStore(id, new(sync.RWMutex))
@@ -28,7 +28,7 @@ func (m *memoryLockManager) WithLockShared(ctx context.Context, id string, handl
 	return handler(ctx1, nil)
 }
 
-func (m *memoryLockManager) WithLockExclusive(ctx context.Context, id string, handler func(context.Context, ExclusiveLock) error) error {
+func (m *memoryLockManager) WithLockExclusive(ctx context.Context, id string, wait bool, handler func(context.Context, ExclusiveLock) error) error {
 	val, ok := m.data.Load(id)
 	if !ok {
 		val, _ = m.data.LoadOrStore(id, new(sync.RWMutex))

@@ -33,8 +33,8 @@ func CreateApiServer(db *sql.DB, redis *redis.Client, judgeService judge.JudgeSe
 
 func (srv *ApiServer) setupRoutes() {
 	router := mux.NewRouter()
+	router.HandleFunc("/api/auth/register", srv.HandleAuthRegister)
 	router.HandleFunc("/api/auth/login", srv.HandleAuthLogin)
-	//router.HandleFunc("/api/auth/register", srv.HandleAuthRegister)
 	srv.router = router
 }
 

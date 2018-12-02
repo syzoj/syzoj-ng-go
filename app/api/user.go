@@ -40,7 +40,7 @@ func (srv *ApiServer) GetUserAuthInfo(ctx context.Context, userId uuid.UUID) (*m
 
 func (srv *ApiServer) WithUserShared(ctx context.Context, userId uuid.UUID, handler func(context.Context) error) error {
 	key := fmt.Sprintf("user:%s", userId)
-	return srv.lockManager.WithLockShared(ctx, key, func(ctx context.Context, l lock.SharedLock) error {
+	return srv.lockManager.WithLockShared(ctx, key, true, func(ctx context.Context, l lock.SharedLock) error {
 		return handler(ctx)
 	})
 }
