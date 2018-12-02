@@ -3,10 +3,11 @@ package main
 import (
 	"encoding/json"
 	"flag"
-	"github.com/go-redis/redis"
-	_ "github.com/lib/pq"
 	"io/ioutil"
 	"log"
+
+	"github.com/go-redis/redis"
+	_ "github.com/lib/pq"
 
 	"github.com/syzoj/syzoj-ng-go/app"
 )
@@ -48,6 +49,11 @@ func main() {
 		log.Fatal("Error setting up redis:", err)
 	}
 
+	err = app_instance.SetupMemoryLockManager()
+	if err != nil {
+		log.Fatal("Error setting up memory-based lock manager:", err)
+	}
+
 	err = app_instance.SetupHttpServer(config.Addr)
 	if err != nil {
 		log.Fatal("Error setting up http server:", err)
@@ -57,7 +63,11 @@ func main() {
 	if err != nil {
 		log.Fatal("Error setting up git server:", err)
 	}
-	app_instance.AddGitServer()
+
+	err = app_instance.AddGitServer()
+	if err != nil {
+		log.Fatal("Error adding git server:", err)
+	}
 
 	err = app_instance.SetupJudgeServiceCollection()
 	if err != nil {
@@ -68,7 +78,11 @@ func main() {
 	if err != nil {
 		log.Fatal("Error setting up api server:", err)
 	}
-	app_instance.AddApiServer()
 
-	app_instance.RunWeb()
+	err = app_instance.AddApiServer()
+	if err != nil {
+		log.Fatal("Error adding api server:", err)
+	}
+
+	app_instance.Run()
 }

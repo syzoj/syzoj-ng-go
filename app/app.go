@@ -1,16 +1,22 @@
 package app
 
 import (
+	"context"
 	"database/sql"
 	"errors"
-	"github.com/go-redis/redis"
-	"github.com/gorilla/mux"
-	_ "github.com/lib/pq"
 	"log"
 	"net/http"
 	"os"
 	"os/signal"
+	"sync"
 	"syscall"
+	"time"
+
+	"github.com/syzoj/syzoj-ng-go/app/lock"
+
+	"github.com/go-redis/redis"
+	"github.com/gorilla/mux"
+	_ "github.com/lib/pq"
 
 	"github.com/syzoj/syzoj-ng-go/app/api"
 	"github.com/syzoj/syzoj-ng-go/app/git"
@@ -25,13 +31,18 @@ type App struct {
 	gitServer    *git.GitServer
 	apiServer    *api.ApiServer
 	judgeService judgeServiceCollection
+	lockManager  lock.LockManager
 }
 
 type judgeServiceCollection map[string]judge.JudgeService
 
 var MissingDependencyError = errors.New("Missing dependency")
+var DoubleSetupError = errors.New("Attempting to setup a service twice")
 
 func (app *App) SetupDB(conn string) error {
+	if app.db != nil {
+		return DoubleSetupError
+	}
 	db, err := sql.Open("postgres", conn)
 	if err != nil {
 		return err
@@ -41,6 +52,9 @@ func (app *App) SetupDB(conn string) error {
 }
 
 func (app *App) SetupRedis(options *redis.Options) error {
+	if app.redis != nil {
+		return DoubleSetupError
+	}
 	app.redis = redis.NewClient(options)
 	_, err := app.redis.Ping().Result()
 	return err
@@ -50,11 +64,13 @@ func (app *App) SetupGitServer(gitPath string) error {
 	if app.db == nil {
 		return MissingDependencyError
 	}
+	if app.gitServer != nil {
+		return DoubleSetupError
+	}
 	server, err := git.CreateGitServer(app.db, gitPath)
 	if err != nil {
 		return err
 	}
-
 	app.gitServer = server
 	return nil
 }
@@ -64,15 +80,29 @@ func (c judgeServiceCollection) GetJudgeService(name string) judge.JudgeService 
 }
 
 func (app *App) SetupJudgeServiceCollection() error {
+	if app.judgeService != nil {
+		return DoubleSetupError
+	}
 	app.judgeService = make(judgeServiceCollection)
 	return nil
 }
 
+func (app *App) SetupMemoryLockManager() error {
+	if app.lockManager != nil {
+		return DoubleSetupError
+	}
+	app.lockManager = lock.CreateMemoryLockManager()
+	return nil
+}
+
 func (app *App) SetupApiServer() error {
-	if app.db == nil || app.redis == nil || app.judgeService == nil {
+	if app.db == nil || app.redis == nil || app.judgeService == nil || app.lockManager == nil {
 		return MissingDependencyError
 	}
-	server, err := api.CreateApiServer(app.db, app.redis, app.judgeService)
+	if app.apiServer != nil {
+		return DoubleSetupError
+	}
+	server, err := api.CreateApiServer(app.db, app.redis, app.judgeService, app.lockManager)
 	if err != nil {
 		return err
 	}
@@ -82,15 +112,22 @@ func (app *App) SetupApiServer() error {
 }
 
 func (app *App) SetupHttpServer(addr string) error {
+	if app.httpServer != nil {
+		return DoubleSetupError
+	}
 	app.router = mux.NewRouter()
 	app.httpServer = &http.Server{
-		Addr:    addr,
-		Handler: app.router,
+		Addr:         addr,
+		Handler:      app.router,
+		WriteTimeout: time.Second * 10,
 	}
 	return nil
 }
 
-func (app *App) AddGitServer() {
+func (app *App) AddGitServer() error {
+	if app.router == nil {
+		return MissingDependencyError
+	}
 	gitRouter := mux.NewRouter()
 	gitRouter.HandleFunc("/git/{git-id}/HEAD", app.gitServer.Handle).Methods("GET")
 	gitRouter.HandleFunc("/git/{git-id}/info/refs", app.gitServer.Handle).Methods("GET")
@@ -103,32 +140,52 @@ func (app *App) AddGitServer() {
 	gitRouter.HandleFunc("/git/{git-id}/git-upload-pack", app.gitServer.Handle).Methods("POST")
 	gitRouter.HandleFunc("/git/{git-id}/git-receive-pack", app.gitServer.Handle).Methods("POST")
 	app.router.PathPrefix("/git/{git-id:[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}}/").Handler(gitRouter)
+	return nil
 }
 
-func (app *App) AddApiServer() {
+func (app *App) AddApiServer() error {
+	if app.router == nil {
+		return MissingDependencyError
+	}
 	app.router.PathPrefix("/api").Handler(app.apiServer)
+	return nil
 }
 
-func (app *App) RunWeb() {
+func (app *App) runWebServer(done <-chan struct{}) {
 	errChan := make(chan error)
 	go func() {
 		log.Println("Starting web server at", app.httpServer.Addr)
-		if err := app.httpServer.ListenAndServe(); err != nil {
-			errChan <- err
+		errChan <- app.httpServer.ListenAndServe()
+	}()
+	select {
+	case <-done:
+		log.Println("Shutting down web server")
+		app.httpServer.Shutdown(context.Background())
+	case err := <-errChan:
+		if err != http.ErrServerClosed {
+			log.Println("Web server failed unexpectedly: ", err)
+		}
+	}
+}
+
+func (app *App) Run() {
+	sigChan := make(chan os.Signal, 1)
+	signal.Notify(sigChan, os.Interrupt, syscall.SIGTERM)
+	doneChan := make(chan struct{})
+	go func() {
+		select {
+		case <-sigChan:
+			close(doneChan)
+		case <-doneChan:
 		}
 	}()
 
-	sigChan := make(chan os.Signal, 1)
-	signal.Notify(sigChan, os.Interrupt, syscall.SIGTERM)
-
-	select {
-	case err := <-errChan:
-		log.Println("Web server error:", err)
-	case sig := <-sigChan:
-		log.Printf("Received signal %s, shutting down", sig)
-		if err := app.httpServer.Shutdown(nil); err != nil {
-			log.Println("Failed to shutdown server:", err)
-		}
-		log.Println("Web server shut down")
-	}
+	var group sync.WaitGroup
+	group.Add(1)
+	go func() {
+		app.runWebServer(doneChan)
+		group.Done()
+	}()
+	group.Wait()
+	log.Println("Server shut down")
 }
