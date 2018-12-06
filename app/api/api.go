@@ -1,31 +1,26 @@
 package api
 
 import (
-	"database/sql"
 	"net/http"
 
-	"github.com/syzoj/syzoj-ng-go/app/lock"
+	"github.com/google/uuid"
 
 	"github.com/gorilla/mux"
 
-	"github.com/go-redis/redis"
-	"github.com/syzoj/syzoj-ng-go/app/judge"
+	"github.com/syzoj/syzoj-ng-go/app/auth"
+	"github.com/syzoj/syzoj-ng-go/app/session"
 )
 
 type ApiServer struct {
-	db           *sql.DB
-	redis        *redis.Client
-	judgeService judge.JudgeServiceProvider
-	router       *mux.Router
-	lockManager  lock.LockManager
+	router      *mux.Router
+	sessService session.SessionService
+	authService auth.AuthService
 }
 
-func CreateApiServer(db *sql.DB, redis *redis.Client, judgeService judge.JudgeServiceProvider, lockManager lock.LockManager) (*ApiServer, error) {
+func CreateApiServer(sessService session.SessionService, authService auth.AuthService) (*ApiServer, error) {
 	srv := &ApiServer{
-		db:           db,
-		redis:        redis,
-		judgeService: judgeService,
-		lockManager:  lockManager,
+		sessService: sessService,
+		authService: authService,
 	}
 	srv.setupRoutes()
 	return srv, nil
@@ -40,4 +35,20 @@ func (srv *ApiServer) setupRoutes() {
 
 func (srv *ApiServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	srv.router.ServeHTTP(w, r)
+}
+
+func (srv *ApiServer) ensureSession(r *http.Request) (uuid.UUID, *session.Session, error) {
+	var sessId uuid.UUID
+	if cookie, err := r.Cookie("SYZOJSESSION"); err == nil {
+		sessId, _ = uuid.Parse(cookie.Value)
+	}
+	if sess, err := srv.sessService.GetSession(sessId); err != nil {
+		if sessId, sess, err := srv.sessService.NewSession(); err != nil {
+			return sessId, sess, err
+		} else {
+			return sessId, sess, err
+		}
+	} else {
+		return sessId, sess, nil
+	}
 }

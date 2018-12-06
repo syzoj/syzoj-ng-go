@@ -1,4 +1,4 @@
-package user
+package auth
 
 import (
 	"encoding/base64"
@@ -49,11 +49,11 @@ func (info UserPasswordInfo) Verify(password string) error {
 		hash_base64 := info.Data.(string)
 		hash, err := base64.StdEncoding.DecodeString(hash_base64)
 		if err != nil {
-			panic(InvalidAuthInfoError)
+			return InvalidAuthInfoError
 		}
 
 		err = bcrypt.CompareHashAndPassword(hash, []byte(password))
 		return err
 	}
-	panic(InvalidAuthInfoError)
+	return InvalidAuthInfoError
 }

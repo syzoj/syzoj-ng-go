@@ -6,17 +6,16 @@ import (
 	"io/ioutil"
 	"log"
 
-	"github.com/go-redis/redis"
 	_ "github.com/lib/pq"
 
 	"github.com/syzoj/syzoj-ng-go/app"
 )
 
 type syzoj_config struct {
-	Database string        `json:"database"`
-	Redis    redis.Options `json:"redis"`
-	Addr     string        `json:"addr"`
-	GitPath  string        `json:"git_path"`
+	Database string `json:"database"`
+	Addr     string `json:"addr"`
+	GitPath  string `json:"git_path"`
+	LevelDB  string `json:"leveldb_path"`
 }
 
 func main() {
@@ -44,16 +43,22 @@ func main() {
 		log.Fatal("Error setting up database:", err)
 	}
 
-	err = app_instance.SetupRedis(&config.Redis)
+	err = app_instance.SetupLevelDB(config.LevelDB)
 	if err != nil {
-		log.Fatal("Error setting up redis:", err)
+		log.Fatal("Error setting up LevelDB:", err)
 	}
 
-	err = app_instance.SetupMemoryLockManager()
+	err = app_instance.SetupSessionService()
 	if err != nil {
-		log.Fatal("Error setting up memory-based lock manager:", err)
+		log.Fatal("Error setting up session service:", err)
 	}
 
+	err = app_instance.SetupAuthService()
+	if err != nil {
+		log.Fatal("Error setting up auth service:", err)
+	}
+
+	// Setup services
 	err = app_instance.SetupHttpServer(config.Addr)
 	if err != nil {
 		log.Fatal("Error setting up http server:", err)
@@ -67,11 +72,6 @@ func main() {
 	err = app_instance.AddGitServer()
 	if err != nil {
 		log.Fatal("Error adding git server:", err)
-	}
-
-	err = app_instance.SetupJudgeServiceCollection()
-	if err != nil {
-		log.Fatal("Error setting up judge service collection:", err)
 	}
 
 	err = app_instance.SetupApiServer()

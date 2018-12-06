@@ -12,29 +12,27 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/syzoj/syzoj-ng-go/app/lock"
+	"github.com/syndtr/goleveldb/leveldb"
+	"github.com/syzoj/syzoj-ng-go/app/session"
 
-	"github.com/go-redis/redis"
 	"github.com/gorilla/mux"
-	_ "github.com/lib/pq"
 
 	"github.com/syzoj/syzoj-ng-go/app/api"
+	"github.com/syzoj/syzoj-ng-go/app/auth"
 	"github.com/syzoj/syzoj-ng-go/app/git"
-	"github.com/syzoj/syzoj-ng-go/app/judge"
 )
 
 type App struct {
-	db           *sql.DB
-	redis        *redis.Client
-	httpServer   *http.Server
-	router       *mux.Router
-	gitServer    *git.GitServer
-	apiServer    *api.ApiServer
-	judgeService judgeServiceCollection
-	lockManager  lock.LockManager
-}
+	db      *sql.DB
+	levelDB *leveldb.DB
 
-type judgeServiceCollection map[string]judge.JudgeService
+	sessService session.SessionService
+	authService auth.AuthService
+	httpServer  *http.Server
+	router      *mux.Router
+	gitServer   *git.GitServer
+	apiServer   *api.ApiServer
+}
 
 var MissingDependencyError = errors.New("Missing dependency")
 var DoubleSetupError = errors.New("Attempting to setup a service twice")
@@ -51,13 +49,34 @@ func (app *App) SetupDB(conn string) error {
 	return nil
 }
 
-func (app *App) SetupRedis(options *redis.Options) error {
-	if app.redis != nil {
+func (app *App) SetupLevelDB(path string) (err error) {
+	if app.levelDB != nil {
 		return DoubleSetupError
 	}
-	app.redis = redis.NewClient(options)
-	_, err := app.redis.Ping().Result()
-	return err
+	app.levelDB, err = leveldb.OpenFile(path, nil)
+	return
+}
+
+func (app *App) SetupSessionService() (err error) {
+	if app.levelDB == nil {
+		return DoubleSetupError
+	}
+	if app.sessService != nil {
+		return DoubleSetupError
+	}
+	app.sessService, err = session.NewLevelDBSessionService(app.levelDB)
+	return
+}
+
+func (app *App) SetupAuthService() (err error) {
+	if app.levelDB == nil {
+		return DoubleSetupError
+	}
+	if app.authService != nil {
+		return DoubleSetupError
+	}
+	app.authService, err = auth.NewLevelDBAuthService(app.levelDB)
+	return
 }
 
 func (app *App) SetupGitServer(gitPath string) error {
@@ -75,34 +94,14 @@ func (app *App) SetupGitServer(gitPath string) error {
 	return nil
 }
 
-func (c judgeServiceCollection) GetJudgeService(name string) judge.JudgeService {
-	return c[name]
-}
-
-func (app *App) SetupJudgeServiceCollection() error {
-	if app.judgeService != nil {
-		return DoubleSetupError
-	}
-	app.judgeService = make(judgeServiceCollection)
-	return nil
-}
-
-func (app *App) SetupMemoryLockManager() error {
-	if app.lockManager != nil {
-		return DoubleSetupError
-	}
-	app.lockManager = lock.CreateMemoryLockManager()
-	return nil
-}
-
 func (app *App) SetupApiServer() error {
-	if app.db == nil || app.redis == nil || app.judgeService == nil || app.lockManager == nil {
+	if app.authService == nil || app.sessService == nil {
 		return MissingDependencyError
 	}
 	if app.apiServer != nil {
 		return DoubleSetupError
 	}
-	server, err := api.CreateApiServer(app.db, app.redis, app.judgeService, app.lockManager)
+	server, err := api.CreateApiServer(app.sessService, app.authService)
 	if err != nil {
 		return err
 	}
@@ -186,6 +185,14 @@ func (app *App) Run() {
 		app.runWebServer(doneChan)
 		group.Done()
 	}()
+	if app.levelDB != nil {
+		group.Add(1)
+		go func() {
+			<-doneChan
+			app.levelDB.Close()
+			group.Done()
+		}()
+	}
 	group.Wait()
 	log.Println("Server shut down")
 }
