@@ -34,7 +34,7 @@ func (s *leveldbAuthService) RegisterUser(userName string, password string) (id 
 	}
 	defer trans.Discard()
 
-	usernameKey := []byte(fmt.Sprintf("username:%s", userName))
+	usernameKey := []byte(fmt.Sprintf("auth.username:%s", userName))
 	if _, err = trans.Get(usernameKey, nil); err != leveldb.ErrNotFound {
 		if err == nil {
 			err = ErrDuplicateUserName
@@ -46,7 +46,7 @@ func (s *leveldbAuthService) RegisterUser(userName string, password string) (id 
 		return
 	}
 
-	userAuthKey := []byte(fmt.Sprintf("user.auth:%s", id))
+	userAuthKey := []byte(fmt.Sprintf("auth.user:%s", id))
 	var val []byte
 	var authInfo UserAuthInfo = PasswordAuth(password)
 	if val, err = json.Marshal(authInfo); err != nil {
@@ -69,7 +69,7 @@ func (s *leveldbAuthService) LoginUser(userName string, password string) (userId
 	}
 	defer snapshot.Release()
 
-	usernameKey := []byte(fmt.Sprintf("username:%s", userName))
+	usernameKey := []byte(fmt.Sprintf("auth.username:%s", userName))
 	var val1 []byte
 	if val1, err = snapshot.Get(usernameKey, nil); err != nil {
 		return
@@ -79,7 +79,7 @@ func (s *leveldbAuthService) LoginUser(userName string, password string) (userId
 		return
 	}
 
-	userAuthKey := []byte(fmt.Sprintf("user.auth:%s", id))
+	userAuthKey := []byte(fmt.Sprintf("auth.user:%s", id))
 	var val2 []byte
 	if val2, err = snapshot.Get(userAuthKey, nil); err != nil {
 		return

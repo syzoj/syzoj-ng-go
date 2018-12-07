@@ -58,6 +58,11 @@ func main() {
 		log.Fatal("Error setting up auth service:", err)
 	}
 
+	err = app_instance.SetupProblemsetService()
+	if err != nil {
+		log.Fatal("Error setting up problemset service:", err)
+	}
+
 	// Setup services
 	err = app_instance.SetupHttpServer(config.Addr)
 	if err != nil {

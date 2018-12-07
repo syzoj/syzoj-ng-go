@@ -1,6 +1,7 @@
 package app
 
 import (
+	"github.com/syzoj/syzoj-ng-go/app/problemset"
 	"context"
 	"database/sql"
 	"errors"
@@ -28,6 +29,7 @@ type App struct {
 
 	sessService session.SessionService
 	authService auth.AuthService
+	problemsetService problemset.ProblemsetService
 	httpServer  *http.Server
 	router      *mux.Router
 	gitServer   *git.GitServer
@@ -59,7 +61,7 @@ func (app *App) SetupLevelDB(path string) (err error) {
 
 func (app *App) SetupSessionService() (err error) {
 	if app.levelDB == nil {
-		return DoubleSetupError
+		return MissingDependencyError
 	}
 	if app.sessService != nil {
 		return DoubleSetupError
@@ -70,12 +72,23 @@ func (app *App) SetupSessionService() (err error) {
 
 func (app *App) SetupAuthService() (err error) {
 	if app.levelDB == nil {
-		return DoubleSetupError
+		return MissingDependencyError
 	}
 	if app.authService != nil {
 		return DoubleSetupError
 	}
 	app.authService, err = auth.NewLevelDBAuthService(app.levelDB)
+	return
+}
+
+func (app *App) SetupProblemsetService() (err error) {
+	if app.levelDB == nil {
+		return MissingDependencyError
+	}
+	if app.problemsetService != nil {
+		return DoubleSetupError
+	}
+	app.problemsetService, err = problemset.NewProblemsetService(app.levelDB)
 	return
 }
 
@@ -95,13 +108,13 @@ func (app *App) SetupGitServer(gitPath string) error {
 }
 
 func (app *App) SetupApiServer() error {
-	if app.authService == nil || app.sessService == nil {
+	if app.authService == nil || app.sessService == nil || app.problemsetService == nil {
 		return MissingDependencyError
 	}
 	if app.apiServer != nil {
 		return DoubleSetupError
 	}
-	server, err := api.CreateApiServer(app.sessService, app.authService)
+	server, err := api.CreateApiServer(app.sessService, app.authService, app.problemsetService)
 	if err != nil {
 		return err
 	}

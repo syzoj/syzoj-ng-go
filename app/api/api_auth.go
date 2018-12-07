@@ -22,7 +22,7 @@ func (srv *ApiServer) HandleAuthRegister(w http.ResponseWriter, r *http.Request)
 	}()
 	var sessId uuid.UUID
 	var sess *session.Session
-	if sessId, sess, err = srv.ensureSession(r); err != nil {
+	if sessId, sess, err = srv.ensureSession(w, r); err != nil {
 		return
 	}
 
@@ -56,12 +56,15 @@ func (srv *ApiServer) HandleAuthLogin(w http.ResponseWriter, r *http.Request) {
 	}()
 	var sessId uuid.UUID
 	var sess *session.Session
-	if sessId, sess, err = srv.ensureSession(r); err != nil {
+	if sessId, sess, err = srv.ensureSession(w, r); err != nil {
 		return
 	}
-
 	var req LoginRequest
 	if err = json.NewDecoder(r.Body).Decode(&req); err != nil {
+		return
+	}
+	if sess.AuthUserId != defaultUserId {
+		err = AlreadyLoggedInError
 		return
 	}
 	var userId uuid.UUID
