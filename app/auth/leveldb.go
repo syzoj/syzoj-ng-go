@@ -22,6 +22,10 @@ func NewLevelDBAuthService(db *leveldb.DB) (AuthService, error) {
 }
 
 func (s *leveldbAuthService) RegisterUser(userName string, password string) (id uuid.UUID, err error) {
+	if !checkUserName(userName) {
+		err = ErrInvalidUserName
+		return
+	}
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 

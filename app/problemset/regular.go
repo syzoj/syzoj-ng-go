@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"regexp"
 	"sync"
 
 	"github.com/google/uuid"
@@ -95,6 +96,9 @@ func (p *regularProblemsetProvider) InvokeProblemset(id uuid.UUID, req interface
 }
 
 func (p *regularProblemsetProvider) doAddTraditionalProblem(id uuid.UUID, req *RegularAddTraditionalProblemRequest, resp *RegularAddTraditionalProblemResponse) (err error) {
+	if !checkProblemName(req.Name) {
+		return ErrInvalidProblemName
+	}
 	var problemId uuid.UUID
 	if problemId, err = uuid.NewRandom(); err != nil {
 		return
@@ -206,4 +210,10 @@ func (p *regularProblemsetProvider) handleTraditionalSubmissionResult(id uuid.UU
 	// TODO: save result
 	log.Printf("Regular problemset %s: Received result for submission %s: %s\n", id, result.SubmissionId, result.Result.Status)
 	return nil
+}
+
+var problemNameRegexp = regexp.MustCompile("^[0-9A-Z]{1,16}")
+
+func checkProblemName(problemName string) bool {
+	return problemNameRegexp.MatchString(problemName)
 }
