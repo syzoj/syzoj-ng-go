@@ -6,6 +6,8 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/syndtr/goleveldb/leveldb"
+
+	judge_traditional "github.com/syzoj/syzoj-ng-go/app/judge/traditional"
 )
 
 type ProblemsetService interface {
@@ -24,6 +26,8 @@ var ErrOperationNotSupported = errors.New("Operation not supported")
 var ErrDuplicateProblemName = errors.New("Duplicate problem name")
 var ErrDuplicateUUID = errors.New("UUID dupication")
 var ErrPermissionDenied = errors.New("Permission denied")
+var ErrAnonymousSubmission = errors.New("Anonymous submission")
+var ErrProblemNotFound = errors.New("Problem not found")
 
 var psetList = map[string]func(*problemsetService) ProblemsetServiceProvider{
 	"regular": newRegularProblemsetProvider,
@@ -32,10 +36,11 @@ var psetList = map[string]func(*problemsetService) ProblemsetServiceProvider{
 type problemsetService struct {
 	db       *leveldb.DB
 	provider map[string]ProblemsetServiceProvider
+	ts       judge_traditional.TraditionalJudgeService
 }
 
-func NewProblemsetService(db *leveldb.DB) (ProblemsetService, error) {
-	s := &problemsetService{db: db}
+func NewProblemsetService(db *leveldb.DB, ts judge_traditional.TraditionalJudgeService) (ProblemsetService, error) {
+	s := &problemsetService{db: db, ts: ts}
 	s.provider = make(map[string]ProblemsetServiceProvider)
 	for key, value := range psetList {
 		s.provider[key] = value(s)
@@ -54,7 +59,7 @@ func (s *problemsetService) NewProblemset(ptype string, data interface{}) (id uu
 }
 
 func (s *problemsetService) InvokeProblemset(id uuid.UUID, req interface{}, resp interface{}) (err error) {
-	key := []byte(fmt.Sprintf("problemset.type:%s", id))
+	key := []byte(fmt.Sprintf("problemset:%s.type", id))
 	var val []byte
 	if val, err = s.db.Get(key, nil); err != nil {
 		if err == leveldb.ErrNotFound {

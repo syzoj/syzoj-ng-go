@@ -58,6 +58,11 @@ func main() {
 		log.Fatal("Error setting up auth service:", err)
 	}
 
+	err = app_instance.SetupTraditionalJudgeService()
+	if err != nil {
+		log.Fatal("Error setting up traditional judge service:", err)
+	}
+
 	err = app_instance.SetupProblemsetService()
 	if err != nil {
 		log.Fatal("Error setting up problemset service:", err)

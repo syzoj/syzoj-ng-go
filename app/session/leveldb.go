@@ -3,10 +3,13 @@ package session
 import (
 	"encoding/json"
 	"fmt"
+	"log"
 	"sync"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/syndtr/goleveldb/leveldb"
+	"github.com/syndtr/goleveldb/leveldb/util"
 )
 
 type leveldbSessionService struct {
@@ -15,9 +18,11 @@ type leveldbSessionService struct {
 }
 
 func NewLevelDBSessionService(db *leveldb.DB) (SessionService, error) {
-	return &leveldbSessionService{
+	srv := &leveldbSessionService{
 		db: db,
-	}, nil
+	}
+	go srv.runGC()
+	return srv, nil
 }
 
 func (s *leveldbSessionService) NewSession() (id uuid.UUID, sess *Session, err error) {
@@ -31,6 +36,7 @@ func (s *leveldbSessionService) NewSession() (id uuid.UUID, sess *Session, err e
 	if err != nil {
 		return
 	}
+	sess.Expiry = time.Now().Add(time.Hour * 24 * 30)
 
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
@@ -51,9 +57,17 @@ func (s *leveldbSessionService) GetSession(id uuid.UUID) (sess *Session, err err
 	key := []byte(fmt.Sprintf("sess:%s", id))
 	var val []byte
 	if val, err = s.db.Get(key, nil); err != nil {
+		if err == leveldb.ErrNotFound {
+			err = ErrSessionNotFound
+		}
 		return
 	}
 	if err = json.Unmarshal(val, &sess); err != nil {
+		return
+	}
+	if sess.Expiry.Before(time.Now()) {
+		s.db.Delete(key, nil)
+		err = ErrSessionNotFound
 		return
 	}
 	return
@@ -74,6 +88,7 @@ func (s *leveldbSessionService) UpdateSession(id uuid.UUID, sess *Session) (err 
 	if sess.Version != sess2.Version {
 		return ConcurrentUpdateError
 	}
+	sess.Expiry = time.Now().Add(time.Hour * 24 * 30)
 	if sess.Version, err = uuid.NewRandom(); err != nil {
 		return
 	}
@@ -82,4 +97,30 @@ func (s *leveldbSessionService) UpdateSession(id uuid.UUID, sess *Session) (err 
 	}
 	err = s.db.Put(key, val, nil)
 	return
+}
+
+func (s *leveldbSessionService) collectGarbage() {
+	iter := s.db.NewIterator(util.BytesPrefix([]byte("sess:")), nil)
+	for iter.Next() {
+		key, val := iter.Key(), iter.Value()
+		var sess Session
+		if err := json.Unmarshal(val, &sess); err != nil {
+			log.Printf("Failed to unmarshal session %s: %s\n", string(key), err)
+			continue
+		}
+		if time.Now().After(sess.Expiry) {
+			log.Printf("Expiring session %s\n", string(key))
+			if err := s.db.Delete(key, nil); err != nil {
+				// Expect race condition here
+				log.Printf("Warning: failed to delete session %s: %s\n", string(key), err)
+			}
+		}
+	}
+}
+
+func (s *leveldbSessionService) runGC() {
+	for {
+		s.collectGarbage()
+		time.Sleep(time.Hour)
+	}
 }

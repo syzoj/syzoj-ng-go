@@ -72,6 +72,9 @@ func (s *leveldbAuthService) LoginUser(userName string, password string) (userId
 	usernameKey := []byte(fmt.Sprintf("auth.username:%s", userName))
 	var val1 []byte
 	if val1, err = snapshot.Get(usernameKey, nil); err != nil {
+		if err == leveldb.ErrNotFound {
+			err = ErrUserNotFound
+		}
 		return
 	}
 	var id uuid.UUID

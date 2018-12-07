@@ -12,4 +12,5 @@ type AuthService interface {
 }
 
 var ErrDuplicateUserName = errors.New("Duplicate user name")
+var ErrUserNotFound = errors.New("User not found")
 var ErrPasswordIncorrect = errors.New("Incorrect password")

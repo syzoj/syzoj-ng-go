@@ -1,7 +1,6 @@
 package app
 
 import (
-	"github.com/syzoj/syzoj-ng-go/app/problemset"
 	"context"
 	"database/sql"
 	"errors"
@@ -13,27 +12,30 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/syndtr/goleveldb/leveldb"
-	"github.com/syzoj/syzoj-ng-go/app/session"
-
 	"github.com/gorilla/mux"
+	"github.com/syndtr/goleveldb/leveldb"
 
 	"github.com/syzoj/syzoj-ng-go/app/api"
 	"github.com/syzoj/syzoj-ng-go/app/auth"
 	"github.com/syzoj/syzoj-ng-go/app/git"
+	judge_traditional "github.com/syzoj/syzoj-ng-go/app/judge/traditional"
+	"github.com/syzoj/syzoj-ng-go/app/problemset"
+	"github.com/syzoj/syzoj-ng-go/app/session"
 )
 
 type App struct {
 	db      *sql.DB
 	levelDB *leveldb.DB
 
-	sessService session.SessionService
-	authService auth.AuthService
+	sessService       session.SessionService
+	authService       auth.AuthService
 	problemsetService problemset.ProblemsetService
-	httpServer  *http.Server
-	router      *mux.Router
-	gitServer   *git.GitServer
-	apiServer   *api.ApiServer
+	httpServer        *http.Server
+	router            *mux.Router
+	gitServer         *git.GitServer
+	apiServer         *api.ApiServer
+
+	traditionalJudgeService judge_traditional.TraditionalJudgeService
 }
 
 var MissingDependencyError = errors.New("Missing dependency")
@@ -82,13 +84,22 @@ func (app *App) SetupAuthService() (err error) {
 }
 
 func (app *App) SetupProblemsetService() (err error) {
-	if app.levelDB == nil {
+	if app.levelDB == nil || app.traditionalJudgeService == nil {
 		return MissingDependencyError
 	}
 	if app.problemsetService != nil {
 		return DoubleSetupError
 	}
-	app.problemsetService, err = problemset.NewProblemsetService(app.levelDB)
+	app.problemsetService, err = problemset.NewProblemsetService(app.levelDB, app.traditionalJudgeService)
+	app.traditionalJudgeService.RegisterProblemsetService(app.problemsetService)
+	return
+}
+
+func (app *App) SetupTraditionalJudgeService() (err error) {
+	if app.traditionalJudgeService != nil {
+		return DoubleSetupError
+	}
+	app.traditionalJudgeService, err = judge_traditional.NewTraditionalJudgeService()
 	return
 }
 
