@@ -73,7 +73,7 @@ func main() {
 	fmt.Println(problemsetId)
 	resp2 := Test(client, "POST", "/api/problemset/add-traditional-problem", AddTraditionalProblemRequest{
 		ProblemsetId: problemsetId,
-		Name:         "a",
+		Name:         "1",
 	})
 	problemId := uuid.MustParse(resp2.(map[string]interface{})["data"].(map[string]interface{})["problem_id"].(string))
 	Test(client, "POST", "/api/problemset/submit-traditional-problem", SubmitTraditionalProblemRequest{

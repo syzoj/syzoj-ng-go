@@ -78,10 +78,12 @@ func (srv *ApiServer) HandleAddTraditionalProblem(w http.ResponseWriter, r *http
 		UserId: sess.AuthUserId,
 		Name:   req.Name,
 	}
-	var presp problemset.RegularAddTraditionalProblemResponse
-	if err = srv.problemsetService.InvokeProblemset(req.ProblemsetId, &preq, &presp); err != nil {
+	var presp *problemset.RegularAddTraditionalProblemResponse
+    var obj interface{}
+	if obj, err = srv.problemsetService.InvokeProblemset(req.ProblemsetId, &preq); err != nil {
 		return
 	}
+    presp = obj.(*problemset.RegularAddTraditionalProblemResponse)
 	writeResponse(w, AddTraditionalProblemResponse{
 		ProblemId: presp.ProblemId,
 	})
@@ -124,10 +126,12 @@ func (srv *ApiServer) HandleSubmitTraditionalProblem(w http.ResponseWriter, r *h
 		Language:  req.Language,
 		Code:      req.Code,
 	}
-	var presp problemset.RegularSubmitTraditionalProblemResponse
-	if err = srv.problemsetService.InvokeProblemset(req.ProblemsetId, &preq, &presp); err != nil {
+	var presp *problemset.RegularSubmitTraditionalProblemResponse
+    var obj interface{}
+	if obj, err = srv.problemsetService.InvokeProblemset(req.ProblemsetId, &preq); err != nil {
 		return
 	}
+    presp = obj.(*problemset.RegularSubmitTraditionalProblemResponse)
 	writeResponse(w, SubmitTraditionalProblemResponse{
 		SubmissionId: presp.SubmissionId,
 	})

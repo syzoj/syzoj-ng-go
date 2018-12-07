@@ -73,7 +73,7 @@ func (p *regularProblemsetProvider) NewProblemset(data interface{}) (id uuid.UUI
 	return
 }
 
-func (p *regularProblemsetProvider) InvokeProblemset(id uuid.UUID, req interface{}, resp interface{}) error {
+func (p *regularProblemsetProvider) InvokeProblemset(id uuid.UUID, req interface{}) (interface{}, error) {
 	// TODO Lock based on id
 	p.lock.Lock()
 	defer p.lock.Unlock()
@@ -81,23 +81,23 @@ func (p *regularProblemsetProvider) InvokeProblemset(id uuid.UUID, req interface
 	case *RegularAddTraditionalProblemRequest:
 		keyRole := []byte(fmt.Sprintf("problemset:%s.regular.role:%s", id, v.UserId))
 		if val, err := p.s.db.Get(keyRole, nil); err != nil {
-			return err
+			return nil, err
 		} else if string(val) != "admin" {
-			return ErrPermissionDenied
+			return nil, ErrPermissionDenied
 		}
-		return p.doAddTraditionalProblem(id, v, resp.(*RegularAddTraditionalProblemResponse))
+		return p.doAddTraditionalProblem(id, v)
 	case *RegularSubmitTraditionalProblemRequest:
-		return p.doSubmitProblem(id, v, resp.(*RegularSubmitTraditionalProblemResponse))
+		return p.doSubmitProblem(id, v)
 	case *judge_traditional.TraditionalSubmissionResultMessage:
-		return p.handleTraditionalSubmissionResult(id, v)
+		return nil, p.handleTraditionalSubmissionResult(id, v)
 	default:
-		return ErrOperationNotSupported
+		return nil, ErrOperationNotSupported
 	}
 }
 
-func (p *regularProblemsetProvider) doAddTraditionalProblem(id uuid.UUID, req *RegularAddTraditionalProblemRequest, resp *RegularAddTraditionalProblemResponse) (err error) {
+func (p *regularProblemsetProvider) doAddTraditionalProblem(id uuid.UUID, req *RegularAddTraditionalProblemRequest) (resp *RegularAddTraditionalProblemResponse, err error) {
 	if !checkProblemName(req.Name) {
-		return ErrInvalidProblemName
+		return nil, ErrInvalidProblemName
 	}
 	var problemId uuid.UUID
 	if problemId, err = uuid.NewRandom(); err != nil {
@@ -111,7 +111,7 @@ func (p *regularProblemsetProvider) doAddTraditionalProblem(id uuid.UUID, req *R
 	keyProblemName := []byte(fmt.Sprintf("problemset:%s.problemname:%s", id, req.Name))
 	var has bool
 	if has, err = trans.Has(keyProblemName, nil); has {
-		return ErrDuplicateProblemName
+		return nil, ErrDuplicateProblemName
 	} else if err != nil {
 		return
 	}
@@ -120,7 +120,7 @@ func (p *regularProblemsetProvider) doAddTraditionalProblem(id uuid.UUID, req *R
 	}
 	keyProblem := []byte(fmt.Sprintf("problemset:%s.problem:%s", id, problemId))
 	if has, err = trans.Has(keyProblem, nil); has {
-		return ErrDuplicateUUID
+		return nil, ErrDuplicateUUID
 	} else if err != nil {
 		return
 	}
@@ -134,14 +134,14 @@ func (p *regularProblemsetProvider) doAddTraditionalProblem(id uuid.UUID, req *R
 		return
 	}
 	err = trans.Commit()
-	resp.ProblemId = problemId
+	resp = &RegularAddTraditionalProblemResponse{ProblemId: problemId}
 	return
 }
 
-func (p *regularProblemsetProvider) doSubmitProblem(id uuid.UUID, req *RegularSubmitTraditionalProblemRequest, resp *RegularSubmitTraditionalProblemResponse) (err error) {
+func (p *regularProblemsetProvider) doSubmitProblem(id uuid.UUID, req *RegularSubmitTraditionalProblemRequest) (resp *RegularSubmitTraditionalProblemResponse, err error) {
 	var zeroId uuid.UUID
 	if id == zeroId {
-		return ErrAnonymousSubmission
+		return nil, ErrAnonymousSubmission
 	}
 
 	keyProblem := []byte(fmt.Sprintf("problemset:%s.problem:%s", id, req.ProblemId))
@@ -157,7 +157,7 @@ func (p *regularProblemsetProvider) doSubmitProblem(id uuid.UUID, req *RegularSu
 		return
 	}
 	if info.Type != "traditional" {
-		return ErrProblemNotFound
+		return nil, ErrProblemNotFound
 	}
 
 	var submissionId uuid.UUID
@@ -177,7 +177,7 @@ func (p *regularProblemsetProvider) doSubmitProblem(id uuid.UUID, req *RegularSu
 	if err = p.s.db.Put(keySubmission, submissionData, &opt.WriteOptions{Sync: true}); err != nil {
 		return
 	}
-	resp.SubmissionId = submissionId
+	resp = &RegularSubmitTraditionalProblemResponse{SubmissionId: submissionId}
 	p.queueTraditionalSubmission(id, submissionId)
 	return
 }

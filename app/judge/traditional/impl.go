@@ -30,7 +30,7 @@ func (ps *traditionalJudgeService) QueueSubmission(problemsetId uuid.UUID, submi
 			Result: TraditionalSubmissionResult{
 				Status: "Not supported",
 			},
-		}, nil)
+		})
 	}()
 	return nil
 }

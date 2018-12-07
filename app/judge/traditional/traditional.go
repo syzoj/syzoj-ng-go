@@ -5,7 +5,7 @@ import (
 )
 
 type problemsetCallbackService interface {
-	InvokeProblemset(id uuid.UUID, req interface{}, resp interface{}) error
+	InvokeProblemset(id uuid.UUID, req interface{}) (interface{}, error)
 }
 
 type TraditionalJudgeService interface {
