@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/gorilla/mux"
+	_ "github.com/lib/pq"
 	"github.com/syndtr/goleveldb/leveldb"
 
 	"github.com/syzoj/syzoj-ng-go/app/api"
@@ -166,10 +167,18 @@ func (app *App) AddGitServer() error {
 }
 
 func (app *App) AddApiServer() error {
-	if app.router == nil {
+	if app.router == nil || app.apiServer == nil {
 		return MissingDependencyError
 	}
 	app.router.PathPrefix("/api").Handler(app.apiServer)
+	return nil
+}
+
+func (app *App) AddTraditionalJudgeService() error {
+	if app.router == nil || app.traditionalJudgeService == nil {
+		return MissingDependencyError
+	}
+	app.router.Handle("/judge-traditional", app.traditionalJudgeService)
 	return nil
 }
 

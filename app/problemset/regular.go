@@ -9,7 +9,6 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/syndtr/goleveldb/leveldb"
-	"github.com/syndtr/goleveldb/leveldb/opt"
 
 	judge_traditional "github.com/syzoj/syzoj-ng-go/app/judge/traditional"
 )
@@ -38,13 +37,17 @@ type RegularSubmitTraditionalProblemRequest struct {
 type RegularSubmitTraditionalProblemResponse struct {
 	SubmissionId uuid.UUID
 }
-type regularTraditionalProblemSubmission struct {
-	UserId   uuid.UUID
-	Language string
-	Code     string
-}
 type regularProblemInfo struct {
 	Type string
+}
+type regularSubmissionInfo struct {
+	Type      string
+	ProblemId uuid.UUID
+	UserId    uuid.UUID
+	Language  string
+	Code      string
+	Complete  bool
+	Result    judge_traditional.TraditionalSubmissionResult
 }
 
 func newRegularProblemsetProvider(s *problemsetService) ProblemsetServiceProvider {
@@ -107,6 +110,7 @@ func (p *regularProblemsetProvider) doAddTraditionalProblem(id uuid.UUID, req *R
 	if problemId, err = uuid.NewRandom(); err != nil {
 		return
 	}
+
 	var trans *leveldb.Transaction
 	if trans, err = p.s.db.OpenTransaction(); err != nil {
 		return
@@ -169,16 +173,20 @@ func (p *regularProblemsetProvider) doSubmitProblem(id uuid.UUID, req *RegularSu
 		return
 	}
 
-	var submission regularTraditionalProblemSubmission
-	submission.UserId = req.UserId
-	submission.Language = req.Language
-	submission.Code = req.Code
-	var submissionData []byte
-	if submissionData, err = json.Marshal(submission); err != nil {
-		return
+	var submissionInfo = regularSubmissionInfo{
+		Type:      "traditional",
+		UserId:    req.UserId,
+		ProblemId: req.ProblemId,
+		Language:  req.Language,
+		Code:      req.Code,
+		Complete:  false,
 	}
 	keySubmission := []byte(fmt.Sprintf("problemset:%s.submission:%s", id, submissionId))
-	if err = p.s.db.Put(keySubmission, submissionData, &opt.WriteOptions{Sync: true}); err != nil {
+	var submissionData []byte
+	if submissionData, err = json.Marshal(&submissionInfo); err != nil {
+		return
+	}
+	if err = p.s.db.Put(keySubmission, submissionData, nil); err != nil {
 		return
 	}
 	resp = &RegularSubmitTraditionalProblemResponse{SubmissionId: submissionId}
@@ -198,13 +206,14 @@ func (p *regularProblemsetProvider) queueTraditionalSubmission(id uuid.UUID, sub
 	if submissionData, err = p.s.db.Get(keySubmission, nil); err != nil {
 		return
 	}
-	var submission regularTraditionalProblemSubmission
+	var submission regularSubmissionInfo
 	if err = json.Unmarshal(submissionData, &submission); err != nil {
 		return
 	}
 	if err = p.s.ts.QueueSubmission(id, submissionId, &judge_traditional.TraditionalSubmission{
-		Language: submission.Language,
-		Code:     submission.Code,
+		ProblemId: submission.ProblemId,
+		Language:  submission.Language,
+		Code:      submission.Code,
 	}); err != nil {
 		return
 	}
