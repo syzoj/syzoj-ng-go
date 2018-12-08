@@ -95,6 +95,10 @@ func (p *regularProblemsetProvider) InvokeProblemset(id uuid.UUID, req interface
 	}
 }
 
+func (p *regularProblemsetProvider) Close() error {
+	return nil
+}
+
 func (p *regularProblemsetProvider) doAddTraditionalProblem(id uuid.UUID, req *RegularAddTraditionalProblemRequest) (resp *RegularAddTraditionalProblemResponse, err error) {
 	if !checkProblemName(req.Name) {
 		return nil, ErrInvalidProblemName

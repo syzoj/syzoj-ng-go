@@ -11,6 +11,7 @@ type problemsetCallbackService interface {
 type TraditionalJudgeService interface {
 	RegisterProblemsetService(problemsetCallbackService)
 	QueueSubmission(problemsetId uuid.UUID, submissionId uuid.UUID, submissionData *TraditionalSubmission) error
+	Close() error
 }
 
 type TraditionalSubmission struct {

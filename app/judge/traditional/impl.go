@@ -34,3 +34,7 @@ func (ps *traditionalJudgeService) QueueSubmission(problemsetId uuid.UUID, submi
 	}()
 	return nil
 }
+
+func (ps *traditionalJudgeService) Close() error {
+	return nil
+}

@@ -103,3 +103,7 @@ func (s *leveldbAuthService) LoginUser(userName string, password string) (userId
 	userId = id
 	return
 }
+
+func (s *leveldbAuthService) Close() error {
+	return nil
+}

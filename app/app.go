@@ -8,7 +8,6 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
-	"sync"
 	"syscall"
 	"time"
 
@@ -174,49 +173,40 @@ func (app *App) AddApiServer() error {
 	return nil
 }
 
-func (app *App) runWebServer(done <-chan struct{}) {
-	errChan := make(chan error)
-	go func() {
-		log.Println("Starting web server at", app.httpServer.Addr)
-		errChan <- app.httpServer.ListenAndServe()
-	}()
-	select {
-	case <-done:
-		log.Println("Shutting down web server")
-		app.httpServer.Shutdown(context.Background())
-	case err := <-errChan:
-		if err != http.ErrServerClosed {
-			log.Println("Web server failed unexpectedly: ", err)
-		}
+func (app *App) runWebServer() {
+	log.Println("Starting web server at", app.httpServer.Addr)
+	err := app.httpServer.ListenAndServe()
+	if err != http.ErrServerClosed {
+		log.Println("Web server failed unexpectedly: ", err)
 	}
 }
 
 func (app *App) Run() {
 	sigChan := make(chan os.Signal, 1)
 	signal.Notify(sigChan, os.Interrupt, syscall.SIGTERM)
-	doneChan := make(chan struct{})
-	go func() {
-		select {
-		case <-sigChan:
-			close(doneChan)
-		case <-doneChan:
-		}
-	}()
 
-	var group sync.WaitGroup
-	group.Add(1)
-	go func() {
-		app.runWebServer(doneChan)
-		group.Done()
-	}()
-	if app.levelDB != nil {
-		group.Add(1)
-		go func() {
-			<-doneChan
-			app.levelDB.Close()
-			group.Done()
-		}()
+	go app.runWebServer()
+	<-sigChan
+	app.httpServer.Shutdown(context.Background())
+	if app.sessService != nil {
+		log.Println("Shutting down session service")
+		app.sessService.Close()
 	}
-	group.Wait()
+	if app.authService != nil {
+		log.Println("Shutting down auth service")
+		app.authService.Close()
+	}
+	if app.problemsetService != nil {
+		log.Println("Shutting down problemset service")
+		app.problemsetService.Close()
+	}
+	if app.traditionalJudgeService != nil {
+		log.Println("Shutting down traditional judge service")
+		app.traditionalJudgeService.Close()
+	}
+	if app.levelDB != nil {
+		log.Println("Shutting down LevelDB")
+		app.levelDB.Close()
+	}
 	log.Println("Server shut down")
 }

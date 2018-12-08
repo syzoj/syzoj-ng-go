@@ -13,13 +13,15 @@ import (
 )
 
 type leveldbSessionService struct {
-	mutex sync.Mutex
-	db    *leveldb.DB
+	mutex     sync.Mutex
+	db        *leveldb.DB
+	closeChan chan struct{}
 }
 
 func NewLevelDBSessionService(db *leveldb.DB) (SessionService, error) {
 	srv := &leveldbSessionService{
-		db: db,
+		db:        db,
+		closeChan: make(chan struct{}),
 	}
 	go srv.runGC()
 	return srv, nil
@@ -99,8 +101,14 @@ func (s *leveldbSessionService) UpdateSession(id uuid.UUID, sess *Session) (err 
 	return
 }
 
+func (s *leveldbSessionService) Close() error {
+	close(s.closeChan)
+	return nil
+}
+
 func (s *leveldbSessionService) collectGarbage() {
 	iter := s.db.NewIterator(util.BytesPrefix([]byte("sess:")), nil)
+	defer iter.Release()
 	for iter.Next() {
 		key, val := iter.Key(), iter.Value()
 		var sess Session
@@ -121,6 +129,10 @@ func (s *leveldbSessionService) collectGarbage() {
 func (s *leveldbSessionService) runGC() {
 	for {
 		s.collectGarbage()
-		time.Sleep(time.Hour)
+		select {
+		case <-s.closeChan:
+			return
+		case <-time.After(time.Hour):
+		}
 	}
 }

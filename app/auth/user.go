@@ -10,6 +10,7 @@ import (
 type AuthService interface {
 	RegisterUser(userName string, password string) (uuid.UUID, error)
 	LoginUser(userName string, password string) (uuid.UUID, error)
+	Close() error
 }
 
 var ErrInvalidUserName = errors.New("Invalid user name")

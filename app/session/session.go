@@ -10,6 +10,7 @@ type SessionService interface {
 	NewSession() (uuid.UUID, *Session, error)
 	GetSession(uuid.UUID) (*Session, error)
 	UpdateSession(uuid.UUID, *Session) error
+	Close() error
 }
 
 type Session struct {

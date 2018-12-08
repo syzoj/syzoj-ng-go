@@ -13,11 +13,13 @@ import (
 type ProblemsetService interface {
 	NewProblemset(ptype string, data interface{}) (uuid.UUID, error)
 	InvokeProblemset(id uuid.UUID, req interface{}) (interface{}, error)
+	Close() error
 }
 
 type ProblemsetServiceProvider interface {
 	NewProblemset(data interface{}) (uuid.UUID, error)
 	InvokeProblemset(id uuid.UUID, req interface{}) (interface{}, error)
+	Close() error
 }
 
 var ErrInvalidProblemsetType = errors.New("Invalid problemset type")
@@ -71,9 +73,16 @@ func (s *problemsetService) InvokeProblemset(id uuid.UUID, req interface{}) (res
 		if provider, ok := s.provider[string(val)]; !ok {
 			// TODO: Handle data inconsistency
 			err = ErrInvalidProblemsetType
-            return
+			return
 		} else {
 			return provider.InvokeProblemset(id, req)
 		}
 	}
+}
+
+func (s *problemsetService) Close() error {
+	for _, p := range s.provider {
+		p.Close()
+	}
+	return nil
 }
