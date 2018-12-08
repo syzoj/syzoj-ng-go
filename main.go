@@ -6,7 +6,7 @@ import (
 	"io/ioutil"
 	"log"
 
-    "github.com/Sirupsen/logrus"
+	"github.com/sirupsen/logrus"
 
 	"github.com/syzoj/syzoj-ng-go/app"
 )
@@ -19,7 +19,7 @@ type syzoj_config struct {
 }
 
 func init() {
-    logrus.SetLevel(logrus.DebugLevel)
+	logrus.SetLevel(logrus.DebugLevel)
 }
 
 func main() {
@@ -98,10 +98,10 @@ func main() {
 		log.Fatal("Error adding api server:", err)
 	}
 
-    err = app_instance.AddTraditionalJudgeService()
-    if err != nil {
-        log.Fatal("Error adding traditional judge service:", err)
-    }
+	err = app_instance.AddTraditionalJudgeService()
+	if err != nil {
+		log.Fatal("Error adding traditional judge service:", err)
+	}
 
 	app_instance.Run()
 }

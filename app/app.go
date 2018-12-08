@@ -4,7 +4,6 @@ import (
 	"context"
 	"database/sql"
 	"errors"
-	"log"
 	"net/http"
 	"os"
 	"os/signal"
@@ -13,6 +12,7 @@ import (
 
 	"github.com/gorilla/mux"
 	_ "github.com/lib/pq"
+	"github.com/sirupsen/logrus"
 	"github.com/syndtr/goleveldb/leveldb"
 
 	"github.com/syzoj/syzoj-ng-go/app/api"
@@ -22,6 +22,8 @@ import (
 	"github.com/syzoj/syzoj-ng-go/app/problemset"
 	"github.com/syzoj/syzoj-ng-go/app/session"
 )
+
+var log = logrus.StandardLogger()
 
 type App struct {
 	db      *sql.DB

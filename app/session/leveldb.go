@@ -3,7 +3,7 @@ package session
 import (
 	"encoding/json"
 	"fmt"
-	"log"
+	"github.com/sirupsen/logrus"
 	"sync"
 	"time"
 
@@ -11,6 +11,7 @@ import (
 	"github.com/syndtr/goleveldb/leveldb"
 	"github.com/syndtr/goleveldb/leveldb/util"
 )
+var log = logrus.StandardLogger()
 
 type leveldbSessionService struct {
 	mutex     sync.Mutex
@@ -113,14 +114,20 @@ func (s *leveldbSessionService) collectGarbage() {
 		key, val := iter.Key(), iter.Value()
 		var sess Session
 		if err := json.Unmarshal(val, &sess); err != nil {
-			log.Printf("Failed to unmarshal session %s: %s\n", string(key), err)
+			log.WithFields(logrus.Fields{
+                "session-key": string(key),
+                "error": err,
+            }).Warning("Failed to unmarshal session")
 			continue
 		}
 		if time.Now().After(sess.Expiry) {
-			log.Printf("Expiring session %s\n", string(key))
+			log.WithField("session-key", string(key)).Debug("Expiring session")
 			if err := s.db.Delete(key, nil); err != nil {
 				// Expect race condition here
-				log.Printf("Warning: failed to delete session %s: %s\n", string(key), err)
+                log.WithFields(logrus.Fields{
+                    "session-key": string(key),
+                    "error": err,
+                }).Warning("Failed to expire session")
 			}
 		}
 	}

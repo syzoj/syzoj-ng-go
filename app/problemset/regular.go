@@ -3,15 +3,16 @@ package problemset
 import (
 	"encoding/json"
 	"fmt"
-	"log"
 	"regexp"
 	"sync"
 
 	"github.com/google/uuid"
+	"github.com/sirupsen/logrus"
 	"github.com/syndtr/goleveldb/leveldb"
 
 	judge_traditional "github.com/syzoj/syzoj-ng-go/app/judge/traditional"
 )
+var log = logrus.StandardLogger()
 
 type regularProblemsetProvider struct {
 	s    *problemsetService
@@ -198,7 +199,12 @@ func (p *regularProblemsetProvider) queueTraditionalSubmission(id uuid.UUID, sub
 	var err error
 	defer func() {
 		if err != nil {
-			log.Printf("Regular problemset %s: Failed to queue submission %s: %s\n", id, submissionId, err)
+			log.WithFields(logrus.Fields{
+                "problemsetType": "regular",
+                "problemsetId": id,
+                "submissionId": submissionId,
+                "error": err,
+            }).Warning("Failed to queue submission")
 		}
 	}()
 	keySubmission := []byte(fmt.Sprintf("problemset:%s.submission:%s", id, submissionId))
