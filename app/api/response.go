@@ -5,6 +5,7 @@ import (
 	"github.com/sirupsen/logrus"
 	"net/http"
 )
+
 var log = logrus.StandardLogger()
 
 type ApiErrorResponse struct {
@@ -18,7 +19,7 @@ func writeError(w http.ResponseWriter, err error) {
 		encoder := json.NewEncoder(w)
 		if err := encoder.Encode(ApiErrorResponse{v.Message}); err != nil {
 			log.WithField("error", err).Warning("Failed to write error")
-        }
+		}
 	default:
 		encoder := json.NewEncoder(w)
 		if err := encoder.Encode(ApiErrorResponse{v.Error()}); err != nil {
@@ -34,6 +35,6 @@ type ApiSuccessResponse struct {
 func writeResponse(w http.ResponseWriter, data interface{}) {
 	encoder := json.NewEncoder(w)
 	if err := encoder.Encode(ApiSuccessResponse{data}); err != nil {
-        log.WithField("error", err).Warning("Failed to write response")
+		log.WithField("error", err).Warning("Failed to write response")
 	}
 }

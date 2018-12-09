@@ -1,6 +1,7 @@
 package traditional
 
 import (
+	"fmt"
 	"net/http"
 	"sync"
 	"sync/atomic"
@@ -9,18 +10,21 @@ import (
 	"github.com/google/uuid"
 	"github.com/gorilla/websocket"
 	"github.com/sirupsen/logrus"
+	"github.com/syndtr/goleveldb/leveldb"
 )
 
 var log = logrus.StandardLogger()
 
 type traditionalJudgeService struct {
 	ps          problemsetCallbackService
+	db          *leveldb.DB
 	judgeQueue  chan int64
 	count       int64
 	submissions sync.Map
 	upgrader    websocket.Upgrader
 	closeChan   chan struct{}
 	closeLock   sync.RWMutex
+	clients     sync.Map
 }
 
 type traditionalSubmissionEntry struct {
@@ -49,11 +53,12 @@ type traditionalJudgeClient struct {
 	isClosed int32
 }
 
-func NewTraditionalJudgeService() (TraditionalJudgeService, error) {
+func NewTraditionalJudgeService(db *leveldb.DB) (TraditionalJudgeService, error) {
 	s := &traditionalJudgeService{
 		judgeQueue: make(chan int64, 1000),
 		closeChan:  make(chan struct{}),
 		upgrader:   websocket.Upgrader{},
+		db:         db,
 	}
 	return s, nil
 }
@@ -116,12 +121,41 @@ func (ps *traditionalJudgeService) ack(id int64) {
 }
 
 func (ps *traditionalJudgeService) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	var username string
+	var password string
+	var ok bool
+	if username, password, ok = r.BasicAuth(); !ok {
+		http.Error(w, "Authentication required", 403)
+		return
+	}
+	var clientId uuid.UUID
+	var err error
+	if clientId, err = uuid.Parse(username); err != nil {
+		http.Error(w, "Invalid username", 403)
+		return
+	}
+	keyClientToken := []byte(fmt.Sprintf("judge.client:%s", clientId))
+	var token []byte
+	if token, err = ps.db.Get(keyClientToken, nil); err != nil {
+		if err != leveldb.ErrNotFound {
+			http.Error(w, "Internal server error", 500)
+			panic(err)
+		} else {
+			http.Error(w, "Invalid client id", 403)
+			return
+		}
+	}
+	if password != string(token) {
+		http.Error(w, "Client token mismatch", 403)
+		return
+	}
+
 	conn, err := ps.upgrader.Upgrade(w, r, nil)
 	if err != nil {
 		log.Printf("Warning: WebSocket upgrade failed: %s\n", err)
 		return
 	}
-	client := &traditionalJudgeClient{ps: ps, conn: conn, messages: make(chan *TraditionalJudgeResponse), entries: make(map[int64]struct{})}
+	client := &traditionalJudgeClient{ps: ps, conn: conn, messages: make(chan *TraditionalJudgeResponse), entries: make(map[int64]struct{}), clientId: clientId}
 	client.start()
 }
 
@@ -135,6 +169,9 @@ func (c *traditionalJudgeClient) readMessage() {
 	for {
 		var message TraditionalJudgeResponse
 		if err := c.conn.ReadJSON(&message); err != nil {
+			if atomic.LoadInt32(&c.isClosed) == 1 {
+				break
+			}
 			_, ok := err.(*websocket.CloseError)
 			if !ok || websocket.IsUnexpectedCloseError(err, websocket.CloseNormalClosure) {
 				log.WithFields(c.getFields()).WithField("error", err).Warning("Unexpected websocket close")
@@ -143,6 +180,7 @@ func (c *traditionalJudgeClient) readMessage() {
 			}
 			break
 		}
+		// TODO: solve race condition here; c.message may have been closed
 		c.messages <- &message
 	}
 }
@@ -150,6 +188,13 @@ func (c *traditionalJudgeClient) readMessage() {
 func (c *traditionalJudgeClient) work() {
 	c.ps.closeLock.RLock()
 	defer c.ps.closeLock.RUnlock()
+	if nc, loaded := c.ps.clients.LoadOrStore(c.clientId, c); loaded {
+		log.WithFields(c.getFields()).Warning("Double connection detected, closing both connections")
+		nc.(*traditionalJudgeClient).shutdown()
+		c.shutdown()
+		return
+	}
+	defer c.ps.clients.Delete(c.clientId)
 	log.WithFields(c.getFields()).Info("Client connected")
 loop:
 	for {

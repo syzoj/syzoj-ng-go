@@ -11,6 +11,7 @@ import (
 	"github.com/syndtr/goleveldb/leveldb"
 	"github.com/syndtr/goleveldb/leveldb/util"
 )
+
 var log = logrus.StandardLogger()
 
 type leveldbSessionService struct {
@@ -115,19 +116,19 @@ func (s *leveldbSessionService) collectGarbage() {
 		var sess Session
 		if err := json.Unmarshal(val, &sess); err != nil {
 			log.WithFields(logrus.Fields{
-                "session-key": string(key),
-                "error": err,
-            }).Warning("Failed to unmarshal session")
+				"session-key": string(key),
+				"error":       err,
+			}).Warning("Failed to unmarshal session")
 			continue
 		}
 		if time.Now().After(sess.Expiry) {
 			log.WithField("session-key", string(key)).Debug("Expiring session")
 			if err := s.db.Delete(key, nil); err != nil {
 				// Expect race condition here
-                log.WithFields(logrus.Fields{
-                    "session-key": string(key),
-                    "error": err,
-                }).Warning("Failed to expire session")
+				log.WithFields(logrus.Fields{
+					"session-key": string(key),
+					"error":       err,
+				}).Warning("Failed to expire session")
 			}
 		}
 	}

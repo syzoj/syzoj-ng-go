@@ -98,10 +98,13 @@ func (app *App) SetupProblemsetService() (err error) {
 }
 
 func (app *App) SetupTraditionalJudgeService() (err error) {
+	if app.levelDB == nil {
+		return MissingDependencyError
+	}
 	if app.traditionalJudgeService != nil {
 		return DoubleSetupError
 	}
-	app.traditionalJudgeService, err = judge_traditional.NewTraditionalJudgeService()
+	app.traditionalJudgeService, err = judge_traditional.NewTraditionalJudgeService(app.levelDB)
 	return
 }
 

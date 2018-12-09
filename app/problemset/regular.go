@@ -12,6 +12,7 @@ import (
 
 	judge_traditional "github.com/syzoj/syzoj-ng-go/app/judge/traditional"
 )
+
 var log = logrus.StandardLogger()
 
 type regularProblemsetProvider struct {
@@ -200,11 +201,11 @@ func (p *regularProblemsetProvider) queueTraditionalSubmission(id uuid.UUID, sub
 	defer func() {
 		if err != nil {
 			log.WithFields(logrus.Fields{
-                "problemsetType": "regular",
-                "problemsetId": id,
-                "submissionId": submissionId,
-                "error": err,
-            }).Warning("Failed to queue submission")
+				"problemsetType": "regular",
+				"problemsetId":   id,
+				"submissionId":   submissionId,
+				"error":          err,
+			}).Warning("Failed to queue submission")
 		}
 	}()
 	keySubmission := []byte(fmt.Sprintf("problemset:%s.submission:%s", id, submissionId))
