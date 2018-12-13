@@ -2,14 +2,16 @@ package session
 
 import (
 	"errors"
-	"github.com/google/uuid"
 	"time"
+
+	"github.com/google/uuid"
 )
 
-type SessionService interface {
+type Service interface {
 	NewSession() (uuid.UUID, *Session, error)
 	GetSession(uuid.UUID) (*Session, error)
 	UpdateSession(uuid.UUID, *Session) error
+	GarbageCollect() error
 	Close() error
 }
 
@@ -19,5 +21,5 @@ type Session struct {
 	Expiry     time.Time
 }
 
-var ConcurrentUpdateError = errors.New("Concurrent update to session")
+var ErrConcurrentUpdate = errors.New("Concurrent update to session")
 var ErrSessionNotFound = errors.New("Session not found")

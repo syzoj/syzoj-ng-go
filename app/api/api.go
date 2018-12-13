@@ -8,24 +8,24 @@ import (
 	"github.com/gorilla/mux"
 
 	"github.com/syzoj/syzoj-ng-go/app/auth"
-	"github.com/syzoj/syzoj-ng-go/app/problemset"
+	"github.com/syzoj/syzoj-ng-go/app/problemset_regular"
 	"github.com/syzoj/syzoj-ng-go/app/session"
 )
 
 type ApiServer struct {
-	router            *mux.Router
-	sessService       session.SessionService
-	authService       auth.AuthService
-	problemsetService problemset.ProblemsetService
+	router           *mux.Router
+	sessService      session.Service
+	authService      auth.Service
+	psregularService problemset_regular.Service
 }
 
 var defaultUserId = uuid.MustParse("00000000-0000-0000-0000-000000000000")
 
-func CreateApiServer(sessService session.SessionService, authService auth.AuthService, problemsetService problemset.ProblemsetService) (*ApiServer, error) {
+func CreateApiServer(sessService session.Service, authService auth.Service, psregularService problemset_regular.Service) (*ApiServer, error) {
 	srv := &ApiServer{
-		sessService:       sessService,
-		authService:       authService,
-		problemsetService: problemsetService,
+		sessService:      sessService,
+		authService:      authService,
+		psregularService: psregularService,
 	}
 	srv.setupRoutes()
 	return srv, nil

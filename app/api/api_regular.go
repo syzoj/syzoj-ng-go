@@ -4,9 +4,10 @@ import (
 	"encoding/json"
 	"net/http"
 
+	"github.com/syzoj/syzoj-ng-go/app/problemset_regular"
+
 	"github.com/google/uuid"
 
-	"github.com/syzoj/syzoj-ng-go/app/problemset"
 	"github.com/syzoj/syzoj-ng-go/app/session"
 )
 
@@ -32,11 +33,8 @@ func (srv *ApiServer) HandleRegularProblemsetCreate(w http.ResponseWriter, r *ht
 		return
 	}
 
-	preq := &problemset.RegularCreateRequest{
-		OwnerId: sess.AuthUserId,
-	}
 	var id uuid.UUID
-	if id, err = srv.problemsetService.NewProblemset("regular", preq); err != nil {
+	if id, err = srv.psregularService.NewProblemset(sess.AuthUserId); err != nil {
 		return
 	}
 	writeResponse(w, RegularProblemsetCreateResponse{
@@ -74,24 +72,21 @@ func (srv *ApiServer) HandleAddTraditionalProblem(w http.ResponseWriter, r *http
 		return
 	}
 
-	preq := problemset.RegularAddTraditionalProblemRequest{
-		UserId: sess.AuthUserId,
-		Name:   req.Name,
-	}
-	var presp *problemset.RegularAddTraditionalProblemResponse
-	var obj interface{}
-	if obj, err = srv.problemsetService.InvokeProblemset(req.ProblemsetId, &preq); err != nil {
+	var problemId uuid.UUID
+	if problemId, err = uuid.NewRandom(); err != nil {
 		return
 	}
-	presp = obj.(*problemset.RegularAddTraditionalProblemResponse)
+	if err = srv.psregularService.AddTraditionalProblem(req.ProblemsetId, sess.AuthUserId, req.Name, problemId); err != nil {
+		return
+	}
 	writeResponse(w, AddTraditionalProblemResponse{
-		ProblemId: presp.ProblemId,
+		ProblemId: problemId,
 	})
 }
 
 type SubmitTraditionalProblemRequest struct {
 	ProblemsetId uuid.UUID `json:"problemset_id"`
-	ProblemId    uuid.UUID `json:"problem_id"`
+	ProblemName  string    `json:"problem_name"`
 	Language     string    `json:"language"`
 	Code         string    `json:"code"`
 }
@@ -120,19 +115,14 @@ func (srv *ApiServer) HandleSubmitTraditionalProblem(w http.ResponseWriter, r *h
 	if err = json.NewDecoder(r.Body).Decode(&req); err != nil {
 		return
 	}
-	preq := problemset.RegularSubmitTraditionalProblemRequest{
-		ProblemId: req.ProblemId,
-		UserId:    sess.AuthUserId,
-		Language:  req.Language,
-		Code:      req.Code,
-	}
-	var presp *problemset.RegularSubmitTraditionalProblemResponse
-	var obj interface{}
-	if obj, err = srv.problemsetService.InvokeProblemset(req.ProblemsetId, &preq); err != nil {
+	var submissionId uuid.UUID
+	if submissionId, err = srv.psregularService.SubmitTraditional(req.ProblemsetId, sess.AuthUserId, req.ProblemName, problemset_regular.TraditionalSubmissionRequest{
+		Language: req.Language,
+		Code:     req.Code,
+	}); err != nil {
 		return
 	}
-	presp = obj.(*problemset.RegularSubmitTraditionalProblemResponse)
 	writeResponse(w, SubmitTraditionalProblemResponse{
-		SubmissionId: presp.SubmissionId,
+		SubmissionId: submissionId,
 	})
 }

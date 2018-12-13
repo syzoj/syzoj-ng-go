@@ -4,11 +4,12 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"github.com/google/uuid"
 	"io"
 	"net/http"
 	"net/http/cookiejar"
 	"net/url"
+
+	"github.com/google/uuid"
 )
 
 type RegisterRequest struct {
@@ -26,7 +27,7 @@ type AddTraditionalProblemRequest struct {
 }
 type SubmitTraditionalProblemRequest struct {
 	ProblemsetId uuid.UUID `json:"problemset_id"`
-	ProblemId    uuid.UUID `json:"problem_id"`
+	ProblemName  string    `json:"problem_name"`
 	Language     string    `json:"language"`
 	Code         string    `json:"code"`
 }
@@ -76,11 +77,11 @@ func main() {
 		Name:         "1",
 	})
 	problemId := uuid.MustParse(resp2.(map[string]interface{})["data"].(map[string]interface{})["problem_id"].(string))
+	fmt.Println(problemId)
 	Test(client, "POST", "/api/problemset/submit-traditional-problem", SubmitTraditionalProblemRequest{
 		ProblemsetId: problemsetId,
-		ProblemId:    problemId,
+		ProblemName:  "1",
 		Language:     "cpp",
 		Code:         "hellello",
 	})
-
 }
