@@ -119,6 +119,13 @@ func (c *judgeClient) work() {
 	defer c.ps.clients.Delete(c.clientId)
 
 	log.WithFields(c.getFields()).Info("Client connected")
+	defer func() {
+		for id := range c.entries {
+			c.ps.judgeQueue <- id
+		}
+		log.WithFields(c.getFields()).Info("Client closed")
+	}()
+
 	for c.isClosed == 0 {
 		if len(c.entries) < 2 {
 			select {
@@ -196,12 +203,7 @@ func (c *judgeClient) addTask(id int64) {
 
 func (c *judgeClient) shutdown() {
 	if atomic.CompareAndSwapInt32(&c.isClosed, 0, 1) {
-		close(c.messages)
 		c.conn.WriteControl(websocket.CloseMessage, nil, time.Now())
 		c.conn.Close()
-		for id := range c.entries {
-			c.ps.judgeQueue <- id
-		}
-		log.WithFields(c.getFields()).Info("Client closed")
 	}
 }

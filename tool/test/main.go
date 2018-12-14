@@ -68,17 +68,17 @@ func main() {
 	Test(client, "POST", "/api/auth/login", LoginRequest{"aaa", "B"})
 	u, _ := url.Parse("http://127.0.0.1:5900/")
 	fmt.Println(cookieJar.Cookies(u))
-	resp1 := Test(client, "POST", "/api/problemset/regular/create", ProblemsetCreateRequest{})
+	resp1 := Test(client, "POST", "/api/problemset/create", ProblemsetCreateRequest{})
 	problemsetId := uuid.MustParse(resp1.(map[string]interface{})["data"].(map[string]interface{})["problemset_id"].(string))
 	fmt.Println(resp1)
 	fmt.Println(problemsetId)
-	resp2 := Test(client, "POST", "/api/problemset/add-traditional-problem", AddTraditionalProblemRequest{
+	resp2 := Test(client, "POST", "/api/problemset/add-traditional", AddTraditionalProblemRequest{
 		ProblemsetId: problemsetId,
 		Name:         "1",
 	})
 	problemId := uuid.MustParse(resp2.(map[string]interface{})["data"].(map[string]interface{})["problem_id"].(string))
 	fmt.Println(problemId)
-	Test(client, "POST", "/api/problemset/submit-traditional-problem", SubmitTraditionalProblemRequest{
+	Test(client, "POST", "/api/problemset/submit-traditional", SubmitTraditionalProblemRequest{
 		ProblemsetId: problemsetId,
 		ProblemName:  "1",
 		Language:     "cpp",

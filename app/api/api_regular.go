@@ -16,7 +16,7 @@ type RegularProblemsetCreateResponse struct {
 	ProblemsetId uuid.UUID `json:"problemset_id"`
 }
 
-func (srv *ApiServer) HandleRegularProblemsetCreate(w http.ResponseWriter, r *http.Request) {
+func (srv *ApiServer) HandleCreateProblemset(w http.ResponseWriter, r *http.Request) {
 	var err error
 	defer func() {
 		if err != nil {
@@ -50,7 +50,7 @@ type AddTraditionalProblemResponse struct {
 	ProblemId uuid.UUID `json:"problem_id"`
 }
 
-func (srv *ApiServer) HandleAddTraditionalProblem(w http.ResponseWriter, r *http.Request) {
+func (srv *ApiServer) HandleProblemsetAddTraditional(w http.ResponseWriter, r *http.Request) {
 	var err error
 	defer func() {
 		if err != nil {
@@ -84,17 +84,17 @@ func (srv *ApiServer) HandleAddTraditionalProblem(w http.ResponseWriter, r *http
 	})
 }
 
-type SubmitTraditionalProblemRequest struct {
+type ProblemsetSubmitTraditionalRequest struct {
 	ProblemsetId uuid.UUID `json:"problemset_id"`
 	ProblemName  string    `json:"problem_name"`
 	Language     string    `json:"language"`
 	Code         string    `json:"code"`
 }
-type SubmitTraditionalProblemResponse struct {
+type ProblemsetSubmitTraditionalResponse struct {
 	SubmissionId uuid.UUID `json:"submission_id"`
 }
 
-func (srv *ApiServer) HandleSubmitTraditionalProblem(w http.ResponseWriter, r *http.Request) {
+func (srv *ApiServer) HandleProblemsetSubmitTraditional(w http.ResponseWriter, r *http.Request) {
 	var err error
 	defer func() {
 		if err != nil {
@@ -111,7 +111,7 @@ func (srv *ApiServer) HandleSubmitTraditionalProblem(w http.ResponseWriter, r *h
 		return
 	}
 
-	var req SubmitTraditionalProblemRequest
+	var req ProblemsetSubmitTraditionalRequest
 	if err = json.NewDecoder(r.Body).Decode(&req); err != nil {
 		return
 	}
@@ -122,7 +122,7 @@ func (srv *ApiServer) HandleSubmitTraditionalProblem(w http.ResponseWriter, r *h
 	}); err != nil {
 		return
 	}
-	writeResponse(w, SubmitTraditionalProblemResponse{
+	writeResponse(w, ProblemsetSubmitTraditionalResponse{
 		SubmissionId: submissionId,
 	})
 }

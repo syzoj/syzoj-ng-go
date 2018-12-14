@@ -57,7 +57,7 @@ func main() {
 
 	log.Info("Opening LevelDB")
 	var ldb *leveldb.DB
-	if ldb, err = leveldb.OpenFile(config.Database, nil); err != nil {
+	if ldb, err = leveldb.OpenFile(config.LevelDB, nil); err != nil {
 		log.Fatal("Error opening LevelDB: ", err)
 	}
 	defer func() {
