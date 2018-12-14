@@ -107,7 +107,7 @@ func main() {
 
 	log.Info("Setting up api server")
 	var apiServer *api.ApiServer
-	if apiServer, err = api.CreateApiServer(sessService, authService, problemsetService); err != nil {
+	if apiServer, err = api.CreateApiServer(sessService, authService, problemsetService, tjudgeService); err != nil {
 		log.Fatal("Error intializing api server: ", err)
 	}
 
@@ -131,7 +131,4 @@ func main() {
 	signal.Notify(sigChan, os.Interrupt, syscall.SIGTERM)
 	<-sigChan
 	server.Shutdown(context.Background())
-	defer func() {
-		log.Info("Server shut down")
-	}()
 }

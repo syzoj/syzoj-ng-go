@@ -8,6 +8,7 @@ import (
 	"github.com/gorilla/mux"
 
 	"github.com/syzoj/syzoj-ng-go/app/auth"
+	"github.com/syzoj/syzoj-ng-go/app/judge_traditional"
 	"github.com/syzoj/syzoj-ng-go/app/problemset_regular"
 	"github.com/syzoj/syzoj-ng-go/app/session"
 )
@@ -17,15 +18,17 @@ type ApiServer struct {
 	sessService      session.Service
 	authService      auth.Service
 	psregularService problemset_regular.Service
+	judgeService     judge_traditional.Service
 }
 
 var defaultUserId = uuid.MustParse("00000000-0000-0000-0000-000000000000")
 
-func CreateApiServer(sessService session.Service, authService auth.Service, psregularService problemset_regular.Service) (*ApiServer, error) {
+func CreateApiServer(sessService session.Service, authService auth.Service, psregularService problemset_regular.Service, judgeService judge_traditional.Service) (*ApiServer, error) {
 	srv := &ApiServer{
 		sessService:      sessService,
 		authService:      authService,
 		psregularService: psregularService,
+		judgeService:     judgeService,
 	}
 	srv.setupRoutes()
 	return srv, nil
@@ -36,8 +39,9 @@ func (srv *ApiServer) setupRoutes() {
 	router.HandleFunc("/api/auth/register", srv.HandleAuthRegister).Methods("POST")
 	router.HandleFunc("/api/auth/login", srv.HandleAuthLogin).Methods("POST")
 	router.HandleFunc("/api/problemset/create", srv.HandleCreateProblemset).Methods("POST")
-	router.HandleFunc("/api/problemset/add-traditional", srv.HandleProblemsetAddTraditional).Methods("POST")
-	router.HandleFunc("/api/problemset/submit-traditional", srv.HandleProblemsetSubmitTraditional).Methods("POST")
+	router.HandleFunc("/api/problemset/add", srv.HandleProblemsetAdd).Methods("POST")
+	router.HandleFunc("/api/problemset/submit", srv.HandleProblemsetSubmit).Methods("POST")
+	router.HandleFunc("/api/problem/create", srv.HandleProblemCreate).Methods("POST")
 	srv.router = router
 }
 

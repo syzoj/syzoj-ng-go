@@ -42,15 +42,14 @@ func (srv *ApiServer) HandleCreateProblemset(w http.ResponseWriter, r *http.Requ
 	})
 }
 
-type AddTraditionalProblemRequest struct {
+type ProblemsetAddProblemRequest struct {
 	ProblemsetId uuid.UUID `json:"problemset_id"`
 	Name         string    `json:"name"`
+	ProblemId    uuid.UUID `json:"problem_id"`
 }
-type AddTraditionalProblemResponse struct {
-	ProblemId uuid.UUID `json:"problem_id"`
-}
+type ProblemsetAddProblemResponse struct{}
 
-func (srv *ApiServer) HandleProblemsetAddTraditional(w http.ResponseWriter, r *http.Request) {
+func (srv *ApiServer) HandleProblemsetAdd(w http.ResponseWriter, r *http.Request) {
 	var err error
 	defer func() {
 		if err != nil {
@@ -67,34 +66,28 @@ func (srv *ApiServer) HandleProblemsetAddTraditional(w http.ResponseWriter, r *h
 		return
 	}
 
-	var req AddTraditionalProblemRequest
+	var req ProblemsetAddProblemRequest
 	if err = json.NewDecoder(r.Body).Decode(&req); err != nil {
 		return
 	}
 
-	var problemId uuid.UUID
-	if problemId, err = uuid.NewRandom(); err != nil {
+	if err = srv.psregularService.AddProblem(req.ProblemsetId, sess.AuthUserId, req.Name, req.ProblemId); err != nil {
 		return
 	}
-	if err = srv.psregularService.AddTraditionalProblem(req.ProblemsetId, sess.AuthUserId, req.Name, problemId); err != nil {
-		return
-	}
-	writeResponse(w, AddTraditionalProblemResponse{
-		ProblemId: problemId,
-	})
+	writeResponse(w, ProblemsetAddProblemResponse{})
 }
 
-type ProblemsetSubmitTraditionalRequest struct {
+type ProblemsetSubmitRequest struct {
 	ProblemsetId uuid.UUID `json:"problemset_id"`
 	ProblemName  string    `json:"problem_name"`
-	Language     string    `json:"language"`
-	Code         string    `json:"code"`
+	Type         string    `json:"type"`
+	Traditional  *problemset_regular.TraditionalSubmissionRequest
 }
-type ProblemsetSubmitTraditionalResponse struct {
+type ProblemsetSubmitResponse struct {
 	SubmissionId uuid.UUID `json:"submission_id"`
 }
 
-func (srv *ApiServer) HandleProblemsetSubmitTraditional(w http.ResponseWriter, r *http.Request) {
+func (srv *ApiServer) HandleProblemsetSubmit(w http.ResponseWriter, r *http.Request) {
 	var err error
 	defer func() {
 		if err != nil {
@@ -111,18 +104,22 @@ func (srv *ApiServer) HandleProblemsetSubmitTraditional(w http.ResponseWriter, r
 		return
 	}
 
-	var req ProblemsetSubmitTraditionalRequest
+	var req ProblemsetSubmitRequest
 	if err = json.NewDecoder(r.Body).Decode(&req); err != nil {
 		return
 	}
-	var submissionId uuid.UUID
-	if submissionId, err = srv.psregularService.SubmitTraditional(req.ProblemsetId, sess.AuthUserId, req.ProblemName, problemset_regular.TraditionalSubmissionRequest{
-		Language: req.Language,
-		Code:     req.Code,
-	}); err != nil {
+	switch req.Type {
+	case "traditional":
+		var submissionId uuid.UUID
+		if submissionId, err = srv.psregularService.SubmitTraditional(req.ProblemsetId, sess.AuthUserId, req.ProblemName, *req.Traditional); err != nil {
+			return
+		}
+		writeResponse(w, ProblemsetSubmitResponse{
+			SubmissionId: submissionId,
+		})
+		break
+	default:
+		err = BadRequestError
 		return
 	}
-	writeResponse(w, ProblemsetSubmitTraditionalResponse{
-		SubmissionId: submissionId,
-	})
 }

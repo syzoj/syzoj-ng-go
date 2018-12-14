@@ -25,7 +25,8 @@ type problemset struct {
 type problemsetInfo struct{}
 type roleInfo string
 type problemInfo struct {
-	Type      string    `json:"type"`
+	Name      string    `json:"name"`
+	Title     string    `json:"title"`
 	ProblemId uuid.UUID `json:"problem_id"`
 }
 type submissionInfo struct {
@@ -85,39 +86,8 @@ func (*problemset) putProblemsetInfo(db dbPutter, id uuid.UUID, info *problemset
 	return
 }
 
-func (*problemset) getProblemIdByName(db dbGetter, id uuid.UUID, name string) (problemId uuid.UUID, err error) {
-	keyProblemName := []byte(fmt.Sprintf("problemset.regular:%s.problem.name:%s", id, name))
-	var data []byte
-	if data, err = db.Get(keyProblemName, nil); err != nil {
-		if err == leveldb.ErrNotFound {
-			err = problemset_regular.ErrProblemNotFound
-		}
-		return
-	}
-	if problemId, err = uuid.FromBytes(data); err != nil {
-		return
-	}
-	return
-}
-
-func (*problemset) putProblemIdToName(db dbPutter, id uuid.UUID, name string, problemId uuid.UUID) (err error) {
-	keyProblemName := []byte(fmt.Sprintf("problemset.regular:%s.problem.name:%s", id, name))
-	if err = db.Put(keyProblemName, problemId[:], nil); err != nil {
-		return
-	}
-	return
-}
-
-func (*problemset) deleteProblemName(db dbDeleter, id uuid.UUID, name string) (err error) {
-	keyProblemName := []byte(fmt.Sprintf("problemset.regular:%s.problem.name:%s", id, name))
-	if err = db.Delete(keyProblemName, nil); err != nil {
-		return
-	}
-	return
-}
-
-func (*problemset) getProblemInfo(db dbGetter, id uuid.UUID, problemId uuid.UUID) (info *problemInfo, err error) {
-	keyProblem := []byte(fmt.Sprintf("problemset.regular:%s.problem:%s", id, problemId))
+func (*problemset) getProblemInfo(db dbGetter, id uuid.UUID, name string) (info *problemInfo, err error) {
+	keyProblem := []byte(fmt.Sprintf("problemset.regular:%s.problem:%s", id, name))
 	var data []byte
 	if data, err = db.Get(keyProblem, nil); err != nil {
 		return
@@ -129,8 +99,8 @@ func (*problemset) getProblemInfo(db dbGetter, id uuid.UUID, problemId uuid.UUID
 	return
 }
 
-func (*problemset) putProblemInfo(db dbPutter, id uuid.UUID, problemId uuid.UUID, info *problemInfo) (err error) {
-	keyProblem := []byte(fmt.Sprintf("problemset.regular:%s.problem:%s", id, problemId))
+func (*problemset) putProblemInfo(db dbPutter, id uuid.UUID, name string, info *problemInfo) (err error) {
+	keyProblem := []byte(fmt.Sprintf("problemset.regular:%s.problem:%s", id, name))
 	var data []byte
 	if data, err = json.Marshal(info); err != nil {
 		return
@@ -220,33 +190,16 @@ func (p *problemset) NewProblemset(OwnerId uuid.UUID) (id uuid.UUID, err error) 
 	return
 }
 
-func (p *problemset) AddTraditionalProblem(id uuid.UUID, userId uuid.UUID, name string, problemId uuid.UUID) (err error) {
+func (p *problemset) AddProblem(id uuid.UUID, userId uuid.UUID, name string, problemId uuid.UUID) (err error) {
 	if !checkProblemName(name) {
 		err = problemset_regular.ErrInvalidProblemName
 		return
 	}
-	var trans *leveldb.Transaction
-	if trans, err = p.db.OpenTransaction(); err != nil {
-		return
-	}
-	defer trans.Discard()
-	if _, err = p.getProblemIdByName(trans, id, name); err != problemset_regular.ErrProblemNotFound {
-		if err == nil {
-			err = problemset_regular.ErrDuplicateProblemName
-		}
-		return
-	}
-	if err = p.putProblemIdToName(trans, id, name, problemId); err != nil {
-		return
-	}
 	pinfo := &problemInfo{
-		Type:      "traditional",
+		Name:      name,
 		ProblemId: problemId,
 	}
-	if err = p.putProblemInfo(trans, id, problemId, pinfo); err != nil {
-		return
-	}
-	if err = trans.Commit(); err != nil {
+	if err = p.putProblemInfo(p.db, id, name, pinfo); err != nil {
 		return
 	}
 	return
@@ -257,15 +210,13 @@ func (p *problemset) ViewProblem(id uuid.UUID, userId uuid.UUID, name string) (i
 		err = problemset_regular.ErrInvalidProblemName
 		return
 	}
-	var problemId uuid.UUID
-	if problemId, err = p.getProblemIdByName(p.db, id, name); err != nil {
-		return
-	}
 	var pinfo *problemInfo
-	if pinfo, err = p.getProblemInfo(p.db, id, problemId); err != nil {
+	if pinfo, err = p.getProblemInfo(p.db, id, name); err != nil {
 		return
 	}
-	info.Type = pinfo.Type
+	info.Name = pinfo.Name
+	info.Title = pinfo.Title
+	info.ProblemId = pinfo.ProblemId
 	return
 }
 
@@ -274,21 +225,8 @@ func (p *problemset) SubmitTraditional(id uuid.UUID, userId uuid.UUID, name stri
 		err = problemset_regular.ErrInvalidProblemName
 		return
 	}
-	var trans *leveldb.Transaction
-	if trans, err = p.db.OpenTransaction(); err != nil {
-		return
-	}
-	defer trans.Discard()
-	var problemId uuid.UUID
-	if problemId, err = p.getProblemIdByName(trans, id, name); err != nil {
-		return
-	}
 	var pinfo *problemInfo
-	if pinfo, err = p.getProblemInfo(trans, id, problemId); err != nil {
-		return
-	}
-	if pinfo.Type != "traditional" {
-		err = problemset_regular.ErrProblemNotFound
+	if pinfo, err = p.getProblemInfo(p.db, id, name); err != nil {
 		return
 	}
 	if submissionId, err = uuid.NewRandom(); err != nil {
@@ -297,7 +235,7 @@ func (p *problemset) SubmitTraditional(id uuid.UUID, userId uuid.UUID, name stri
 	var sinfo submissionInfo = submissionInfo{
 		Type:      "traditional",
 		UserId:    userId,
-		ProblemId: problemId,
+		ProblemId: pinfo.ProblemId,
 		Traditional: &traditionalSubmissionInfo{
 			ProblemId: pinfo.ProblemId,
 			Language:  data.Language,
@@ -306,7 +244,7 @@ func (p *problemset) SubmitTraditional(id uuid.UUID, userId uuid.UUID, name stri
 			Complete:  false,
 		},
 	}
-	if err = p.putSubmissionInfo(trans, id, submissionId, &sinfo); err != nil {
+	if err = p.putSubmissionInfo(p.db, id, submissionId, &sinfo); err != nil {
 		return
 	}
 	p.queueSubmissionWithInfo(id, submissionId, &sinfo)

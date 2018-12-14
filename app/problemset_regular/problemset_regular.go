@@ -10,7 +10,7 @@ type Service interface {
 	// Creates a new problemset.
 	NewProblemset(OwnerId uuid.UUID) (uuid.UUID, error)
 	// Adds a traditional problem to the problemset.
-	AddTraditionalProblem(id uuid.UUID, userId uuid.UUID, name string, problemId uuid.UUID) error
+	AddProblem(id uuid.UUID, userId uuid.UUID, name string, problemId uuid.UUID) error
 	// Views the specified problem.
 	ViewProblem(id uuid.UUID, userId uuid.UUID, name string) (ProblemInfo, error)
 	// Submits to a traditional problem.
@@ -21,8 +21,12 @@ type Service interface {
 }
 
 type ProblemInfo struct {
-	// The type of problem.
-	Type string `json:"type"`
+	// The name of problem.
+	Name string `json:"name"`
+	// The title of problem.
+	Title string `json:"title"`
+	// The problem ID.
+	ProblemId uuid.UUID `json:"problem_id"`
 }
 
 type SubmissionInfo struct {

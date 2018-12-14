@@ -8,6 +8,7 @@ import (
 	"github.com/gorilla/websocket"
 	"github.com/sirupsen/logrus"
 	"github.com/syndtr/goleveldb/leveldb"
+	"github.com/syndtr/goleveldb/leveldb/opt"
 
 	"github.com/syzoj/syzoj-ng-go/app/judge_traditional"
 )
@@ -24,6 +25,9 @@ type judgeService struct {
 	closeChan   chan struct{}
 	isClosed    int32
 	clients     sync.Map
+
+	// Prvents concurrent update to problems
+	problemLock sync.Mutex
 }
 
 type submissionEntry struct {
@@ -32,6 +36,16 @@ type submissionEntry struct {
 	Code      string
 	ProblemId uuid.UUID
 	Callback  judge_traditional.Callback
+}
+
+type dbGetter interface {
+	Get([]byte, *opt.ReadOptions) ([]byte, error)
+}
+type dbPutter interface {
+	Put([]byte, []byte, *opt.WriteOptions) error
+}
+type dbDeleter interface {
+	Delete([]byte, *opt.WriteOptions) error
 }
 
 func NewJudgeService(db *leveldb.DB) (judge_traditional.Service, error) {
