@@ -6,12 +6,12 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/syzoj/syzoj-ng-go/app/judge_traditional"
+	"github.com/syzoj/syzoj-ng-go/app/judge"
 	"github.com/syzoj/syzoj-ng-go/app/session"
 )
 
 type CreateProblemRequest struct {
-	Statement judge_traditional.ProblemStatement `json:"statement"`
+	Statement judge.ProblemStatement `json:"statement"`
 }
 type CreateProblemResponse struct {
 	ProblemId uuid.UUID `json:"problem_id"`
@@ -39,7 +39,7 @@ func (s *ApiServer) HandleProblemCreate(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	info := judge_traditional.Problem{
+	info := judge.Problem{
 		Owner:     sess.AuthUserId,
 		Statement: req.Statement,
 	}

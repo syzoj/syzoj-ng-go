@@ -1,4 +1,4 @@
-package judge_traditional
+package judge
 
 import (
 	"errors"

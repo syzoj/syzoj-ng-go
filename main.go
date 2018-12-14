@@ -18,10 +18,10 @@ import (
 	"github.com/syzoj/syzoj-ng-go/app/api"
 	"github.com/syzoj/syzoj-ng-go/app/auth"
 	auth_impl "github.com/syzoj/syzoj-ng-go/app/auth/impl_leveldb"
-	"github.com/syzoj/syzoj-ng-go/app/judge_traditional"
-	judge_traditional_impl "github.com/syzoj/syzoj-ng-go/app/judge_traditional/impl_leveldb"
-	"github.com/syzoj/syzoj-ng-go/app/problemset_regular"
-	problemset_regular_impl "github.com/syzoj/syzoj-ng-go/app/problemset_regular/impl_leveldb"
+	"github.com/syzoj/syzoj-ng-go/app/judge"
+	judge_impl "github.com/syzoj/syzoj-ng-go/app/judge/impl_leveldb"
+	"github.com/syzoj/syzoj-ng-go/app/problemset"
+	problemset_impl "github.com/syzoj/syzoj-ng-go/app/problemset/impl_leveldb"
 	"github.com/syzoj/syzoj-ng-go/app/session"
 	session_impl "github.com/syzoj/syzoj-ng-go/app/session/impl_leveldb"
 )
@@ -86,8 +86,8 @@ func main() {
 	}()
 
 	log.Info("Setting up judge service")
-	var tjudgeService judge_traditional.Service
-	if tjudgeService, err = judge_traditional_impl.NewJudgeService(ldb); err != nil {
+	var tjudgeService judge.Service
+	if tjudgeService, err = judge_impl.NewJudgeService(ldb); err != nil {
 		log.Fatal("Error initializing traditional judge service: ", err)
 	}
 	defer func() {
@@ -96,8 +96,8 @@ func main() {
 	}()
 
 	log.Info("Setting up problemset service")
-	var problemsetService problemset_regular.Service
-	if problemsetService = problemset_regular_impl.NewLevelDBProblemset(ldb, tjudgeService); err != nil {
+	var problemsetService problemset.Service
+	if problemsetService = problemset_impl.NewLevelDBProblemset(ldb, tjudgeService); err != nil {
 		log.Fatal("Error initializing regular problemset service: ", err)
 	}
 	defer func() {

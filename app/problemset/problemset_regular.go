@@ -1,4 +1,4 @@
-package problemset_regular
+package problemset
 
 import (
 	"errors"

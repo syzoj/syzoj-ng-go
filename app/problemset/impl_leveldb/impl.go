@@ -11,15 +11,15 @@ import (
 	"github.com/syndtr/goleveldb/leveldb"
 	"github.com/syndtr/goleveldb/leveldb/opt"
 
-	"github.com/syzoj/syzoj-ng-go/app/judge_traditional"
-	"github.com/syzoj/syzoj-ng-go/app/problemset_regular"
+	"github.com/syzoj/syzoj-ng-go/app/judge"
+	"github.com/syzoj/syzoj-ng-go/app/problemset"
 )
 
 var log = logrus.StandardLogger()
 
-type problemset struct {
+type service struct {
 	db     *leveldb.DB
-	tjudge judge_traditional.Service
+	tjudge judge.Service
 	lock   sync.Mutex
 }
 type problemsetInfo struct{}
@@ -54,16 +54,16 @@ type dbDeleter interface {
 	Delete([]byte, *opt.WriteOptions) error
 }
 
-func NewLevelDBProblemset(db *leveldb.DB, tjudge judge_traditional.Service) problemset_regular.Service {
-	return &problemset{db: db, tjudge: tjudge}
+func NewLevelDBProblemset(db *leveldb.DB, tjudge judge.Service) problemset.Service {
+	return &service{db: db, tjudge: tjudge}
 }
 
-func (*problemset) getProblemsetInfo(db dbGetter, id uuid.UUID) (info *problemsetInfo, err error) {
+func (*service) getProblemsetInfo(db dbGetter, id uuid.UUID) (info *problemsetInfo, err error) {
 	keyProblemset := []byte(fmt.Sprintf("problemset.regular:%s", id))
 	var data []byte
 	if data, err = db.Get(keyProblemset, nil); err != nil {
 		if err == leveldb.ErrNotFound {
-			err = problemset_regular.ErrProblemsetNotFound
+			err = problemset.ErrProblemsetNotFound
 		}
 		return
 	}
@@ -74,7 +74,7 @@ func (*problemset) getProblemsetInfo(db dbGetter, id uuid.UUID) (info *problemse
 	return
 }
 
-func (*problemset) putProblemsetInfo(db dbPutter, id uuid.UUID, info *problemsetInfo) (err error) {
+func (*service) putProblemsetInfo(db dbPutter, id uuid.UUID, info *problemsetInfo) (err error) {
 	keyProblemset := []byte(fmt.Sprintf("problemset.regular:%s", id))
 	var data []byte
 	if data, err = json.Marshal(info); err != nil {
@@ -86,7 +86,7 @@ func (*problemset) putProblemsetInfo(db dbPutter, id uuid.UUID, info *problemset
 	return
 }
 
-func (*problemset) getProblemInfo(db dbGetter, id uuid.UUID, name string) (info *problemInfo, err error) {
+func (*service) getProblemInfo(db dbGetter, id uuid.UUID, name string) (info *problemInfo, err error) {
 	keyProblem := []byte(fmt.Sprintf("problemset.regular:%s.problem:%s", id, name))
 	var data []byte
 	if data, err = db.Get(keyProblem, nil); err != nil {
@@ -99,7 +99,7 @@ func (*problemset) getProblemInfo(db dbGetter, id uuid.UUID, name string) (info 
 	return
 }
 
-func (*problemset) putProblemInfo(db dbPutter, id uuid.UUID, name string, info *problemInfo) (err error) {
+func (*service) putProblemInfo(db dbPutter, id uuid.UUID, name string, info *problemInfo) (err error) {
 	keyProblem := []byte(fmt.Sprintf("problemset.regular:%s.problem:%s", id, name))
 	var data []byte
 	if data, err = json.Marshal(info); err != nil {
@@ -111,7 +111,7 @@ func (*problemset) putProblemInfo(db dbPutter, id uuid.UUID, name string, info *
 	return
 }
 
-func (*problemset) getRole(db dbGetter, id uuid.UUID, userId uuid.UUID) (role roleInfo, err error) {
+func (*service) getRole(db dbGetter, id uuid.UUID, userId uuid.UUID) (role roleInfo, err error) {
 	keyRole := []byte(fmt.Sprintf("problemset.regular:%s.role:%s", id, userId))
 	var data []byte
 	if data, err = db.Get(keyRole, nil); err != nil {
@@ -125,7 +125,7 @@ func (*problemset) getRole(db dbGetter, id uuid.UUID, userId uuid.UUID) (role ro
 	return
 }
 
-func (*problemset) putRole(db dbPutter, id uuid.UUID, userId uuid.UUID, role roleInfo) (err error) {
+func (*service) putRole(db dbPutter, id uuid.UUID, userId uuid.UUID, role roleInfo) (err error) {
 	keyRole := []byte(fmt.Sprintf("problemset.regular:%s.role:%s", id, userId))
 	var data []byte = []byte(role)
 	if err = db.Put(keyRole, data, nil); err != nil {
@@ -134,12 +134,12 @@ func (*problemset) putRole(db dbPutter, id uuid.UUID, userId uuid.UUID, role rol
 	return
 }
 
-func (*problemset) getSubmissionInfo(db dbGetter, id uuid.UUID, submissionId uuid.UUID) (info *submissionInfo, err error) {
+func (*service) getSubmissionInfo(db dbGetter, id uuid.UUID, submissionId uuid.UUID) (info *submissionInfo, err error) {
 	keySubmission := []byte(fmt.Sprintf("problemset.regular:%s.submission:%s", id, submissionId))
 	var data []byte
 	if data, err = db.Get(keySubmission, nil); err != nil {
 		if err == leveldb.ErrNotFound {
-			err = problemset_regular.ErrSubmissionNotFound
+			err = problemset.ErrSubmissionNotFound
 			return
 		}
 	}
@@ -150,7 +150,7 @@ func (*problemset) getSubmissionInfo(db dbGetter, id uuid.UUID, submissionId uui
 	return
 }
 
-func (*problemset) putSubmissionInfo(db dbPutter, id uuid.UUID, submissionId uuid.UUID, info *submissionInfo) (err error) {
+func (*service) putSubmissionInfo(db dbPutter, id uuid.UUID, submissionId uuid.UUID, info *submissionInfo) (err error) {
 	keySubmission := []byte(fmt.Sprintf("problemset.regular:%s.submission:%s", id, submissionId))
 	var data []byte
 	if data, err = json.Marshal(info); err != nil {
@@ -162,7 +162,7 @@ func (*problemset) putSubmissionInfo(db dbPutter, id uuid.UUID, submissionId uui
 	return
 }
 
-func (p *problemset) NewProblemset(OwnerId uuid.UUID) (id uuid.UUID, err error) {
+func (p *service) NewProblemset(OwnerId uuid.UUID) (id uuid.UUID, err error) {
 	if id, err = uuid.NewRandom(); err != nil {
 		return
 	}
@@ -171,10 +171,10 @@ func (p *problemset) NewProblemset(OwnerId uuid.UUID) (id uuid.UUID, err error) 
 		return
 	}
 	defer trans.Discard()
-	if _, err = p.getProblemsetInfo(trans, id); err != problemset_regular.ErrProblemsetNotFound {
+	if _, err = p.getProblemsetInfo(trans, id); err != problemset.ErrProblemsetNotFound {
 		if err == nil {
-			logrus.Warningf("problemset_regular: UUID duplicate: %s, too little entropy\n", id)
-			err = problemset_regular.ErrDuplicateUUID
+			logrus.Warningf("problemset: UUID duplicate: %s, too little entropy\n", id)
+			err = problemset.ErrDuplicateUUID
 		}
 		return
 	}
@@ -190,9 +190,9 @@ func (p *problemset) NewProblemset(OwnerId uuid.UUID) (id uuid.UUID, err error) 
 	return
 }
 
-func (p *problemset) AddProblem(id uuid.UUID, userId uuid.UUID, name string, problemId uuid.UUID) (err error) {
+func (p *service) AddProblem(id uuid.UUID, userId uuid.UUID, name string, problemId uuid.UUID) (err error) {
 	if !checkProblemName(name) {
-		err = problemset_regular.ErrInvalidProblemName
+		err = problemset.ErrInvalidProblemName
 		return
 	}
 	pinfo := &problemInfo{
@@ -205,9 +205,9 @@ func (p *problemset) AddProblem(id uuid.UUID, userId uuid.UUID, name string, pro
 	return
 }
 
-func (p *problemset) ViewProblem(id uuid.UUID, userId uuid.UUID, name string) (info problemset_regular.ProblemInfo, err error) {
+func (p *service) ViewProblem(id uuid.UUID, userId uuid.UUID, name string) (info problemset.ProblemInfo, err error) {
 	if !checkProblemName(name) {
-		err = problemset_regular.ErrInvalidProblemName
+		err = problemset.ErrInvalidProblemName
 		return
 	}
 	var pinfo *problemInfo
@@ -220,9 +220,9 @@ func (p *problemset) ViewProblem(id uuid.UUID, userId uuid.UUID, name string) (i
 	return
 }
 
-func (p *problemset) SubmitTraditional(id uuid.UUID, userId uuid.UUID, name string, data problemset_regular.TraditionalSubmissionRequest) (submissionId uuid.UUID, err error) {
+func (p *service) SubmitTraditional(id uuid.UUID, userId uuid.UUID, name string, data problemset.TraditionalSubmissionRequest) (submissionId uuid.UUID, err error) {
 	if !checkProblemName(name) {
-		err = problemset_regular.ErrInvalidProblemName
+		err = problemset.ErrInvalidProblemName
 		return
 	}
 	var pinfo *problemInfo
@@ -251,7 +251,7 @@ func (p *problemset) SubmitTraditional(id uuid.UUID, userId uuid.UUID, name stri
 	return
 }
 
-func (p *problemset) ViewSubmission(id uuid.UUID, userId uuid.UUID, submissionId uuid.UUID) (info problemset_regular.SubmissionInfo, err error) {
+func (p *service) ViewSubmission(id uuid.UUID, userId uuid.UUID, submissionId uuid.UUID) (info problemset.SubmissionInfo, err error) {
 	var sinfo *submissionInfo
 	if sinfo, err = p.getSubmissionInfo(p.db, id, submissionId); err != nil {
 		return
@@ -260,18 +260,18 @@ func (p *problemset) ViewSubmission(id uuid.UUID, userId uuid.UUID, submissionId
 	return
 }
 
-func (p *problemset) Close() error {
+func (p *service) Close() error {
 	return nil
 }
 
 type traditionalSubmissionCallback struct {
-	p            *problemset
+	p            *service
 	id           uuid.UUID
 	submissionId uuid.UUID
 	sinfo        *submissionInfo
 }
 
-func (p *problemset) queueSubmissionWithInfo(id uuid.UUID, submissionId uuid.UUID, sinfo *submissionInfo) {
+func (p *service) queueSubmissionWithInfo(id uuid.UUID, submissionId uuid.UUID, sinfo *submissionInfo) {
 	callback := &traditionalSubmissionCallback{
 		p:            p,
 		id:           id,
@@ -282,7 +282,7 @@ func (p *problemset) queueSubmissionWithInfo(id uuid.UUID, submissionId uuid.UUI
 }
 
 func (c *traditionalSubmissionCallback) enqueue() {
-	if _, err := c.p.tjudge.QueueSubmission(&judge_traditional.Submission{
+	if _, err := c.p.tjudge.QueueSubmission(&judge.Submission{
 		Language:  c.sinfo.Traditional.Language,
 		Code:      c.sinfo.Traditional.Code,
 		ProblemId: c.sinfo.Traditional.ProblemId,
@@ -291,17 +291,17 @@ func (c *traditionalSubmissionCallback) enqueue() {
 			"id":           c.id,
 			"submissionId": c.submissionId,
 			"problemId":    c.sinfo.ProblemId,
-		}).Warning("problemset_regular: Failed to enqueue traditional submission")
+		}).Warning("problemset: Failed to enqueue traditional submission")
 	}
 }
 
-func (c *traditionalSubmissionCallback) OnStart(judge_traditional.TaskStartInfo) {
+func (c *traditionalSubmissionCallback) OnStart(judge.TaskStartInfo) {
 
 }
-func (c *traditionalSubmissionCallback) OnProgress(judge_traditional.TaskProgressInfo) {
+func (c *traditionalSubmissionCallback) OnProgress(judge.TaskProgressInfo) {
 
 }
-func (c *traditionalSubmissionCallback) OnComplete(judge_traditional.TaskCompleteInfo) {
+func (c *traditionalSubmissionCallback) OnComplete(judge.TaskCompleteInfo) {
 	logrus.WithFields(logrus.Fields{
 		"id":           c.id,
 		"submissionId": c.submissionId,

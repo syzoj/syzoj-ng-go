@@ -7,28 +7,28 @@ import (
 	"github.com/google/uuid"
 	"github.com/syndtr/goleveldb/leveldb"
 
-	"github.com/syzoj/syzoj-ng-go/app/judge_traditional"
+	"github.com/syzoj/syzoj-ng-go/app/judge"
 )
 
-func (*judgeService) getProblem(db dbGetter, problemId uuid.UUID) (problem *judge_traditional.Problem, err error) {
+func (*judgeService) getProblem(db dbGetter, problemId uuid.UUID) (problem *judge.Problem, err error) {
 	var data []byte
-	keyProblem := []byte(fmt.Sprintf("judge_traditional.problem:%s", problemId))
+	keyProblem := []byte(fmt.Sprintf("judge.problem:%s", problemId))
 	if data, err = db.Get(keyProblem, nil); err != nil {
 		if err == leveldb.ErrNotFound {
-			err = judge_traditional.ErrProblemNotExist
+			err = judge.ErrProblemNotExist
 		}
 		return
 	}
-	problem = new(judge_traditional.Problem)
+	problem = new(judge.Problem)
 	if err = json.Unmarshal(data, problem); problem != nil {
 		return
 	}
 	return
 }
 
-func (*judgeService) putProblem(db dbPutter, problemId uuid.UUID, problem *judge_traditional.Problem) (err error) {
+func (*judgeService) putProblem(db dbPutter, problemId uuid.UUID, problem *judge.Problem) (err error) {
 	var data []byte
-	keyProblem := []byte(fmt.Sprintf("judge_traditional.problem:%s", problemId))
+	keyProblem := []byte(fmt.Sprintf("judge.problem:%s", problemId))
 	if data, err = json.Marshal(problem); err != nil {
 		return
 	}
@@ -39,17 +39,17 @@ func (*judgeService) putProblem(db dbPutter, problemId uuid.UUID, problem *judge
 }
 
 func (*judgeService) deleteProblem(db dbDeleter, problemId uuid.UUID) (err error) {
-	keyProblem := []byte(fmt.Sprintf("judge_traditional.problem:%s", problemId))
+	keyProblem := []byte(fmt.Sprintf("judge.problem:%s", problemId))
 	if err = db.Delete(keyProblem, nil); err != nil {
 		if err == leveldb.ErrNotFound {
-			err = judge_traditional.ErrProblemNotExist
+			err = judge.ErrProblemNotExist
 		}
 		return
 	}
 	return
 }
 
-func (s *judgeService) CreateProblem(info *judge_traditional.Problem) (id uuid.UUID, err error) {
+func (s *judgeService) CreateProblem(info *judge.Problem) (id uuid.UUID, err error) {
 	if id, err = uuid.NewRandom(); err != nil {
 		return
 	}
@@ -59,22 +59,22 @@ func (s *judgeService) CreateProblem(info *judge_traditional.Problem) (id uuid.U
 	return
 }
 
-func (s *judgeService) GetProblem(id uuid.UUID) (info *judge_traditional.Problem, err error) {
+func (s *judgeService) GetProblem(id uuid.UUID) (info *judge.Problem, err error) {
 	if info, err = s.getProblem(s.db, id); err != nil {
 		return
 	}
 	return
 }
 
-func (s *judgeService) UpdateProblem(id uuid.UUID, info *judge_traditional.Problem) (err error) {
-	var org_info *judge_traditional.Problem
+func (s *judgeService) UpdateProblem(id uuid.UUID, info *judge.Problem) (err error) {
+	var org_info *judge.Problem
 	s.problemLock.Lock()
 	defer s.problemLock.Unlock()
 	if org_info, err = s.getProblem(s.db, id); err != nil {
 		return
 	}
 	if org_info.Version != info.Version {
-		err = judge_traditional.ErrConcurrentUpdate
+		err = judge.ErrConcurrentUpdate
 		return
 	}
 	info.Version++

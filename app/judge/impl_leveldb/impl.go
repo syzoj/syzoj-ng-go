@@ -10,7 +10,7 @@ import (
 	"github.com/syndtr/goleveldb/leveldb"
 	"github.com/syndtr/goleveldb/leveldb/opt"
 
-	"github.com/syzoj/syzoj-ng-go/app/judge_traditional"
+	"github.com/syzoj/syzoj-ng-go/app/judge"
 )
 
 var log = logrus.StandardLogger()
@@ -35,7 +35,7 @@ type submissionEntry struct {
 	Language  string
 	Code      string
 	ProblemId uuid.UUID
-	Callback  judge_traditional.Callback
+	Callback  judge.Callback
 }
 
 type dbGetter interface {
@@ -48,7 +48,7 @@ type dbDeleter interface {
 	Delete([]byte, *opt.WriteOptions) error
 }
 
-func NewJudgeService(db *leveldb.DB) (judge_traditional.Service, error) {
+func NewJudgeService(db *leveldb.DB) (judge.Service, error) {
 	s := &judgeService{
 		judgeQueue: make(chan int64, 1000),
 		closeChan:  make(chan struct{}),
@@ -65,7 +65,7 @@ func (e *submissionEntry) getFields() logrus.Fields {
 	}
 }
 
-func (ps *judgeService) QueueSubmission(sub *judge_traditional.Submission, callback judge_traditional.Callback) (judge_traditional.Task, error) {
+func (ps *judgeService) QueueSubmission(sub *judge.Submission, callback judge.Callback) (judge.Task, error) {
 	var id = atomic.AddInt64(&ps.count, 1)
 	entry := &submissionEntry{
 		Tag:       id,
@@ -81,7 +81,7 @@ func (ps *judgeService) QueueSubmission(sub *judge_traditional.Submission, callb
 		return nil, nil
 	default:
 		ps.submissions.Delete(id)
-		return nil, judge_traditional.ErrQueueFull
+		return nil, judge.ErrQueueFull
 	}
 }
 

@@ -11,7 +11,7 @@ import (
 	"github.com/sirupsen/logrus"
 	"github.com/syndtr/goleveldb/leveldb"
 
-	"github.com/syzoj/syzoj-ng-go/app/judge_traditional"
+	"github.com/syzoj/syzoj-ng-go/app/judge"
 )
 
 type judgeRequest struct {
@@ -23,7 +23,7 @@ type judgeRequest struct {
 
 type judgeResponse struct {
 	Tag    int64                              `json:"tag"`
-	Result judge_traditional.TaskCompleteInfo `json:"result"`
+	Result judge.TaskCompleteInfo `json:"result"`
 }
 
 type judgeClient struct {

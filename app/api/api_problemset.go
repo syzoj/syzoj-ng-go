@@ -4,15 +4,15 @@ import (
 	"encoding/json"
 	"net/http"
 
-	"github.com/syzoj/syzoj-ng-go/app/problemset_regular"
+	"github.com/syzoj/syzoj-ng-go/app/problemset"
 
 	"github.com/google/uuid"
 
 	"github.com/syzoj/syzoj-ng-go/app/session"
 )
 
-type RegularProblemsetCreateRequest struct{}
-type RegularProblemsetCreateResponse struct {
+type ProblemsetCreateRequest struct{}
+type ProblemsetCreateResponse struct {
 	ProblemsetId uuid.UUID `json:"problemset_id"`
 }
 
@@ -34,10 +34,10 @@ func (srv *ApiServer) HandleCreateProblemset(w http.ResponseWriter, r *http.Requ
 	}
 
 	var id uuid.UUID
-	if id, err = srv.psregularService.NewProblemset(sess.AuthUserId); err != nil {
+	if id, err = srv.problemsetService.NewProblemset(sess.AuthUserId); err != nil {
 		return
 	}
-	writeResponse(w, RegularProblemsetCreateResponse{
+	writeResponse(w, ProblemsetCreateResponse{
 		ProblemsetId: id,
 	})
 }
@@ -71,7 +71,7 @@ func (srv *ApiServer) HandleProblemsetAdd(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	if err = srv.psregularService.AddProblem(req.ProblemsetId, sess.AuthUserId, req.Name, req.ProblemId); err != nil {
+	if err = srv.problemsetService.AddProblem(req.ProblemsetId, sess.AuthUserId, req.Name, req.ProblemId); err != nil {
 		return
 	}
 	writeResponse(w, ProblemsetAddProblemResponse{})
@@ -81,7 +81,7 @@ type ProblemsetSubmitRequest struct {
 	ProblemsetId uuid.UUID `json:"problemset_id"`
 	ProblemName  string    `json:"problem_name"`
 	Type         string    `json:"type"`
-	Traditional  *problemset_regular.TraditionalSubmissionRequest
+	Traditional  *problemset.TraditionalSubmissionRequest
 }
 type ProblemsetSubmitResponse struct {
 	SubmissionId uuid.UUID `json:"submission_id"`
@@ -111,7 +111,7 @@ func (srv *ApiServer) HandleProblemsetSubmit(w http.ResponseWriter, r *http.Requ
 	switch req.Type {
 	case "traditional":
 		var submissionId uuid.UUID
-		if submissionId, err = srv.psregularService.SubmitTraditional(req.ProblemsetId, sess.AuthUserId, req.ProblemName, *req.Traditional); err != nil {
+		if submissionId, err = srv.problemsetService.SubmitTraditional(req.ProblemsetId, sess.AuthUserId, req.ProblemName, *req.Traditional); err != nil {
 			return
 		}
 		writeResponse(w, ProblemsetSubmitResponse{
