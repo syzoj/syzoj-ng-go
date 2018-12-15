@@ -58,14 +58,19 @@ type TaskStartInfo struct{}
 
 type TaskCompleteInfo struct {
 	Status string `json:"status"`
+    Score float64 `json:"score"`
+    Detail interface{} `json:"detail"`
 }
 
 type TaskProgressInfo struct{}
 
 type Submission struct {
-	Language  string
-	Code      string
 	ProblemId uuid.UUID
+    Traditional TraditionalSubmission
+}
+type TraditionalSubmission struct {
+	Language  string `json:"language"`
+	Code      string `json:"code"`
 }
 
 var ErrNotImplemented = errors.New("Not implemented")

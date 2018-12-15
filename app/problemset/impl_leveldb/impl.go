@@ -33,16 +33,12 @@ type problemInfo struct {
 type submissionInfo struct {
 	Type      string    `json:"type"`
 	UserId    uuid.UUID `json:"user_id"`
+	ProblemName string `json:"problem_name"`
 	ProblemId uuid.UUID `json:"problem_id"`
 	// Simulate union type with pointers
-	Traditional *traditionalSubmissionInfo `json:"traditional"`
-}
-type traditionalSubmissionInfo struct {
-	ProblemId uuid.UUID `json:"problem_id"`
-	Language  string    `json:"language"`
-	Code      string    `json:"code"`
-	Complete  bool      `json:"complete"`
-	Status    string    `json:"result"`
+	Traditional *judge.TraditionalSubmission `json:"traditional"`
+    Complete bool `json:"complete"`
+    Result judge.TaskCompleteInfo `json:"result"`
 }
 
 type dbGetter interface {
@@ -238,7 +234,7 @@ func (p *service) ListProblem(id uuid.UUID, userId uuid.UUID) (info []problemset
 	return
 }
 
-func (p *service) SubmitTraditional(id uuid.UUID, userId uuid.UUID, name string, data problemset.TraditionalSubmissionRequest) (submissionId uuid.UUID, err error) {
+func (p *service) SubmitTraditional(id uuid.UUID, userId uuid.UUID, name string, data judge.TraditionalSubmission) (submissionId uuid.UUID, err error) {
 	if !checkProblemName(name) {
 		err = problemset.ErrInvalidProblemName
 		return
@@ -253,15 +249,11 @@ func (p *service) SubmitTraditional(id uuid.UUID, userId uuid.UUID, name string,
 	var sinfo submissionInfo = submissionInfo{
 		Type:      "traditional",
 		UserId:    userId,
+        ProblemName: name,
 		ProblemId: pinfo.ProblemId,
-		Traditional: &traditionalSubmissionInfo{
-			ProblemId: pinfo.ProblemId,
-			Language:  data.Language,
-			Code:      data.Code,
-			Status:    "",
-			Complete:  false,
-		},
-	}
+        Complete:  false,
+        Traditional: &data,
+    }
 	if err = p.putSubmissionInfo(p.db, id, submissionId, &sinfo); err != nil {
 		return
 	}
@@ -275,6 +267,13 @@ func (p *service) ViewSubmission(id uuid.UUID, userId uuid.UUID, submissionId uu
 		return
 	}
 	info.Type = sinfo.Type
+    info.UserId = sinfo.UserId
+    info.ProblemName = sinfo.ProblemName
+    info.Complete = sinfo.Complete
+    if info.Type == "traditional" {
+        info.Traditional = sinfo.Traditional
+    }
+    info.Result = sinfo.Result
 	return
 }
 
@@ -299,17 +298,20 @@ func (p *service) queueSubmissionWithInfo(id uuid.UUID, submissionId uuid.UUID, 
 	callback.enqueue()
 }
 
+func (c *traditionalSubmissionCallback) getFields() logrus.Fields {
+    return logrus.Fields{
+        "problemsetId": c.id,
+        "submissionId": c.submissionId,
+        "problemId": c.sinfo.ProblemId,
+    }
+}
+
 func (c *traditionalSubmissionCallback) enqueue() {
 	if _, err := c.p.tjudge.QueueSubmission(&judge.Submission{
-		Language:  c.sinfo.Traditional.Language,
-		Code:      c.sinfo.Traditional.Code,
-		ProblemId: c.sinfo.Traditional.ProblemId,
+		ProblemId: c.sinfo.ProblemId,
+        Traditional: *c.sinfo.Traditional,
 	}, c); err != nil {
-		logrus.WithFields(logrus.Fields{
-			"id":           c.id,
-			"submissionId": c.submissionId,
-			"problemId":    c.sinfo.ProblemId,
-		}).Warning("problemset: Failed to enqueue traditional submission")
+		logrus.WithFields(c.getFields()).Warning("problemset: Failed to enqueue traditional submission")
 	}
 }
 
@@ -319,20 +321,17 @@ func (c *traditionalSubmissionCallback) OnStart(judge.TaskStartInfo) {
 func (c *traditionalSubmissionCallback) OnProgress(judge.TaskProgressInfo) {
 
 }
-func (c *traditionalSubmissionCallback) OnComplete(judge.TaskCompleteInfo) {
-	logrus.WithFields(logrus.Fields{
-		"id":           c.id,
-		"submissionId": c.submissionId,
-		"problemId":    c.sinfo.ProblemId,
-	}).Info("Submission completed")
+func (c *traditionalSubmissionCallback) OnComplete(info judge.TaskCompleteInfo) {
+	logrus.WithFields(c.getFields()).Info("Submission completed")
+    c.sinfo.Result = info
+    c.sinfo.Complete = true
+    var err error
+    if err = c.p.putSubmissionInfo(c.p.db, c.id, c.submissionId, c.sinfo); err != nil {
+        logrus.WithFields(c.getFields()).Warning("problemset: Failed to store submission result")
+    }
 }
 func (c *traditionalSubmissionCallback) OnError(err error) {
-	logrus.WithFields(logrus.Fields{
-		"id":           c.id,
-		"submissionId": c.submissionId,
-		"problemId":    c.sinfo.ProblemId,
-		"err":          err,
-	}).Info("Submission errored")
+	logrus.WithFields(c.getFields()).Warningf("Submission errored: %s\n", err.Error())
 }
 
 var problemNameRegexp = regexp.MustCompile("^[0-9A-Z]{1,16}")

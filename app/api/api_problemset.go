@@ -173,7 +173,7 @@ type ProblemsetSubmitRequest struct {
 	ProblemsetId uuid.UUID `json:"problemset_id"`
 	ProblemName  string    `json:"problem_name"`
 	Type         string    `json:"type"`
-	Traditional  *problemset.TraditionalSubmissionRequest
+	Traditional  judge.TraditionalSubmission
 }
 type ProblemsetSubmitResponse struct {
 	SubmissionId uuid.UUID `json:"submission_id"`
@@ -203,7 +203,7 @@ func (srv *ApiServer) HandleProblemsetSubmit(w http.ResponseWriter, r *http.Requ
 	switch req.Type {
 	case "traditional":
 		var submissionId uuid.UUID
-		if submissionId, err = srv.problemsetService.SubmitTraditional(req.ProblemsetId, sess.AuthUserId, req.ProblemName, *req.Traditional); err != nil {
+		if submissionId, err = srv.problemsetService.SubmitTraditional(req.ProblemsetId, sess.AuthUserId, req.ProblemName, req.Traditional); err != nil {
 			return
 		}
 		writeResponse(w, ProblemsetSubmitResponse{

@@ -4,6 +4,8 @@ import (
 	"errors"
 
 	"github.com/google/uuid"
+
+    "github.com/syzoj/syzoj-ng-go/app/judge"
 )
 
 type Service interface {
@@ -16,7 +18,7 @@ type Service interface {
 	// Gets a list of all problems in the problemset.
 	ListProblem(id uuid.UUID, userId uuid.UUID) ([]ProblemInfo, error)
 	// Submits to a traditional problem.
-	SubmitTraditional(id uuid.UUID, userId uuid.UUID, name string, data TraditionalSubmissionRequest) (uuid.UUID, error)
+	SubmitTraditional(id uuid.UUID, userId uuid.UUID, name string, data judge.TraditionalSubmission) (uuid.UUID, error)
 	// Views the specified submission.
 	ViewSubmission(id uuid.UUID, userId uuid.UUID, submissionId uuid.UUID) (SubmissionInfo, error)
 	Close() error
@@ -34,15 +36,16 @@ type ProblemInfo struct {
 type SubmissionInfo struct {
 	// The type of submission.
 	Type string `json:"type"`
-}
-
-type TraditionalSubmissionRequest struct {
-	Language string `json:"language"`
-	Code     string `json:"code"`
-}
-
-type TraditionalSubmissionInfo struct {
-	Status string `json:"status"`
+    // The submitter.
+    UserId uuid.UUID `json:"user"`
+    // The name of problem.
+    ProblemName string `json:"problem_name"`
+    // Whether the problem has been judged.
+    Complete bool `json:"complete"`
+    // If Type == "traditional", the submitted data.
+    Traditional *judge.TraditionalSubmission
+    // The result.
+    Result judge.TaskCompleteInfo `json:"result"`
 }
 
 var ErrInvalidProblemsetType = errors.New("Invalid problemset type")

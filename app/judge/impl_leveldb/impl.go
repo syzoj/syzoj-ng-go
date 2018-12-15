@@ -69,8 +69,8 @@ func (ps *judgeService) QueueSubmission(sub *judge.Submission, callback judge.Ca
 	var id = atomic.AddInt64(&ps.count, 1)
 	entry := &submissionEntry{
 		Tag:       id,
-		Language:  sub.Language,
-		Code:      sub.Code,
+		Language:  sub.Traditional.Language,
+		Code:      sub.Traditional.Code,
 		ProblemId: sub.ProblemId,
 		Callback:  callback,
 	}
