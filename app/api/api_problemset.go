@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 
+	"github.com/syzoj/syzoj-ng-go/app/judge"
 	"github.com/syzoj/syzoj-ng-go/app/problemset"
 
 	"github.com/google/uuid"
@@ -75,6 +76,97 @@ func (srv *ApiServer) HandleProblemsetAdd(w http.ResponseWriter, r *http.Request
 		return
 	}
 	writeResponse(w, ProblemsetAddProblemResponse{})
+}
+
+type ProblemsetListProblemRequest struct {
+	ProblemsetId uuid.UUID `json:"problemset_id"`
+}
+type ProblemsetListProblemResponse struct {
+	Problems []ProblemsetListProblemEntry `json:"problems"`
+}
+type ProblemsetListProblemEntry struct {
+	Name  string `json:"name"`
+	Title string `json:"title"`
+}
+
+func (srv *ApiServer) HandleProblemsetList(w http.ResponseWriter, r *http.Request) {
+	var err error
+	defer func() {
+		if err != nil {
+			writeError(w, err)
+		}
+	}()
+
+	var sess *session.Session
+	if _, sess, err = srv.ensureSession(w, r); err != nil {
+		return
+	}
+	if sess.AuthUserId == defaultUserId {
+		err = NotLoggedInError
+		return
+	}
+
+	var req ProblemsetListProblemRequest
+	if err = json.NewDecoder(r.Body).Decode(&req); err != nil {
+		return
+	}
+
+	var problems []problemset.ProblemInfo
+	if problems, err = srv.problemsetService.ListProblem(req.ProblemsetId, sess.AuthUserId); err != nil {
+		return
+	}
+	var entries []ProblemsetListProblemEntry = make([]ProblemsetListProblemEntry, len(problems))
+	for i, problem := range problems {
+		entries[i] = ProblemsetListProblemEntry{
+			Name:  problem.Name,
+			Title: problem.Title,
+		}
+	}
+	writeResponse(w, ProblemsetListProblemResponse{Problems: entries})
+}
+
+type ProblemsetViewProblemRequest struct {
+	ProblemsetId uuid.UUID `json:"problemset_id"`
+	Name         string    `json:"name"`
+}
+type ProblemsetViewProblemResponse struct {
+	Statement judge.ProblemStatement `json:"statement"`
+}
+
+func (srv *ApiServer) HandleProblemsetView(w http.ResponseWriter, r *http.Request) {
+	var err error
+	defer func() {
+		if err != nil {
+			writeError(w, err)
+		}
+	}()
+
+	var sess *session.Session
+	if _, sess, err = srv.ensureSession(w, r); err != nil {
+		return
+	}
+	if sess.AuthUserId == defaultUserId {
+		err = NotLoggedInError
+		return
+	}
+
+	var req ProblemsetViewProblemRequest
+	if err = json.NewDecoder(r.Body).Decode(&req); err != nil {
+		return
+	}
+
+	var p1 problemset.ProblemInfo
+	if p1, err = srv.problemsetService.ViewProblem(req.ProblemsetId, sess.AuthUserId, req.Name); err != nil {
+		return
+	}
+	var p2 *judge.Problem
+	if p2, err = srv.judgeService.GetProblem(p1.ProblemId); err != nil {
+		return
+	}
+
+	writeResponse(w, ProblemsetViewProblemResponse{
+		Statement: p2.Statement,
+	})
 }
 
 type ProblemsetSubmitRequest struct {

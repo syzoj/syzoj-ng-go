@@ -22,7 +22,7 @@ type judgeRequest struct {
 }
 
 type judgeResponse struct {
-	Tag    int64                              `json:"tag"`
+	Tag    int64                  `json:"tag"`
 	Result judge.TaskCompleteInfo `json:"result"`
 }
 

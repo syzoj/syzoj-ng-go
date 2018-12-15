@@ -14,21 +14,21 @@ import (
 )
 
 type ApiServer struct {
-	router           *mux.Router
-	sessService      session.Service
-	authService      auth.Service
+	router            *mux.Router
+	sessService       session.Service
+	authService       auth.Service
 	problemsetService problemset.Service
-	judgeService     judge.Service
+	judgeService      judge.Service
 }
 
 var defaultUserId = uuid.MustParse("00000000-0000-0000-0000-000000000000")
 
 func CreateApiServer(sessService session.Service, authService auth.Service, problemsetService problemset.Service, judgeService judge.Service) (*ApiServer, error) {
 	srv := &ApiServer{
-		sessService:      sessService,
-		authService:      authService,
+		sessService:       sessService,
+		authService:       authService,
 		problemsetService: problemsetService,
-		judgeService:     judgeService,
+		judgeService:      judgeService,
 	}
 	srv.setupRoutes()
 	return srv, nil
@@ -40,6 +40,8 @@ func (srv *ApiServer) setupRoutes() {
 	router.HandleFunc("/api/auth/login", srv.HandleAuthLogin).Methods("POST")
 	router.HandleFunc("/api/problemset/create", srv.HandleCreateProblemset).Methods("POST")
 	router.HandleFunc("/api/problemset/add", srv.HandleProblemsetAdd).Methods("POST")
+	router.HandleFunc("/api/problemset/list", srv.HandleProblemsetList).Methods("GET")
+	router.HandleFunc("/api/problemset/view", srv.HandleProblemsetView).Methods("GET")
 	router.HandleFunc("/api/problemset/submit", srv.HandleProblemsetSubmit).Methods("POST")
 	router.HandleFunc("/api/problem/create", srv.HandleProblemCreate).Methods("POST")
 	srv.router = router

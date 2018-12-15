@@ -10,6 +10,7 @@ import (
 	"github.com/sirupsen/logrus"
 	"github.com/syndtr/goleveldb/leveldb"
 	"github.com/syndtr/goleveldb/leveldb/opt"
+	"github.com/syndtr/goleveldb/leveldb/util"
 
 	"github.com/syzoj/syzoj-ng-go/app/judge"
 	"github.com/syzoj/syzoj-ng-go/app/problemset"
@@ -217,6 +218,23 @@ func (p *service) ViewProblem(id uuid.UUID, userId uuid.UUID, name string) (info
 	info.Name = pinfo.Name
 	info.Title = pinfo.Title
 	info.ProblemId = pinfo.ProblemId
+	return
+}
+
+func (p *service) ListProblem(id uuid.UUID, userId uuid.UUID) (info []problemset.ProblemInfo, err error) {
+	keyProblemPrefix := []byte(fmt.Sprintf("problemset.regular:%s.problem:", id))
+	var it = p.db.NewIterator(util.BytesPrefix(keyProblemPrefix), nil)
+	defer it.Release()
+	for it.Next() {
+		v := it.Value()
+		info = append(info, problemset.ProblemInfo{})
+		if err = json.Unmarshal(v, &info[len(info)-1]); err != nil {
+			return
+		}
+	}
+	if err = it.Error(); err != nil {
+		return
+	}
 	return
 }
 

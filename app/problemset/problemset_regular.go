@@ -13,6 +13,8 @@ type Service interface {
 	AddProblem(id uuid.UUID, userId uuid.UUID, name string, problemId uuid.UUID) error
 	// Views the specified problem.
 	ViewProblem(id uuid.UUID, userId uuid.UUID, name string) (ProblemInfo, error)
+	// Gets a list of all problems in the problemset.
+	ListProblem(id uuid.UUID, userId uuid.UUID) ([]ProblemInfo, error)
 	// Submits to a traditional problem.
 	SubmitTraditional(id uuid.UUID, userId uuid.UUID, name string, data TraditionalSubmissionRequest) (uuid.UUID, error)
 	// Views the specified submission.
