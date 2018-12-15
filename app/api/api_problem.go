@@ -47,5 +47,5 @@ func (s *ApiServer) HandleProblemCreate(w http.ResponseWriter, r *http.Request) 
 	if problemId, err = s.judgeService.CreateProblem(&info); err != nil {
 		return
 	}
-	writeResponse(w, CreateProblemResponse{ProblemId: problemId})
+	writeResponseWithSession(w, CreateProblemResponse{ProblemId: problemId}, sess)
 }

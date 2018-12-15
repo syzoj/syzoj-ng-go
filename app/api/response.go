@@ -2,8 +2,12 @@ package api
 
 import (
 	"encoding/json"
-	"github.com/sirupsen/logrus"
 	"net/http"
+
+	"github.com/sirupsen/logrus"
+	"github.com/google/uuid"
+
+	"github.com/syzoj/syzoj-ng-go/app/session"
 )
 
 var log = logrus.StandardLogger()
@@ -30,11 +34,26 @@ func writeError(w http.ResponseWriter, err error) {
 
 type ApiSuccessResponse struct {
 	Data interface{} `json:"data"`
+	Session SessionResponse `json:"session"`
+}
+type SessionResponse struct {
+	UserId uuid.UUID `json:"user_id"`
+	UserName string `json:"user_name"`
 }
 
 func writeResponse(w http.ResponseWriter, data interface{}) {
 	encoder := json.NewEncoder(w)
-	if err := encoder.Encode(ApiSuccessResponse{data}); err != nil {
+	if err := encoder.Encode(ApiSuccessResponse{Data: data}); err != nil {
+		log.WithField("error", err).Warning("Failed to write response")
+	}
+}
+
+func writeResponseWithSession(w http.ResponseWriter, data interface{}, sess *session.Session) {
+	encoder := json.NewEncoder(w)
+	if err := encoder.Encode(ApiSuccessResponse{Data: data, Session: SessionResponse{
+		UserId: sess.AuthUserId,
+		UserName: sess.UserName,
+	}}); err != nil {
 		log.WithField("error", err).Warning("Failed to write response")
 	}
 }

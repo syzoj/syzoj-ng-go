@@ -84,6 +84,7 @@ func main() {
 	cookieJar, _ := cookiejar.New(nil)
 	client := &http.Client{Jar: cookieJar}
 	Test(client, "POST", "/api/auth/register", RegisterRequest{"aaa", "B"})
+	Test(client, "POST", "/api/auth/logout", nil)
 	Test(client, "POST", "/api/auth/login", LoginRequest{"aaa", "B"})
 	u, _ := url.Parse("http://127.0.0.1:5900/")
 	fmt.Println(cookieJar.Cookies(u))

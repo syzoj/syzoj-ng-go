@@ -38,6 +38,7 @@ func (srv *ApiServer) setupRoutes() {
 	router := mux.NewRouter()
 	router.HandleFunc("/api/auth/register", srv.HandleAuthRegister).Methods("POST")
 	router.HandleFunc("/api/auth/login", srv.HandleAuthLogin).Methods("POST")
+	router.HandleFunc("/api/auth/logout", srv.HandleAuthLogout).Methods("POST")
 	router.HandleFunc("/api/problemset/create", srv.HandleCreateProblemset).Methods("POST")
 	router.HandleFunc("/api/problemset/add", srv.HandleProblemsetAdd).Methods("POST")
 	router.HandleFunc("/api/problemset/list", srv.HandleProblemsetList).Methods("GET")

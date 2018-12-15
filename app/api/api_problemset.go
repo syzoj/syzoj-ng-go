@@ -38,9 +38,9 @@ func (srv *ApiServer) HandleCreateProblemset(w http.ResponseWriter, r *http.Requ
 	if id, err = srv.problemsetService.NewProblemset(sess.AuthUserId); err != nil {
 		return
 	}
-	writeResponse(w, ProblemsetCreateResponse{
+	writeResponseWithSession(w, ProblemsetCreateResponse{
 		ProblemsetId: id,
-	})
+	}, sess)
 }
 
 type ProblemsetAddProblemRequest struct {
@@ -75,7 +75,7 @@ func (srv *ApiServer) HandleProblemsetAdd(w http.ResponseWriter, r *http.Request
 	if err = srv.problemsetService.AddProblem(req.ProblemsetId, sess.AuthUserId, req.Name, req.ProblemId); err != nil {
 		return
 	}
-	writeResponse(w, ProblemsetAddProblemResponse{})
+	writeResponseWithSession(w, ProblemsetAddProblemResponse{}, sess)
 }
 
 type ProblemsetListProblemRequest struct {
@@ -122,7 +122,7 @@ func (srv *ApiServer) HandleProblemsetList(w http.ResponseWriter, r *http.Reques
 			Title: problem.Title,
 		}
 	}
-	writeResponse(w, ProblemsetListProblemResponse{Problems: entries})
+	writeResponseWithSession(w, ProblemsetListProblemResponse{Problems: entries}, sess)
 }
 
 type ProblemsetViewProblemRequest struct {
@@ -164,9 +164,9 @@ func (srv *ApiServer) HandleProblemsetView(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	writeResponse(w, ProblemsetViewProblemResponse{
+	writeResponseWithSession(w, ProblemsetViewProblemResponse{
 		Statement: p2.Statement,
-	})
+	}, sess)
 }
 
 type ProblemsetSubmitRequest struct {
@@ -206,9 +206,9 @@ func (srv *ApiServer) HandleProblemsetSubmit(w http.ResponseWriter, r *http.Requ
 		if submissionId, err = srv.problemsetService.SubmitTraditional(req.ProblemsetId, sess.AuthUserId, req.ProblemName, req.Traditional); err != nil {
 			return
 		}
-		writeResponse(w, ProblemsetSubmitResponse{
+		writeResponseWithSession(w, ProblemsetSubmitResponse{
 			SubmissionId: submissionId,
-		})
+		}, sess)
 		break
 	default:
 		err = BadRequestError

@@ -36,10 +36,11 @@ func (srv *ApiServer) HandleAuthRegister(w http.ResponseWriter, r *http.Request)
 	}
 
 	sess.AuthUserId = userId
+	sess.UserName = req.UserName
 	if err = srv.sessService.UpdateSession(sessId, sess); err != nil {
 		return
 	}
-	writeResponse(w, nil)
+	writeResponseWithSession(w, nil, sess)
 }
 
 type LoginRequest struct {
@@ -72,9 +73,35 @@ func (srv *ApiServer) HandleAuthLogin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	sess.AuthUserId = userId
+	sess.UserName = req.UserName
 	if err = srv.sessService.UpdateSession(sessId, sess); err != nil {
 		return
 	}
 
-	writeResponse(w, nil)
+	writeResponseWithSession(w, nil, sess)
+}
+
+func (srv *ApiServer) HandleAuthLogout(w http.ResponseWriter, r *http.Request) {
+	var err error
+	defer func() {
+		if err != nil {
+			writeError(w, err)
+		}
+	}()
+	var sessId uuid.UUID
+	var sess *session.Session
+	if sessId, sess, err = srv.ensureSession(w, r); err != nil {
+		return
+	}
+	if sess.AuthUserId == defaultUserId {
+		err = NotLoggedInError
+		return
+	}
+	sess.AuthUserId = defaultUserId
+	sess.UserName = ""
+	if err = srv.sessService.UpdateSession(sessId, sess); err != nil {
+		return
+	}
+
+	writeResponseWithSession(w, nil, sess)
 }

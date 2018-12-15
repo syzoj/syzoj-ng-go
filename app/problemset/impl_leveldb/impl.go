@@ -334,7 +334,7 @@ func (c *traditionalSubmissionCallback) OnError(err error) {
 	logrus.WithFields(c.getFields()).Warningf("Submission errored: %s\n", err.Error())
 }
 
-var problemNameRegexp = regexp.MustCompile("^[0-9A-Z]{1,16}")
+var problemNameRegexp = regexp.MustCompile("^[0-9A-Z]{1,16}$")
 
 func checkProblemName(problemName string) bool {
 	return problemNameRegexp.MatchString(problemName)
