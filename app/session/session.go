@@ -18,7 +18,7 @@ type Service interface {
 type Session struct {
 	Version    uuid.UUID
 	AuthUserId uuid.UUID
-	UserName string
+	UserName   string
 	Expiry     time.Time
 }
 

@@ -5,7 +5,7 @@ import (
 
 	"github.com/google/uuid"
 
-    "github.com/syzoj/syzoj-ng-go/app/judge"
+	"github.com/syzoj/syzoj-ng-go/app/judge"
 )
 
 type Service interface {
@@ -36,16 +36,16 @@ type ProblemInfo struct {
 type SubmissionInfo struct {
 	// The type of submission.
 	Type string `json:"type"`
-    // The submitter.
-    UserId uuid.UUID `json:"user"`
-    // The name of problem.
-    ProblemName string `json:"problem_name"`
-    // Whether the problem has been judged.
-    Complete bool `json:"complete"`
-    // If Type == "traditional", the submitted data.
-    Traditional *judge.TraditionalSubmission
-    // The result.
-    Result judge.TaskCompleteInfo `json:"result"`
+	// The submitter.
+	UserId uuid.UUID `json:"user"`
+	// The name of problem.
+	ProblemName string `json:"problem_name"`
+	// Whether the problem has been judged.
+	Complete bool `json:"complete"`
+	// If Type == "traditional", the submitted data.
+	Traditional *judge.TraditionalSubmission
+	// The result.
+	Result judge.TaskCompleteInfo `json:"result"`
 }
 
 var ErrInvalidProblemsetType = errors.New("Invalid problemset type")

@@ -31,14 +31,14 @@ type problemInfo struct {
 	ProblemId uuid.UUID `json:"problem_id"`
 }
 type submissionInfo struct {
-	Type      string    `json:"type"`
-	UserId    uuid.UUID `json:"user_id"`
-	ProblemName string `json:"problem_name"`
-	ProblemId uuid.UUID `json:"problem_id"`
+	Type        string    `json:"type"`
+	UserId      uuid.UUID `json:"user_id"`
+	ProblemName string    `json:"problem_name"`
+	ProblemId   uuid.UUID `json:"problem_id"`
 	// Simulate union type with pointers
 	Traditional *judge.TraditionalSubmission `json:"traditional"`
-    Complete bool `json:"complete"`
-    Result judge.TaskCompleteInfo `json:"result"`
+	Complete    bool                         `json:"complete"`
+	Result      judge.TaskCompleteInfo       `json:"result"`
 }
 
 type dbGetter interface {
@@ -247,13 +247,13 @@ func (p *service) SubmitTraditional(id uuid.UUID, userId uuid.UUID, name string,
 		return
 	}
 	var sinfo submissionInfo = submissionInfo{
-		Type:      "traditional",
-		UserId:    userId,
-        ProblemName: name,
-		ProblemId: pinfo.ProblemId,
-        Complete:  false,
-        Traditional: &data,
-    }
+		Type:        "traditional",
+		UserId:      userId,
+		ProblemName: name,
+		ProblemId:   pinfo.ProblemId,
+		Complete:    false,
+		Traditional: &data,
+	}
 	if err = p.putSubmissionInfo(p.db, id, submissionId, &sinfo); err != nil {
 		return
 	}
@@ -267,13 +267,13 @@ func (p *service) ViewSubmission(id uuid.UUID, userId uuid.UUID, submissionId uu
 		return
 	}
 	info.Type = sinfo.Type
-    info.UserId = sinfo.UserId
-    info.ProblemName = sinfo.ProblemName
-    info.Complete = sinfo.Complete
-    if info.Type == "traditional" {
-        info.Traditional = sinfo.Traditional
-    }
-    info.Result = sinfo.Result
+	info.UserId = sinfo.UserId
+	info.ProblemName = sinfo.ProblemName
+	info.Complete = sinfo.Complete
+	if info.Type == "traditional" {
+		info.Traditional = sinfo.Traditional
+	}
+	info.Result = sinfo.Result
 	return
 }
 
@@ -299,17 +299,17 @@ func (p *service) queueSubmissionWithInfo(id uuid.UUID, submissionId uuid.UUID, 
 }
 
 func (c *traditionalSubmissionCallback) getFields() logrus.Fields {
-    return logrus.Fields{
-        "problemsetId": c.id,
-        "submissionId": c.submissionId,
-        "problemId": c.sinfo.ProblemId,
-    }
+	return logrus.Fields{
+		"problemsetId": c.id,
+		"submissionId": c.submissionId,
+		"problemId":    c.sinfo.ProblemId,
+	}
 }
 
 func (c *traditionalSubmissionCallback) enqueue() {
 	if _, err := c.p.tjudge.QueueSubmission(&judge.Submission{
-		ProblemId: c.sinfo.ProblemId,
-        Traditional: *c.sinfo.Traditional,
+		ProblemId:   c.sinfo.ProblemId,
+		Traditional: *c.sinfo.Traditional,
 	}, c); err != nil {
 		logrus.WithFields(c.getFields()).Warning("problemset: Failed to enqueue traditional submission")
 	}
@@ -323,12 +323,12 @@ func (c *traditionalSubmissionCallback) OnProgress(judge.TaskProgressInfo) {
 }
 func (c *traditionalSubmissionCallback) OnComplete(info judge.TaskCompleteInfo) {
 	logrus.WithFields(c.getFields()).Info("Submission completed")
-    c.sinfo.Result = info
-    c.sinfo.Complete = true
-    var err error
-    if err = c.p.putSubmissionInfo(c.p.db, c.id, c.submissionId, c.sinfo); err != nil {
-        logrus.WithFields(c.getFields()).Warning("problemset: Failed to store submission result")
-    }
+	c.sinfo.Result = info
+	c.sinfo.Complete = true
+	var err error
+	if err = c.p.putSubmissionInfo(c.p.db, c.id, c.submissionId, c.sinfo); err != nil {
+		logrus.WithFields(c.getFields()).Warning("problemset: Failed to store submission result")
+	}
 }
 func (c *traditionalSubmissionCallback) OnError(err error) {
 	logrus.WithFields(c.getFields()).Warningf("Submission errored: %s\n", err.Error())

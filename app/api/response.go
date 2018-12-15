@@ -4,8 +4,8 @@ import (
 	"encoding/json"
 	"net/http"
 
-	"github.com/sirupsen/logrus"
 	"github.com/google/uuid"
+	"github.com/sirupsen/logrus"
 
 	"github.com/syzoj/syzoj-ng-go/app/session"
 )
@@ -33,12 +33,12 @@ func writeError(w http.ResponseWriter, err error) {
 }
 
 type ApiSuccessResponse struct {
-	Data interface{} `json:"data"`
+	Data    interface{}     `json:"data"`
 	Session SessionResponse `json:"session"`
 }
 type SessionResponse struct {
-	UserId uuid.UUID `json:"user_id"`
-	UserName string `json:"user_name"`
+	UserId   uuid.UUID `json:"user_id"`
+	UserName string    `json:"user_name"`
 }
 
 func writeResponse(w http.ResponseWriter, data interface{}) {
@@ -51,7 +51,7 @@ func writeResponse(w http.ResponseWriter, data interface{}) {
 func writeResponseWithSession(w http.ResponseWriter, data interface{}, sess *session.Session) {
 	encoder := json.NewEncoder(w)
 	if err := encoder.Encode(ApiSuccessResponse{Data: data, Session: SessionResponse{
-		UserId: sess.AuthUserId,
+		UserId:   sess.AuthUserId,
 		UserName: sess.UserName,
 	}}); err != nil {
 		log.WithField("error", err).Warning("Failed to write response")

@@ -66,6 +66,7 @@ func (srv *ApiServer) ensureSession(w http.ResponseWriter, r *http.Request) (uui
 				Name:     "SYZOJSESSION",
 				Value:    sessId.String(),
 				HttpOnly: true,
+				Path: "/",
 				Expires:  time.Now().Add(time.Hour * 24 * 30),
 			})
 			return sessId, sess, err
