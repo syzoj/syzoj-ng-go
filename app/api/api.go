@@ -45,6 +45,7 @@ func (srv *ApiServer) setupRoutes() {
 	router.HandleFunc("/api/problemset/view", srv.HandleProblemsetView).Methods("GET")
 	router.HandleFunc("/api/problemset/submit", srv.HandleProblemsetSubmit).Methods("POST")
 	router.HandleFunc("/api/problem/create", srv.HandleProblemCreate).Methods("POST")
+	router.HandleFunc("/api/problem/{problem_id:[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}}/view", srv.HandleProblemView).Methods("GET")
 	srv.router = router
 }
 
@@ -66,7 +67,7 @@ func (srv *ApiServer) ensureSession(w http.ResponseWriter, r *http.Request) (uui
 				Name:     "SYZOJSESSION",
 				Value:    sessId.String(),
 				HttpOnly: true,
-				Path: "/",
+				Path:     "/",
 				Expires:  time.Now().Add(time.Hour * 24 * 30),
 			})
 			return sessId, sess, err

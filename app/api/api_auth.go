@@ -17,7 +17,7 @@ func (srv *ApiServer) HandleAuthRegister(w http.ResponseWriter, r *http.Request)
 	var err error
 	defer func() {
 		if err != nil {
-			writeError(w, err)
+			writeError(w, r, err)
 		}
 	}()
 	var sessId uuid.UUID
@@ -52,7 +52,7 @@ func (srv *ApiServer) HandleAuthLogin(w http.ResponseWriter, r *http.Request) {
 	var err error
 	defer func() {
 		if err != nil {
-			writeError(w, err)
+			writeError(w, r, err)
 		}
 	}()
 	var sessId uuid.UUID
@@ -85,7 +85,7 @@ func (srv *ApiServer) HandleAuthLogout(w http.ResponseWriter, r *http.Request) {
 	var err error
 	defer func() {
 		if err != nil {
-			writeError(w, err)
+			writeError(w, r, err)
 		}
 	}()
 	var sessId uuid.UUID

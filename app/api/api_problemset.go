@@ -21,7 +21,7 @@ func (srv *ApiServer) HandleCreateProblemset(w http.ResponseWriter, r *http.Requ
 	var err error
 	defer func() {
 		if err != nil {
-			writeError(w, err)
+			writeError(w, r, err)
 		}
 	}()
 
@@ -54,7 +54,7 @@ func (srv *ApiServer) HandleProblemsetAdd(w http.ResponseWriter, r *http.Request
 	var err error
 	defer func() {
 		if err != nil {
-			writeError(w, err)
+			writeError(w, r, err)
 		}
 	}()
 
@@ -93,7 +93,7 @@ func (srv *ApiServer) HandleProblemsetList(w http.ResponseWriter, r *http.Reques
 	var err error
 	defer func() {
 		if err != nil {
-			writeError(w, err)
+			writeError(w, r, err)
 		}
 	}()
 
@@ -137,7 +137,7 @@ func (srv *ApiServer) HandleProblemsetView(w http.ResponseWriter, r *http.Reques
 	var err error
 	defer func() {
 		if err != nil {
-			writeError(w, err)
+			writeError(w, r, err)
 		}
 	}()
 
@@ -183,7 +183,7 @@ func (srv *ApiServer) HandleProblemsetSubmit(w http.ResponseWriter, r *http.Requ
 	var err error
 	defer func() {
 		if err != nil {
-			writeError(w, err)
+			writeError(w, r, err)
 		}
 	}()
 

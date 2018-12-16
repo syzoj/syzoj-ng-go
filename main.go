@@ -18,6 +18,8 @@ import (
 	"github.com/syzoj/syzoj-ng-go/app/api"
 	"github.com/syzoj/syzoj-ng-go/app/auth"
 	auth_impl "github.com/syzoj/syzoj-ng-go/app/auth/impl_leveldb"
+	"github.com/syzoj/syzoj-ng-go/app/git"
+	git_impl "github.com/syzoj/syzoj-ng-go/app/git/impl_leveldb"
 	"github.com/syzoj/syzoj-ng-go/app/judge"
 	judge_impl "github.com/syzoj/syzoj-ng-go/app/judge/impl_leveldb"
 	"github.com/syzoj/syzoj-ng-go/app/problemset"
@@ -68,7 +70,7 @@ func main() {
 	log.Info("Setting up session service")
 	var sessService session.Service
 	if sessService, err = session_impl.NewLevelDBSessionService(ldb); err != nil {
-		log.Fatal("Error intializing session service: ", err)
+		log.Fatal("Error initializing session service: ", err)
 	}
 	defer func() {
 		log.Info("Shutting down session service")
@@ -78,22 +80,33 @@ func main() {
 	log.Info("Setting up auth service")
 	var authService auth.Service
 	if authService, err = auth_impl.NewLevelDBAuthService(ldb); err != nil {
-		log.Fatal("Error intializing auth service: ", err)
+		log.Fatal("Error initializing auth service: ", err)
 	}
 	defer func() {
 		log.Info("Shutting down auth service")
 		authService.Close()
 	}()
 
+	log.Info("Setting up git service")
+	var gitService git.GitService
+	if gitService, err = git_impl.NewLevelDBGitService(ldb, config.GitPath); err != nil {
+		log.Fatal("Error initializing git service: ", err)
+	}
+	defer func() {
+		log.Info("Shutting down git service")
+		gitService.Close()
+	}()
+
 	log.Info("Setting up judge service")
 	var tjudgeService judge.Service
-	if tjudgeService, err = judge_impl.NewJudgeService(ldb); err != nil {
+	if tjudgeService, err = judge_impl.NewJudgeService(ldb, gitService); err != nil {
 		log.Fatal("Error initializing traditional judge service: ", err)
 	}
 	defer func() {
 		log.Info("Shutting down traditional judge service")
 		tjudgeService.Close()
 	}()
+	gitService.AttachHookHandler("judge", tjudgeService.GetGitHandler())
 
 	log.Info("Setting up problemset service")
 	var problemsetService problemset.Service
@@ -114,6 +127,8 @@ func main() {
 	router := mux.NewRouter()
 	router.PathPrefix("/api").Handler(apiServer)
 	router.Handle("/judge-traditional", tjudgeService)
+	router.PathPrefix("/git").Handler(gitService)
+	router.Handle("/", http.FileServer(http.Dir("static")))
 
 	server := &http.Server{
 		Addr:         config.Addr,

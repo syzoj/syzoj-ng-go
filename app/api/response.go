@@ -16,7 +16,8 @@ type ApiErrorResponse struct {
 	Error string `json:"error"`
 }
 
-func writeError(w http.ResponseWriter, err error) {
+func writeError(w http.ResponseWriter, r *http.Request, err error) {
+	log.Infof("Error handling request %s: %s", r.URL, err)
 	switch v := err.(type) {
 	case *ApiError:
 		w.WriteHeader(v.Code)

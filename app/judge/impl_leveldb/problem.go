@@ -53,9 +53,35 @@ func (s *judgeService) CreateProblem(info *judge.Problem) (id uuid.UUID, err err
 	if id, err = uuid.NewRandom(); err != nil {
 		return
 	}
+
 	if err = s.putProblem(s.db, id, info); err != nil {
 		return
 	}
+	return
+}
+
+func (s *judgeService) InitProblemGit(id uuid.UUID) (gitId uuid.UUID, token string, err error) {
+	s.problemLock.Lock()
+	defer s.problemLock.Unlock()
+
+	var info *judge.Problem
+	if info, err = s.getProblem(s.db, id); err != nil {
+		return
+	}
+	if gitId = info.GitRepo; gitId == (uuid.UUID{}) {
+		if gitId, err = s.git.CreateRepository("judge"); err != nil {
+			return
+		}
+		info.GitRepo = gitId
+	}
+	if token, err = s.git.ResetToken(gitId); err != nil {
+		return
+	}
+	info.GitToken = token
+	if err = s.putProblem(s.db, id, info); err != nil {
+		return
+	}
+
 	return
 }
 

@@ -5,12 +5,18 @@ import (
 	"net/http"
 
 	"github.com/google/uuid"
+
+	"github.com/syzoj/syzoj-ng-go/app/git"
 )
 
 // The interface for traditional judge service.
 type Service interface {
 	// Creates a new problem.
 	CreateProblem(info *Problem) (uuid.UUID, error)
+	// Initializes git repository for problem.
+	InitProblemGit(id uuid.UUID) (uuid.UUID, string, error)
+	// Gets the git hook handler.
+	GetGitHandler() git.GitHookHandler
 	// Updates a problem.
 	UpdateProblem(id uuid.UUID, info *Problem) error
 	// Gets a problem.
@@ -28,6 +34,8 @@ type Service interface {
 // The type represents all information about a problem.
 type Problem struct {
 	Statement ProblemStatement `json:"statement"`
+	GitRepo   uuid.UUID        `json:"git_repo"`
+	GitToken  string           `json:"git_token"`
 	Owner     uuid.UUID        `json:"owner"`
 	Version   int64            `json:"version"`
 }
