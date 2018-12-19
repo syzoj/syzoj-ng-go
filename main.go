@@ -18,8 +18,6 @@ import (
 	"github.com/syzoj/syzoj-ng-go/app/api"
 	"github.com/syzoj/syzoj-ng-go/app/auth"
 	auth_impl "github.com/syzoj/syzoj-ng-go/app/auth/impl_leveldb"
-	"github.com/syzoj/syzoj-ng-go/app/git"
-	git_impl "github.com/syzoj/syzoj-ng-go/app/git/impl_leveldb"
 	"github.com/syzoj/syzoj-ng-go/app/judge"
 	judge_impl "github.com/syzoj/syzoj-ng-go/app/judge/impl_leveldb"
 	"github.com/syzoj/syzoj-ng-go/app/problemset"
@@ -35,6 +33,7 @@ type syzoj_config struct {
 	Addr     string `json:"addr"`
 	GitPath  string `json:"git_path"`
 	LevelDB  string `json:"leveldb_path"`
+	Judge judge_impl.Config `json:"judge"`
 }
 
 func init() {
@@ -87,26 +86,15 @@ func main() {
 		authService.Close()
 	}()
 
-	log.Info("Setting up git service")
-	var gitService git.GitService
-	if gitService, err = git_impl.NewLevelDBGitService(ldb, config.GitPath); err != nil {
-		log.Fatal("Error initializing git service: ", err)
-	}
-	defer func() {
-		log.Info("Shutting down git service")
-		gitService.Close()
-	}()
-
 	log.Info("Setting up judge service")
 	var tjudgeService judge.Service
-	if tjudgeService, err = judge_impl.NewJudgeService(ldb, gitService); err != nil {
+	if tjudgeService, err = judge_impl.NewJudgeService(ldb, &config.Judge); err != nil {
 		log.Fatal("Error initializing traditional judge service: ", err)
 	}
 	defer func() {
 		log.Info("Shutting down traditional judge service")
 		tjudgeService.Close()
 	}()
-	gitService.AttachHookHandler("judge", tjudgeService.GetGitHandler())
 
 	log.Info("Setting up problemset service")
 	var problemsetService problemset.Service
@@ -127,7 +115,6 @@ func main() {
 	router := mux.NewRouter()
 	router.PathPrefix("/api").Handler(apiServer)
 	router.Handle("/judge-traditional", tjudgeService)
-	router.PathPrefix("/git").Handler(gitService)
 	router.Handle("/", http.FileServer(http.Dir("static")))
 
 	server := &http.Server{

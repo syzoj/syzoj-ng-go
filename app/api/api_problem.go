@@ -16,8 +16,6 @@ type CreateProblemRequest struct {
 }
 type CreateProblemResponse struct {
 	ProblemId uuid.UUID `json:"problem_id"`
-	GitToken  string    `json:"git_token"`
-	GitRepo   uuid.UUID `json:"git_repo"`
 }
 
 func (s *ApiServer) HandleProblemCreate(w http.ResponseWriter, r *http.Request) {
@@ -49,18 +47,12 @@ func (s *ApiServer) HandleProblemCreate(w http.ResponseWriter, r *http.Request) 
 	if problemId, err = s.judgeService.CreateProblem(&info); err != nil {
 		return
 	}
-	var gitToken string
-	var gitRepo uuid.UUID
-	if gitRepo, gitToken, err = s.judgeService.InitProblemGit(problemId); err != nil {
-		return
-	}
-	writeResponseWithSession(w, CreateProblemResponse{ProblemId: problemId, GitToken: gitToken, GitRepo: gitRepo}, sess)
+	writeResponseWithSession(w, CreateProblemResponse{ProblemId: problemId}, sess)
 }
 
 type ViewProblemResponse struct {
 	Statement judge.ProblemStatement `json:"statement"`
-	GitToken  string                 `json:"git_token"`
-	GitRepo   uuid.UUID              `json:"git_repo"`
+	Token     string                 `json:"token"`
 }
 
 func (s *ApiServer) HandleProblemView(w http.ResponseWriter, r *http.Request) {
@@ -88,9 +80,8 @@ func (s *ApiServer) HandleProblemView(w http.ResponseWriter, r *http.Request) {
 
 	var resp ViewProblemResponse
 	resp.Statement = info.Statement
-	resp.GitRepo = info.GitRepo
 	if info.Owner == sess.AuthUserId {
-		resp.GitToken = info.GitToken
+		resp.Token = info.Token
 	}
 	writeResponseWithSession(w, &resp, sess)
 }
