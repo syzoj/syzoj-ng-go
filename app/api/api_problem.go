@@ -162,3 +162,46 @@ func (s *ApiServer) HandleProblemUpdate(w http.ResponseWriter, r *http.Request) 
 
 	writeResponse(w, struct{}{}, sess)
 }
+
+type ProblemChangeTitleRequest struct {
+	Title string `json:"title"`
+}
+
+func (s *ApiServer) HandleProblemChangeTitle(w http.ResponseWriter, r *http.Request) {
+	var err error
+	var sess *session.Session
+	defer func() {
+		if err != nil {
+			writeError(w, r, err, sess)
+		}
+	}()
+
+	if _, sess, err = s.ensureSession(w, r); err != nil {
+		return
+	}
+
+	vars := mux.Vars(r)
+	var problemId uuid.UUID
+	if problemId, err = uuid.Parse(vars["problem_id"]); err != nil {
+		return
+	}
+	var req ProblemChangeTitleRequest
+	if err = json.NewDecoder(r.Body).Decode(&req); err != nil {
+		return
+	}
+
+	var info = new(judge.Problem)
+	if err = s.judgeService.GetProblemOwnerInfo(problemId, info); err != nil {
+		return
+	}
+	if info.Owner != sess.AuthUserId {
+		err = PermissionDeniedError
+		return
+	}
+	info.Title = req.Title
+	if err = s.judgeService.ChangeProblemTitle(problemId, info); err != nil {
+		return
+	}
+
+	writeResponse(w, struct{}{}, sess)
+}

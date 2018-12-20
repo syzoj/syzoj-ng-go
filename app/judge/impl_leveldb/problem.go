@@ -131,6 +131,20 @@ func (s *judgeService) UpdateProblem(id uuid.UUID, info *judge.Problem) (err err
 	return
 }
 
+func (s *judgeService) ChangeProblemTitle(id uuid.UUID, info *judge.Problem) (err error) {
+	s.problemLock.Lock()
+	defer s.problemLock.Unlock()
+	var _info *problemInfo
+	if _info, err = s.getProblem(s.db, id); err != nil {
+		return
+	}
+	_info.Title = info.Title
+	if err = s.putProblem(s.db, id, _info); err != nil {
+		return
+	}
+	return
+}
+
 func (s *judgeService) ResetProblemToken(id uuid.UUID, info *judge.Problem) (err error) {
 	s.problemLock.Lock()
 	defer s.problemLock.Unlock()

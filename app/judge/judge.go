@@ -13,6 +13,8 @@ type Service interface {
 	CreateProblem(info *Problem) (uuid.UUID, error)
 	// Refresh the problem and read statement from disk. info is ignored.
 	UpdateProblem(id uuid.UUID, info *Problem) error
+	// Changes the title of problem.
+	ChangeProblemTitle(id uuid.UUID, info *Problem) error
 	// Resets the token for problem.
 	ResetProblemToken(id uuid.UUID, info *Problem) (error)
 	// Gets the title, statement, token and owner for a problem.
