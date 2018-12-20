@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 
+	"github.com/gorilla/mux"
 	"github.com/syzoj/syzoj-ng-go/app/judge"
 	"github.com/syzoj/syzoj-ng-go/app/problemset"
 
@@ -44,9 +45,8 @@ func (srv *ApiServer) HandleCreateProblemset(w http.ResponseWriter, r *http.Requ
 }
 
 type ProblemsetAddProblemRequest struct {
-	ProblemsetId uuid.UUID `json:"problemset_id"`
-	Name         string    `json:"name"`
-	ProblemId    uuid.UUID `json:"problem_id"`
+	Name      string    `json:"name"`
+	ProblemId uuid.UUID `json:"problem_id"`
 }
 type ProblemsetAddProblemResponse struct{}
 
@@ -67,20 +67,22 @@ func (srv *ApiServer) HandleProblemsetAdd(w http.ResponseWriter, r *http.Request
 		return
 	}
 
+	vars := mux.Vars(r)
+	var problemsetId uuid.UUID
+	if problemsetId, err = uuid.Parse(vars["problemset_id"]); err != nil {
+		return
+	}
 	var req ProblemsetAddProblemRequest
 	if err = json.NewDecoder(r.Body).Decode(&req); err != nil {
 		return
 	}
 
-	if err = srv.problemsetService.AddProblem(req.ProblemsetId, sess.AuthUserId, req.Name, req.ProblemId); err != nil {
+	if err = srv.problemsetService.AddProblem(problemsetId, sess.AuthUserId, req.Name, req.ProblemId); err != nil {
 		return
 	}
 	writeResponse(w, ProblemsetAddProblemResponse{}, sess)
 }
 
-type ProblemsetListProblemRequest struct {
-	ProblemsetId uuid.UUID `json:"problemset_id"`
-}
 type ProblemsetListProblemResponse struct {
 	Problems []ProblemsetListProblemEntry `json:"problems"`
 }
@@ -106,13 +108,14 @@ func (srv *ApiServer) HandleProblemsetList(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	var req ProblemsetListProblemRequest
-	if err = json.NewDecoder(r.Body).Decode(&req); err != nil {
+	vars := mux.Vars(r)
+	var problemsetId uuid.UUID
+	if problemsetId, err = uuid.Parse(vars["problemset_id"]); err != nil {
 		return
 	}
 
 	var problems []problemset.ProblemInfo
-	if problems, err = srv.problemsetService.ListProblem(req.ProblemsetId, sess.AuthUserId); err != nil {
+	if problems, err = srv.problemsetService.ListProblem(problemsetId, sess.AuthUserId); err != nil {
 		return
 	}
 	var entries []ProblemsetListProblemEntry = make([]ProblemsetListProblemEntry, len(problems))
@@ -126,8 +129,7 @@ func (srv *ApiServer) HandleProblemsetList(w http.ResponseWriter, r *http.Reques
 }
 
 type ProblemsetViewProblemRequest struct {
-	ProblemsetId uuid.UUID `json:"problemset_id"`
-	Name         string    `json:"name"`
+	Name string `json:"name"`
 }
 type ProblemsetViewProblemResponse struct {
 	Statement string `json:"statement"`
@@ -150,13 +152,18 @@ func (srv *ApiServer) HandleProblemsetView(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
+	vars := mux.Vars(r)
+	var problemsetId uuid.UUID
+	if problemsetId, err = uuid.Parse(vars["problemset_id"]); err != nil {
+		return
+	}
 	var req ProblemsetViewProblemRequest
 	if err = json.NewDecoder(r.Body).Decode(&req); err != nil {
 		return
 	}
 
 	var p1 problemset.ProblemInfo
-	if p1, err = srv.problemsetService.ViewProblem(req.ProblemsetId, sess.AuthUserId, req.Name); err != nil {
+	if p1, err = srv.problemsetService.ViewProblem(problemsetId, sess.AuthUserId, req.Name); err != nil {
 		return
 	}
 	var p2 = new(judge.Problem)
@@ -170,10 +177,9 @@ func (srv *ApiServer) HandleProblemsetView(w http.ResponseWriter, r *http.Reques
 }
 
 type ProblemsetSubmitRequest struct {
-	ProblemsetId uuid.UUID `json:"problemset_id"`
-	ProblemName  string    `json:"problem_name"`
-	Type         string    `json:"type"`
-	Traditional  judge.TraditionalSubmission
+	ProblemName string `json:"problem_name"`
+	Type        string `json:"type"`
+	Traditional judge.TraditionalSubmission
 }
 type ProblemsetSubmitResponse struct {
 	SubmissionId uuid.UUID `json:"submission_id"`
@@ -196,6 +202,11 @@ func (srv *ApiServer) HandleProblemsetSubmit(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
+	vars := mux.Vars(r)
+	var problemsetId uuid.UUID
+	if problemsetId, err = uuid.Parse(vars["problemset_id"]); err != nil {
+		return
+	}
 	var req ProblemsetSubmitRequest
 	if err = json.NewDecoder(r.Body).Decode(&req); err != nil {
 		return
@@ -203,7 +214,7 @@ func (srv *ApiServer) HandleProblemsetSubmit(w http.ResponseWriter, r *http.Requ
 	switch req.Type {
 	case "traditional":
 		var submissionId uuid.UUID
-		if submissionId, err = srv.problemsetService.SubmitTraditional(req.ProblemsetId, sess.AuthUserId, req.ProblemName, req.Traditional); err != nil {
+		if submissionId, err = srv.problemsetService.SubmitTraditional(problemsetId, sess.AuthUserId, req.ProblemName, req.Traditional); err != nil {
 			return
 		}
 		writeResponse(w, ProblemsetSubmitResponse{
