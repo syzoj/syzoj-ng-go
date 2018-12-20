@@ -15,13 +15,13 @@ type RegisterRequest struct {
 
 func (srv *ApiServer) HandleAuthRegister(w http.ResponseWriter, r *http.Request) {
 	var err error
-	defer func() {
-		if err != nil {
-			writeError(w, r, err)
-		}
-	}()
 	var sessId uuid.UUID
 	var sess *session.Session
+	defer func() {
+		if err != nil {
+			writeError(w, r, err, sess)
+		}
+	}()
 	if sessId, sess, err = srv.ensureSession(w, r); err != nil {
 		return
 	}
@@ -40,7 +40,7 @@ func (srv *ApiServer) HandleAuthRegister(w http.ResponseWriter, r *http.Request)
 	if err = srv.sessService.UpdateSession(sessId, sess); err != nil {
 		return
 	}
-	writeResponseWithSession(w, nil, sess)
+	writeResponse(w, nil, sess)
 }
 
 type LoginRequest struct {
@@ -50,13 +50,13 @@ type LoginRequest struct {
 
 func (srv *ApiServer) HandleAuthLogin(w http.ResponseWriter, r *http.Request) {
 	var err error
-	defer func() {
-		if err != nil {
-			writeError(w, r, err)
-		}
-	}()
 	var sessId uuid.UUID
 	var sess *session.Session
+	defer func() {
+		if err != nil {
+			writeError(w, r, err, sess)
+		}
+	}()
 	if sessId, sess, err = srv.ensureSession(w, r); err != nil {
 		return
 	}
@@ -78,18 +78,18 @@ func (srv *ApiServer) HandleAuthLogin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	writeResponseWithSession(w, nil, sess)
+	writeResponse(w, nil, sess)
 }
 
 func (srv *ApiServer) HandleAuthLogout(w http.ResponseWriter, r *http.Request) {
 	var err error
-	defer func() {
-		if err != nil {
-			writeError(w, r, err)
-		}
-	}()
 	var sessId uuid.UUID
 	var sess *session.Session
+	defer func() {
+		if err != nil {
+			writeError(w, r, err, sess)
+		}
+	}()
 	if sessId, sess, err = srv.ensureSession(w, r); err != nil {
 		return
 	}
@@ -103,5 +103,5 @@ func (srv *ApiServer) HandleAuthLogout(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	writeResponseWithSession(w, nil, sess)
+	writeResponse(w, nil, sess)
 }

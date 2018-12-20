@@ -20,13 +20,13 @@ type CreateProblemResponse struct {
 
 func (s *ApiServer) HandleProblemCreate(w http.ResponseWriter, r *http.Request) {
 	var err error
+	var sess *session.Session
 	defer func() {
 		if err != nil {
-			writeError(w, r, err)
+			writeError(w, r, err, sess)
 		}
 	}()
 
-	var sess *session.Session
 	if _, sess, err = s.ensureSession(w, r); err != nil {
 		return
 	}
@@ -48,7 +48,7 @@ func (s *ApiServer) HandleProblemCreate(w http.ResponseWriter, r *http.Request) 
 	if problemId, err = s.judgeService.CreateProblem(&info); err != nil {
 		return
 	}
-	writeResponseWithSession(w, CreateProblemResponse{ProblemId: problemId}, sess)
+	writeResponse(w, CreateProblemResponse{ProblemId: problemId}, sess)
 }
 
 type ViewProblemResponse struct {
@@ -60,13 +60,13 @@ type ViewProblemResponse struct {
 
 func (s *ApiServer) HandleProblemView(w http.ResponseWriter, r *http.Request) {
 	var err error
+	var sess *session.Session
 	defer func() {
 		if err != nil {
-			writeError(w, r, err)
+			writeError(w, r, err, sess)
 		}
 	}()
 
-	var sess *session.Session
 	if _, sess, err = s.ensureSession(w, r); err != nil {
 		return
 	}
@@ -88,7 +88,7 @@ func (s *ApiServer) HandleProblemView(w http.ResponseWriter, r *http.Request) {
 		resp.Token = info.Token
 		resp.IsOwner = true
 	}
-	writeResponseWithSession(w, &resp, sess)
+	writeResponse(w, &resp, sess)
 }
 
 type ResetProblemTokenResponse struct {
@@ -97,13 +97,13 @@ type ResetProblemTokenResponse struct {
 
 func (s *ApiServer) HandleResetProblemToken(w http.ResponseWriter, r *http.Request) {
 	var err error
+	var sess *session.Session
 	defer func() {
 		if err != nil {
-			writeError(w, r, err)
+			writeError(w, r, err, sess)
 		}
 	}()
 
-	var sess *session.Session
 	if _, sess, err = s.ensureSession(w, r); err != nil {
 		return
 	}
@@ -127,18 +127,18 @@ func (s *ApiServer) HandleResetProblemToken(w http.ResponseWriter, r *http.Reque
 
 	var resp ResetProblemTokenResponse
 	resp.Token = info.Token
-	writeResponseWithSession(w, &resp, sess)
+	writeResponse(w, &resp, sess)
 }
 
 func (s *ApiServer) HandleProblemUpdate(w http.ResponseWriter, r *http.Request) {
 	var err error
+	var sess *session.Session
 	defer func() {
 		if err != nil {
-			writeError(w, r, err)
+			writeError(w, r, err, sess)
 		}
 	}()
 
-	var sess *session.Session
 	if _, sess, err = s.ensureSession(w, r); err != nil {
 		return
 	}
@@ -160,5 +160,5 @@ func (s *ApiServer) HandleProblemUpdate(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	writeResponseWithSession(w, struct{}{}, sess)
+	writeResponse(w, struct{}{}, sess)
 }

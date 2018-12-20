@@ -45,6 +45,7 @@ func (s *leveldbService) NewSession() (id uuid.UUID, sess *session.Session, err 
 	key := []byte(fmt.Sprintf("sess:%s", id))
 	var val []byte
 	if val, err = json.Marshal(sess); err != nil {
+		sess = nil
 		return
 	}
 	if err = s.db.Put(key, val, nil); err != nil {
@@ -65,6 +66,7 @@ func (s *leveldbService) GetSession(id uuid.UUID) (sess *session.Session, err er
 		return
 	}
 	if err = json.Unmarshal(val, &sess); err != nil {
+		sess = nil
 		return
 	}
 	if sess.Expiry.Before(time.Now()) {
