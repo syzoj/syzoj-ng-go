@@ -46,6 +46,8 @@ func (srv *ApiServer) setupRoutes() {
 	router.HandleFunc("/api/problemset/submit", srv.HandleProblemsetSubmit).Methods("POST")
 	router.HandleFunc("/api/problem/create", srv.HandleProblemCreate).Methods("POST")
 	router.HandleFunc("/api/problem/{problem_id:[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}}/view", srv.HandleProblemView).Methods("GET")
+	router.HandleFunc("/api/problem/{problem_id:[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}}/reset-token", srv.HandleResetProblemToken).Methods("POST")
+	router.HandleFunc("/api/problem/{problem_id:[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}}/update", srv.HandleProblemUpdate).Methods("POST")
 	srv.router = router
 }
 

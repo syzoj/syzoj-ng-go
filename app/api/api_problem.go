@@ -12,7 +12,7 @@ import (
 )
 
 type CreateProblemRequest struct {
-	A string
+	Title string `json:"title"`
 }
 type CreateProblemResponse struct {
 	ProblemId uuid.UUID `json:"problem_id"`
@@ -42,6 +42,7 @@ func (s *ApiServer) HandleProblemCreate(w http.ResponseWriter, r *http.Request) 
 
 	info := judge.Problem{
 		Owner: sess.AuthUserId,
+		Title: req.Title,
 	}
 	var problemId uuid.UUID
 	if problemId, err = s.judgeService.CreateProblem(&info); err != nil {
@@ -51,8 +52,10 @@ func (s *ApiServer) HandleProblemCreate(w http.ResponseWriter, r *http.Request) 
 }
 
 type ViewProblemResponse struct {
-	Statement judge.ProblemStatement `json:"statement"`
-	Token     string                 `json:"token"`
+	Title     string `json:"title"`
+	Statement string `json:"statement"`
+	IsOwner   bool   `json:"is_owner"`
+	Token     string `json:"token"`
 }
 
 func (s *ApiServer) HandleProblemView(w http.ResponseWriter, r *http.Request) {
@@ -73,15 +76,89 @@ func (s *ApiServer) HandleProblemView(w http.ResponseWriter, r *http.Request) {
 	if problemId, err = uuid.Parse(vars["problem_id"]); err != nil {
 		return
 	}
-	var info *judge.Problem
-	if info, err = s.judgeService.GetProblem(problemId); err != nil {
+	var info = new(judge.Problem)
+	if err = s.judgeService.GetProblemFullInfo(problemId, info); err != nil {
 		return
 	}
 
 	var resp ViewProblemResponse
 	resp.Statement = info.Statement
+	resp.Title = info.Title
 	if info.Owner == sess.AuthUserId {
 		resp.Token = info.Token
+		resp.IsOwner = true
 	}
 	writeResponseWithSession(w, &resp, sess)
+}
+
+type ResetProblemTokenResponse struct {
+	Token string `json:"token"`
+}
+
+func (s *ApiServer) HandleResetProblemToken(w http.ResponseWriter, r *http.Request) {
+	var err error
+	defer func() {
+		if err != nil {
+			writeError(w, r, err)
+		}
+	}()
+
+	var sess *session.Session
+	if _, sess, err = s.ensureSession(w, r); err != nil {
+		return
+	}
+
+	vars := mux.Vars(r)
+	var problemId uuid.UUID
+	if problemId, err = uuid.Parse(vars["problem_id"]); err != nil {
+		return
+	}
+	var info = new(judge.Problem)
+	if err = s.judgeService.GetProblemOwnerInfo(problemId, info); err != nil {
+		return
+	}
+	if info.Owner != sess.AuthUserId {
+		err = PermissionDeniedError
+		return
+	}
+	if err = s.judgeService.ResetProblemToken(problemId, info); err != nil {
+		return
+	}
+
+	var resp ResetProblemTokenResponse
+	resp.Token = info.Token
+	writeResponseWithSession(w, &resp, sess)
+}
+
+func (s *ApiServer) HandleProblemUpdate(w http.ResponseWriter, r *http.Request) {
+	var err error
+	defer func() {
+		if err != nil {
+			writeError(w, r, err)
+		}
+	}()
+
+	var sess *session.Session
+	if _, sess, err = s.ensureSession(w, r); err != nil {
+		return
+	}
+
+	vars := mux.Vars(r)
+	var problemId uuid.UUID
+	if problemId, err = uuid.Parse(vars["problem_id"]); err != nil {
+		return
+	}
+	var info = new(judge.Problem)
+	if err = s.judgeService.GetProblemOwnerInfo(problemId, info); err != nil {
+		return
+	}
+	if info.Owner != sess.AuthUserId {
+		err = PermissionDeniedError
+		return
+	}
+	if err = s.judgeService.UpdateProblem(problemId, info); err != nil {
+		return
+	}
+
+	writeResponseWithSession(w, struct{}{}, sess)
 }

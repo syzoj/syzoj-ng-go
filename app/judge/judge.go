@@ -9,12 +9,18 @@ import (
 
 // The interface for traditional judge service.
 type Service interface {
-	// Creates a new problem.
+	// Creates a new problem. Only Title and Owner is used; other fields are ignored.
 	CreateProblem(info *Problem) (uuid.UUID, error)
-	// Updates a problem.
+	// Refresh the problem and read statement from disk. info is ignored.
 	UpdateProblem(id uuid.UUID, info *Problem) error
-	// Gets a problem.
-	GetProblem(id uuid.UUID) (*Problem, error)
+	// Resets the token for problem.
+	ResetProblemToken(id uuid.UUID, info *Problem) (error)
+	// Gets the title, statement, token and owner for a problem.
+	GetProblemFullInfo(id uuid.UUID, info *Problem) (error)
+	// Gets the statement for a problem.
+	GetProblemStatementInfo(id uuid.UUID, info *Problem) (error)
+	// Gets the owner for a problem.
+	GetProblemOwnerInfo(id uuid.UUID, info *Problem) (error)
 	// Deletes a problem.
 	DeleteProblem(id uuid.UUID) error
 	// Adds a submission to queue and receive callback.
@@ -27,15 +33,10 @@ type Service interface {
 
 // The type represents all information about a problem.
 type Problem struct {
-	Statement ProblemStatement `json:"statement"`
-	GitRepo   uuid.UUID        `json:"git_repo"`
-	Token     string           `json:"token"`
-	Owner     uuid.UUID        `json:"owner"`
-	Version   int64            `json:"version"`
-}
-type ProblemStatement struct {
-	Title     string `json:"title"`
-	Statement string `json:"statement"`
+	Title string
+	Statement string
+	Token     string  
+	Owner     uuid.UUID  
 }
 
 // The interface represents a task in queue.

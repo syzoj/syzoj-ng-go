@@ -130,7 +130,7 @@ type ProblemsetViewProblemRequest struct {
 	Name         string    `json:"name"`
 }
 type ProblemsetViewProblemResponse struct {
-	Statement judge.ProblemStatement `json:"statement"`
+	Statement string `json:"statement"`
 }
 
 func (srv *ApiServer) HandleProblemsetView(w http.ResponseWriter, r *http.Request) {
@@ -159,8 +159,8 @@ func (srv *ApiServer) HandleProblemsetView(w http.ResponseWriter, r *http.Reques
 	if p1, err = srv.problemsetService.ViewProblem(req.ProblemsetId, sess.AuthUserId, req.Name); err != nil {
 		return
 	}
-	var p2 *judge.Problem
-	if p2, err = srv.judgeService.GetProblem(p1.ProblemId); err != nil {
+	var p2 = new(judge.Problem)
+	if err = srv.judgeService.GetProblemStatementInfo(p1.ProblemId, p2); err != nil {
 		return
 	}
 
