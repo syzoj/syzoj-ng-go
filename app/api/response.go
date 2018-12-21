@@ -20,31 +20,24 @@ type ApiErrorResponseWithSession struct {
 	Session SessionResponse `json:"session"`
 }
 
-func writeError(w http.ResponseWriter, r *http.Request, err error, sess *session.Session) {
-	log.Infof("Error handling request %s: %s", r.URL, err)
+func writeError(w http.ResponseWriter, r *http.Request, err ApiError, sess *session.Session) {
+	if ierr, ok := err.(internalServerErrorType); ok {
+		log.Errorf("Error handling request %s: %s", r.URL, ierr.Err)
+	} else {
+		log.Infof("Failed to handle request %s: %s", r.URL, err)
+	}
 	var err2 error
 	defer func() {
 		if err2 != nil {
 			log.WithField("error", err2).Warning("Failed to write error")
 		}
 	}()
-	switch v := err.(type) {
-	case *ApiError:
-		w.WriteHeader(v.Code)
-		encoder := json.NewEncoder(w)
-		if sess != nil {
-			err2 = encoder.Encode(ApiErrorResponseWithSession{Error: v.Message, Session: getSessionResponse(sess)})
-		} else {
-			err2 = encoder.Encode(ApiErrorResponse{v.Message})
-		}
-		
-	default:
-		encoder := json.NewEncoder(w)
-		if sess != nil {
-			err2 = encoder.Encode(ApiErrorResponseWithSession{Error: v.Error(), Session: getSessionResponse(sess)})
-		} else {
-			err2 = encoder.Encode(ApiErrorResponse{v.Error()})
-		}
+	w.WriteHeader(err.Code())
+	encoder := json.NewEncoder(w)
+	if sess != nil {
+		err2 = encoder.Encode(ApiErrorResponseWithSession{Error: err.Error(), Session: getSessionResponse(sess)})
+	} else {
+		err2 = encoder.Encode(ApiErrorResponse{err.Error()})
 	}
 }
 
@@ -53,7 +46,7 @@ type ApiSuccessResponseWithSession struct {
 	Session SessionResponse `json:"session"`
 }
 type ApiSuccessResponse struct {
-	Data    interface{}     `json:"data"`
+	Data interface{} `json:"data"`
 }
 type SessionResponse struct {
 	UserId   uuid.UUID `json:"user_id"`

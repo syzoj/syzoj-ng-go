@@ -36,19 +36,19 @@ func CreateApiServer(sessService session.Service, authService auth.Service, prob
 
 func (srv *ApiServer) setupRoutes() {
 	router := mux.NewRouter()
-	router.HandleFunc("/api/auth/register", srv.HandleAuthRegister).Methods("POST")
-	router.HandleFunc("/api/auth/login", srv.HandleAuthLogin).Methods("POST")
-	router.HandleFunc("/api/auth/logout", srv.HandleAuthLogout).Methods("POST")
-	router.HandleFunc("/api/problemset/create", srv.HandleCreateProblemset).Methods("POST")
-	router.HandleFunc("/api/problemset/{problemset_id:[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/add", srv.HandleProblemsetAdd).Methods("POST")
-	router.HandleFunc("/api/problemset/{problemset_id:[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/list", srv.HandleProblemsetList).Methods("GET")
-	router.HandleFunc("/api/problemset/{problemset_id:[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/view", srv.HandleProblemsetView).Methods("GET")
-	router.HandleFunc("/api/problemset/{problemset_id:[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/submit", srv.HandleProblemsetSubmit).Methods("POST")
-	router.HandleFunc("/api/problem/create", srv.HandleProblemCreate).Methods("POST")
-	router.HandleFunc("/api/problem/{problem_id:[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}}/view", srv.HandleProblemView).Methods("GET")
-	router.HandleFunc("/api/problem/{problem_id:[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}}/reset-token", srv.HandleResetProblemToken).Methods("POST")
-	router.HandleFunc("/api/problem/{problem_id:[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}}/update", srv.HandleProblemUpdate).Methods("POST")
-	router.HandleFunc("/api/problem/{problem_id:[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}}/change-title", srv.HandleProblemChangeTitle).Methods("POST")
+	router.Handle("/api/auth/register", srv.wrapHandlerWithSession(srv.HandleAuthRegister)).Methods("POST")
+	router.Handle("/api/auth/login", srv.wrapHandlerWithSession(srv.HandleAuthLogin)).Methods("POST")
+	router.Handle("/api/auth/logout", srv.wrapHandlerWithSession(srv.HandleAuthLogout)).Methods("POST")
+	router.Handle("/api/problemset/create", srv.wrapHandlerWithSession(srv.HandleCreateProblemset)).Methods("POST")
+	router.Handle("/api/problemset/{problemset_id:[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/add", srv.wrapHandlerWithSession(srv.HandleProblemsetAdd)).Methods("POST")
+	router.Handle("/api/problemset/{problemset_id:[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/list", srv.wrapHandlerWithSession(srv.HandleProblemsetList)).Methods("GET")
+	router.Handle("/api/problemset/{problemset_id:[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/view", srv.wrapHandlerWithSession(srv.HandleProblemsetView)).Methods("GET")
+	router.Handle("/api/problemset/{problemset_id:[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/submit", srv.wrapHandlerWithSession(srv.HandleProblemsetSubmit)).Methods("POST")
+	router.Handle("/api/problem/create", srv.wrapHandlerWithSession(srv.HandleProblemCreate)).Methods("POST")
+	router.Handle("/api/problem/{problem_id:[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}}/view", srv.wrapHandlerWithSession(srv.HandleProblemView)).Methods("GET")
+	router.Handle("/api/problem/{problem_id:[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}}/reset-token", srv.wrapHandlerWithSession(srv.HandleResetProblemToken)).Methods("POST")
+	router.Handle("/api/problem/{problem_id:[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}}/update", srv.wrapHandlerWithSession(srv.HandleProblemUpdate)).Methods("POST")
+	router.Handle("/api/problem/{problem_id:[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}}/change-title", srv.wrapHandlerWithSession(srv.HandleProblemChangeTitle)).Methods("POST")
 	srv.router = router
 }
 
@@ -56,14 +56,14 @@ func (srv *ApiServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	srv.router.ServeHTTP(w, r)
 }
 
-func (srv *ApiServer) ensureSession(w http.ResponseWriter, r *http.Request) (uuid.UUID, *session.Session, error) {
+func (srv *ApiServer) ensureSession(w http.ResponseWriter, r *http.Request) (uuid.UUID, *session.Session, ApiError) {
 	var sessId uuid.UUID
 	if cookie, err := r.Cookie("SYZOJSESSION"); err == nil {
 		sessId, _ = uuid.Parse(cookie.Value)
 	}
 	if sess, err := srv.sessService.GetSession(sessId); err != nil {
 		if err != session.ErrSessionNotFound {
-			return sessId, sess, err
+			return sessId, sess, internalServerError(err)
 		}
 		if sessId, sess, err := srv.sessService.NewSession(); err == nil {
 			http.SetCookie(w, &http.Cookie{
@@ -73,11 +73,51 @@ func (srv *ApiServer) ensureSession(w http.ResponseWriter, r *http.Request) (uui
 				Path:     "/",
 				Expires:  time.Now().Add(time.Hour * 24 * 30),
 			})
-			return sessId, sess, err
+			return sessId, sess, nil
 		} else {
-			return sessId, sess, err
+			return sessId, sess, internalServerError(err)
 		}
 	} else {
 		return sessId, sess, nil
+	}
+}
+
+func (srv *ApiServer) updateSession(sessId uuid.UUID, sess *session.Session) ApiError {
+	var err = srv.sessService.UpdateSession(sessId, sess)
+	if err != nil {
+		return internalServerError(err)
+	}
+	return nil
+}
+
+func (srv *ApiServer) wrapHandler(handler func(http.ResponseWriter, *http.Request) ApiError) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var err = handler(w, r)
+		if err != nil {
+			writeError(w, r, err, nil)
+			return
+		}
+	})
+}
+
+func (srv *ApiServer) wrapHandlerWithSession(handler func(http.ResponseWriter, *http.Request, uuid.UUID, *session.Session) ApiError) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		sessId, sess, err := srv.ensureSession(w, r)
+		if err != nil {
+			writeError(w, r, err, nil)
+			return
+		}
+		if err = handler(w, r, sessId, sess); err != nil {
+			writeError(w, r, err, sess)
+			return
+		}
+	})
+}
+
+func requireLogin(sess *session.Session) ApiError {
+	if sess.AuthUserId == defaultUserId {
+		return ErrNotLoggedIn
+	} else {
+		return nil
 	}
 }

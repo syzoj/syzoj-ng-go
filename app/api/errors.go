@@ -1,37 +1,120 @@
 package api
 
 import (
-	"errors"
+	"github.com/syzoj/syzoj-ng-go/app/problemset"
+	"github.com/syzoj/syzoj-ng-go/app/auth"
+	"github.com/syzoj/syzoj-ng-go/app/judge"
 )
 
-type ApiError struct {
-	Code    int
-	Message string
+type ApiError interface {
+	Code() int
+	Error() string
 }
 
-func (e *ApiError) Error() string {
-	return e.Message
+type apiError struct {
+	code    int
+	message string
 }
 
-var ApiEndpointNotFoundError = &ApiError{404, "API endpoint not found"}
-var GroupNotFoundError = &ApiError{404, "Group not found"}
-var ProblemsetNotFoundError = &ApiError{404, "Problemset not found"}
-var ProblemNotFoundError = &ApiError{404, "Problem not found"}
-var PermissionDeniedError = &ApiError{403, "Permission denied"}
-var NotLoggedInError = &ApiError{401, "Not logged in"}
-var DuplicateGroupNameError = &ApiError{200, "Duplicate group name"}
-var DuplicateUserNameError = &ApiError{200, "Duplicate user name"}
-var DuplicateProblemsetNameError = &ApiError{200, "Duplicate problemset name"}
-var BadRequestError = &ApiError{400, "Bad request"}
-var InvalidProblemsetTypeError = &ApiError{400, "Invalid or unsupported problemset type"}
-var InvalidProblemTypeError = &ApiError{400, "Invalid or unsupported problem type"}
-var InternalServerError = &ApiError{500, "Internal server error"}
+func (e *apiError) Code() int {
+	return e.code
+}
 
-var AlreadyLoggedInError = &ApiError{200, "Already logged in"}
-var UnknownUsernameError = &ApiError{200, "Unknown username"}
-var CannotLoginError = &ApiError{200, "Cannot login yet"}
-var TwoFactorNotSupportedError = &ApiError{200, "Two factor auth not supported"}
-var PasswordIncorrectError = &ApiError{200, "Password incorrect"}
+func (e *apiError) Error() string {
+	return e.message
+}
 
-// Internal error
-var InvalidAuthUserIdError = errors.New("Invalid AuthUserId")
+type internalServerErrorType struct {
+	Err error
+}
+
+func (e internalServerErrorType) Code() int {
+	return 500
+}
+
+func (e internalServerErrorType) Error() string {
+	return "Internal server error"
+}
+
+func internalServerError(err error) ApiError {
+	return internalServerErrorType{err}
+}
+
+type badRequestErrorType struct {
+	Err error
+}
+
+func (e badRequestErrorType) Code() int {
+	return 400
+}
+
+func (e badRequestErrorType) Error() string {
+	return e.Err.Error()
+}
+
+func badRequestError(err error) ApiError {
+	return badRequestErrorType{err}
+}
+
+var ErrRetry = &apiError{503, "Please retry"}
+var ErrNotImplemented = &apiError{501, "Not implemented"}
+
+var ErrProblemNotFound = &apiError{404, "Problem not found"}
+var ErrQueueFull = &apiError{503, "Submission queue full"}
+
+var ErrNotLoggedIn = &apiError{401, "Authentication required"}
+var ErrPermissionDenied = &apiError{403, "Permission denied"}
+
+var ErrUserNotFound = &apiError{200, "User not found"}
+var ErrDuplicateUserName = &apiError{200, "Duplicate user name"}
+var ErrPasswordIncorrect = &apiError{200, "Password incorrect"}
+
+var ErrDuplicateProblemName = &apiError{200, "Duplicate problem name"}
+var ErrProblemsetNotFound = &apiError{404, "Problemset not found"}
+
+func judgeError(err error) ApiError {
+	switch err {
+	case judge.ErrConcurrentUpdate:
+		return ErrRetry
+	case judge.ErrNotImplemented:
+		return ErrNotImplemented
+	case judge.ErrProblemNotExist:
+		return ErrProblemNotFound
+	case judge.ErrQueueFull:
+		return ErrQueueFull
+	default:
+		return internalServerError(err)
+	}
+}
+
+func userError(err error) ApiError {
+	switch err {
+	case auth.ErrDuplicateUserName:
+		return ErrDuplicateUserName
+	case auth.ErrPasswordIncorrect:
+		return ErrPasswordIncorrect
+	case auth.ErrUserNotFound:
+		return ErrUserNotFound
+	default:
+		return internalServerError(err)
+	}
+}
+
+func problemsetError(err error) ApiError {
+	switch err {
+	case problemset.ErrNotImplemented:
+		return ErrNotImplemented
+	case problemset.ErrAnonymousSubmission:
+		return ErrNotLoggedIn
+	case problemset.ErrDuplicateProblemName:
+		return ErrDuplicateProblemName
+	case problemset.ErrPermissionDenied:
+		return ErrPermissionDenied
+	case problemset.ErrProblemNotFound:
+		return ErrProblemNotFound
+	case problemset.ErrProblemsetNotFound:
+		return ErrProblemsetNotFound
+	default:
+		return internalServerError(err)
+	}
+}

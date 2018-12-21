@@ -18,30 +18,19 @@ type ProblemsetCreateResponse struct {
 	ProblemsetId uuid.UUID `json:"problemset_id"`
 }
 
-func (srv *ApiServer) HandleCreateProblemset(w http.ResponseWriter, r *http.Request) {
+func (srv *ApiServer) HandleCreateProblemset(w http.ResponseWriter, r *http.Request, _ uuid.UUID, sess *session.Session) ApiError {
 	var err error
-	var sess *session.Session
-	defer func() {
-		if err != nil {
-			writeError(w, r, err, sess)
-		}
-	}()
-
-	if _, sess, err = srv.ensureSession(w, r); err != nil {
-		return
+	if err = requireLogin(sess); err != nil {
+		return err.(ApiError)
 	}
-	if sess.AuthUserId == defaultUserId {
-		err = NotLoggedInError
-		return
-	}
-
 	var id uuid.UUID
 	if id, err = srv.problemsetService.NewProblemset(sess.AuthUserId); err != nil {
-		return
+		return problemsetError(err)
 	}
 	writeResponse(w, ProblemsetCreateResponse{
 		ProblemsetId: id,
 	}, sess)
+	return nil
 }
 
 type ProblemsetAddProblemRequest struct {
@@ -50,37 +39,22 @@ type ProblemsetAddProblemRequest struct {
 }
 type ProblemsetAddProblemResponse struct{}
 
-func (srv *ApiServer) HandleProblemsetAdd(w http.ResponseWriter, r *http.Request) {
+func (srv *ApiServer) HandleProblemsetAdd(w http.ResponseWriter, r *http.Request, _ uuid.UUID, sess *session.Session) ApiError {
 	var err error
-	var sess *session.Session
-	defer func() {
-		if err != nil {
-			writeError(w, r, err, sess)
-		}
-	}()
-
-	if _, sess, err = srv.ensureSession(w, r); err != nil {
-		return
+	if err = requireLogin(sess); err != nil {
+		return err.(ApiError)
 	}
-	if sess.AuthUserId == defaultUserId {
-		err = NotLoggedInError
-		return
-	}
-
 	vars := mux.Vars(r)
-	var problemsetId uuid.UUID
-	if problemsetId, err = uuid.Parse(vars["problemset_id"]); err != nil {
-		return
-	}
+	var problemsetId = uuid.MustParse(vars["problemset_id"])
 	var req ProblemsetAddProblemRequest
 	if err = json.NewDecoder(r.Body).Decode(&req); err != nil {
-		return
+		return problemsetError(err)
 	}
-
 	if err = srv.problemsetService.AddProblem(problemsetId, sess.AuthUserId, req.Name, req.ProblemId); err != nil {
-		return
+		return problemsetError(err)
 	}
 	writeResponse(w, ProblemsetAddProblemResponse{}, sess)
+	return nil
 }
 
 type ProblemsetListProblemResponse struct {
@@ -91,32 +65,16 @@ type ProblemsetListProblemEntry struct {
 	Title string `json:"title"`
 }
 
-func (srv *ApiServer) HandleProblemsetList(w http.ResponseWriter, r *http.Request) {
+func (srv *ApiServer) HandleProblemsetList(w http.ResponseWriter, r *http.Request, _ uuid.UUID, sess *session.Session) ApiError {
 	var err error
-	var sess *session.Session
-	defer func() {
-		if err != nil {
-			writeError(w, r, err, sess)
-		}
-	}()
-
-	if _, sess, err = srv.ensureSession(w, r); err != nil {
-		return
+	if err = requireLogin(sess); err != nil {
+		return err.(ApiError)
 	}
-	if sess.AuthUserId == defaultUserId {
-		err = NotLoggedInError
-		return
-	}
-
 	vars := mux.Vars(r)
-	var problemsetId uuid.UUID
-	if problemsetId, err = uuid.Parse(vars["problemset_id"]); err != nil {
-		return
-	}
-
+	var problemsetId = uuid.MustParse(vars["problemset_id"])
 	var problems []problemset.ProblemInfo
 	if problems, err = srv.problemsetService.ListProblem(problemsetId, sess.AuthUserId); err != nil {
-		return
+		return problemsetError(err)
 	}
 	var entries []ProblemsetListProblemEntry = make([]ProblemsetListProblemEntry, len(problems))
 	for i, problem := range problems {
@@ -126,6 +84,7 @@ func (srv *ApiServer) HandleProblemsetList(w http.ResponseWriter, r *http.Reques
 		}
 	}
 	writeResponse(w, ProblemsetListProblemResponse{Problems: entries}, sess)
+	return nil
 }
 
 type ProblemsetViewProblemRequest struct {
@@ -135,45 +94,30 @@ type ProblemsetViewProblemResponse struct {
 	Statement string `json:"statement"`
 }
 
-func (srv *ApiServer) HandleProblemsetView(w http.ResponseWriter, r *http.Request) {
+func (srv *ApiServer) HandleProblemsetView(w http.ResponseWriter, r *http.Request, _ uuid.UUID, sess *session.Session) ApiError {
 	var err error
-	var sess *session.Session
-	defer func() {
-		if err != nil {
-			writeError(w, r, err, sess)
-		}
-	}()
-
-	if _, sess, err = srv.ensureSession(w, r); err != nil {
-		return
+	if err = requireLogin(sess); err != nil {
+		return err.(ApiError)
 	}
-	if sess.AuthUserId == defaultUserId {
-		err = NotLoggedInError
-		return
-	}
-
 	vars := mux.Vars(r)
-	var problemsetId uuid.UUID
-	if problemsetId, err = uuid.Parse(vars["problemset_id"]); err != nil {
-		return
-	}
+	var problemsetId = uuid.MustParse(vars["problemset_id"])
 	var req ProblemsetViewProblemRequest
 	if err = json.NewDecoder(r.Body).Decode(&req); err != nil {
-		return
+		return problemsetError(err)
 	}
 
 	var p1 problemset.ProblemInfo
 	if p1, err = srv.problemsetService.ViewProblem(problemsetId, sess.AuthUserId, req.Name); err != nil {
-		return
+		return problemsetError(err)
 	}
 	var p2 = new(judge.Problem)
 	if err = srv.judgeService.GetProblemStatementInfo(p1.ProblemId, p2); err != nil {
-		return
+		return judgeError(err)
 	}
-
 	writeResponse(w, ProblemsetViewProblemResponse{
 		Statement: p2.Statement,
 	}, sess)
+	return nil
 }
 
 type ProblemsetSubmitRequest struct {
@@ -185,44 +129,28 @@ type ProblemsetSubmitResponse struct {
 	SubmissionId uuid.UUID `json:"submission_id"`
 }
 
-func (srv *ApiServer) HandleProblemsetSubmit(w http.ResponseWriter, r *http.Request) {
+func (srv *ApiServer) HandleProblemsetSubmit(w http.ResponseWriter, r *http.Request, _ uuid.UUID, sess *session.Session) ApiError {
 	var err error
-	var sess *session.Session
-	defer func() {
-		if err != nil {
-			writeError(w, r, err, sess)
-		}
-	}()
-
-	if _, sess, err = srv.ensureSession(w, r); err != nil {
-		return
+	if err = requireLogin(sess); err != nil {
+		return err.(ApiError)
 	}
-	if sess.AuthUserId == defaultUserId {
-		err = NotLoggedInError
-		return
-	}
-
 	vars := mux.Vars(r)
-	var problemsetId uuid.UUID
-	if problemsetId, err = uuid.Parse(vars["problemset_id"]); err != nil {
-		return
-	}
+	var problemsetId = uuid.MustParse(vars["problemset_id"])
 	var req ProblemsetSubmitRequest
 	if err = json.NewDecoder(r.Body).Decode(&req); err != nil {
-		return
+		return badRequestError(err)
 	}
 	switch req.Type {
 	case "traditional":
 		var submissionId uuid.UUID
 		if submissionId, err = srv.problemsetService.SubmitTraditional(problemsetId, sess.AuthUserId, req.ProblemName, req.Traditional); err != nil {
-			return
+			return problemsetError(err)
 		}
 		writeResponse(w, ProblemsetSubmitResponse{
 			SubmissionId: submissionId,
 		}, sess)
-		break
+		return nil
 	default:
-		err = BadRequestError
-		return
+		return ErrNotImplemented
 	}
 }
