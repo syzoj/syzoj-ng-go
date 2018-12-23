@@ -50,10 +50,9 @@ type SubmissionInfo struct {
 
 var ErrInvalidProblemsetType = errors.New("Invalid problemset type")
 var ErrProblemsetNotFound = errors.New("Problemset not found")
-var ErrOperationNotSupported = errors.New("Operation not supported")
 var ErrDuplicateProblemName = errors.New("Duplicate problem name")
 var ErrInvalidProblemName = errors.New("Invalid problem name")
-var ErrDuplicateUUID = errors.New("UUID dupication")
+var ErrDuplicateUUID = errors.New("UUID duplication")
 var ErrPermissionDenied = errors.New("Permission denied")
 var ErrAnonymousSubmission = errors.New("Anonymous submission")
 var ErrProblemNotFound = errors.New("Problem not found")

@@ -1,11 +1,11 @@
 package impl_leveldb
 
 import (
-	"io/ioutil"
 	"crypto/rand"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"io/ioutil"
 	"os"
 	"path/filepath"
 

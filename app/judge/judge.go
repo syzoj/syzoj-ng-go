@@ -16,13 +16,13 @@ type Service interface {
 	// Changes the title of problem.
 	ChangeProblemTitle(id uuid.UUID, info *Problem) error
 	// Resets the token for problem.
-	ResetProblemToken(id uuid.UUID, info *Problem) (error)
+	ResetProblemToken(id uuid.UUID, info *Problem) error
 	// Gets the title, statement, token and owner for a problem.
-	GetProblemFullInfo(id uuid.UUID, info *Problem) (error)
+	GetProblemFullInfo(id uuid.UUID, info *Problem) error
 	// Gets the statement for a problem.
-	GetProblemStatementInfo(id uuid.UUID, info *Problem) (error)
+	GetProblemStatementInfo(id uuid.UUID, info *Problem) error
 	// Gets the owner for a problem.
-	GetProblemOwnerInfo(id uuid.UUID, info *Problem) (error)
+	GetProblemOwnerInfo(id uuid.UUID, info *Problem) error
 	// Deletes a problem.
 	DeleteProblem(id uuid.UUID) error
 	// Adds a submission to queue and receive callback.
@@ -35,10 +35,10 @@ type Service interface {
 
 // The type represents all information about a problem.
 type Problem struct {
-	Title string
+	Title     string
 	Statement string
-	Token     string  
-	Owner     uuid.UUID  
+	Token     string
+	Owner     uuid.UUID
 }
 
 // The interface represents a task in queue.

@@ -29,11 +29,11 @@ import (
 var log = logrus.StandardLogger()
 
 type syzoj_config struct {
-	Database string `json:"database"`
-	Addr     string `json:"addr"`
-	GitPath  string `json:"git_path"`
-	LevelDB  string `json:"leveldb_path"`
-	Judge judge_impl.Config `json:"judge"`
+	Database string            `json:"database"`
+	Addr     string            `json:"addr"`
+	GitPath  string            `json:"git_path"`
+	LevelDB  string            `json:"leveldb_path"`
+	Judge    judge_impl.Config `json:"judge"`
 }
 
 func init() {

@@ -1,9 +1,9 @@
 package api
 
 import (
-	"github.com/syzoj/syzoj-ng-go/app/problemset"
 	"github.com/syzoj/syzoj-ng-go/app/auth"
 	"github.com/syzoj/syzoj-ng-go/app/judge"
+	"github.com/syzoj/syzoj-ng-go/app/problemset"
 )
 
 type ApiError interface {
