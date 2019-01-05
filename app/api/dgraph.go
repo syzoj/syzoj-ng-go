@@ -33,6 +33,7 @@ type Problem struct {
 	Title string `json:"problem.title",omitempty`
 	Statement string `json:"problem.statement",omitempty`
 	Token string `json:"problem.token",omitempty`
+	CreateTime time.Time `json:"problem.create_time",omitempty`
 	Owner []*User `json:"problem.owner",omitempty`
 }
 

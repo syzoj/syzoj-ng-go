@@ -3,6 +3,7 @@ package api
 import (
 	"encoding/json"
 	"context"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/gorilla/mux"
@@ -37,6 +38,10 @@ func (srv *ApiServer) HandleProblemCreate(c *ApiContext) (apiErr ApiError) {
 		if problemId, err = uuid.NewRandom(); err != nil {
 			return
 		}
+		var datetimeVal []byte
+		if datetimeVal, err = time.Now().MarshalBinary(); err != nil {
+			return
+		}
 		if _, err = t.T.Mutate(ctx, &dgo_api.Mutation{
 			Set: []*dgo_api.NQuad{
 				&dgo_api.NQuad{
@@ -53,6 +58,11 @@ func (srv *ApiServer) HandleProblemCreate(c *ApiContext) (apiErr ApiError) {
 					Subject: "_:problem",
 					Predicate: "problem.title",
 					ObjectValue: &dgo_api.Value{Val: &dgo_api.Value_StrVal{StrVal: req.Title}},
+				},
+				&dgo_api.NQuad{
+					Subject: "_:problem",
+					Predicate: "problem.create_time",
+					ObjectValue: &dgo_api.Value{Val: &dgo_api.Value_DatetimeVal{DatetimeVal: datetimeVal}},
 				},
 			},
 		}); err != nil {
@@ -201,6 +211,11 @@ query CanSubmitQuery($problemId: string) {
 				},
 				&dgo_api.NQuad{
 					Subject: "_:submission",
+					Predicate: "submission.problem",
+					ObjectId: resp.Problem[0].Uid,
+				},
+				&dgo_api.NQuad{
+					Subject: "_:submission",
 					Predicate: "submission.language",
 					ObjectValue: &dgo_api.Value{Val: &dgo_api.Value_StrVal{StrVal: req.Language}},
 				},
@@ -217,6 +232,65 @@ query CanSubmitQuery($problemId: string) {
 			writeResponse(c, &SubmitProblemResponse{
 				SubmissionId: submissionId,
 			})
+		})
+		return
+	})
+	if err != nil {
+		return internalServerError(err)
+	}
+	return
+}
+
+type MyProblemResponse struct {
+	Problems []MyProblemSummary `json:"problems"`
+}
+type MyProblemSummary struct {
+	Title string `json:"title"`
+	Id uuid.UUID `json:"id"`
+	CreateTime time.Time `json:"create_time"`
+}
+func (srv *ApiServer) HandleMyProblem(c *ApiContext) (apiErr ApiError) {
+	var err error
+	err = srv.withDgraphTransaction(c.r.Context(), func(ctx context.Context, t *DgraphTransaction) (err error) {
+		var sess *Session
+		if sess, err = srv.getSession(ctx, c, t); err != nil {
+			return
+		}
+		if len(sess.AuthUser) == 0 {
+			t.Defer(func() {
+				apiErr = ErrNotLoggedIn
+			})
+			return
+		}
+		const MyProblemQuery = `
+query MyProblem($userId: string) {
+	problem(func: uid($userId)) @normalize {
+		~problem.owner {
+			problem.id: problem.id
+			problem.title: problem.title
+			problem.create_time: problem.create_time
+		}
+	}
+}
+`
+		var apiResponse *dgo_api.Response
+		if apiResponse, err = t.T.QueryWithVars(ctx, MyProblemQuery, map[string]string{"$userId": sess.AuthUser[0].Uid}); err != nil {
+			return
+		}
+		type response struct {
+			Problem []*Problem `json:"problem"`
+		}
+		var resp response
+		if err = json.Unmarshal(apiResponse.Json, &resp); err != nil {
+			return
+		}
+		var myresp MyProblemResponse
+		myresp.Problems = make([]MyProblemSummary, len(resp.Problem))
+		for k, v := range(resp.Problem) {
+			myresp.Problems[k] = MyProblemSummary{Title: v.Title, Id: v.Id, CreateTime: v.CreateTime}
+		}
+		t.Defer(func() {
+			writeResponse(c, &myresp)
 		})
 		return
 	})
@@ -320,17 +394,6 @@ query ProblemOwnerQuery($problemId: string) {
 		}
 		if resp.Problem[0].Owner[0].Uid != sess.AuthUser[0].Uid {
 			apiErr = ErrPermissionDenied
-			return
-		}
-		if _, err = t.T.Mutate(ctx, &dgo_api.Mutation{
-			Del: []*dgo_api.NQuad{
-				&dgo_api.NQuad{
-					Subject: resp.Problem[0].Uid,
-					Predicate: "problem.title",
-					ObjectValue: &dgo_api.Value{Val: &dgo_api.Value_DefaultVal{DefaultVal: "_STAR_ALL"}},
-				},
-			},
-		}); err != nil {
 			return
 		}
 		if _, err = t.T.Mutate(ctx, &dgo_api.Mutation{
