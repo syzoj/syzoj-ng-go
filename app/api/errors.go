@@ -58,6 +58,7 @@ var ErrRetry = &apiError{503, "Please retry"}
 var ErrNotImplemented = &apiError{501, "Not implemented"}
 
 var ErrProblemNotFound = &apiError{404, "Problem not found"}
+var ErrSubmissionNotFound = &apiError{404, "Submission not found"}
 var ErrQueueFull = &apiError{503, "Submission queue full"}
 
 var ErrAlreadyLoggedIn = &apiError{200, "Already logged in"}
