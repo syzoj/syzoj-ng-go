@@ -10,3 +10,4 @@ problem.owner: uid .
 problem.title: string @lang @index(trigram) .
 problem.statement: string @lang @index(fulltext) .
 problem.token: string .
+submission.id: string @index(hash) .

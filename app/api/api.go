@@ -47,6 +47,8 @@ func (srv *ApiServer) setupRoutes() {
 	router.Handle("/api/auth/logout", srv.wrapHandlerWithBody(srv.HandleAuthLogout)).Methods("POST")
 	router.Handle("/api/problem/create", srv.wrapHandlerWithBody(srv.HandleProblemCreate)).Methods("POST")
 	router.Handle("/api/problem/{problem_id:[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}}/view", srv.wrapHandler(srv.HandleProblemView)).Methods("GET")
+	router.Handle("/api/problem/{problem_id:[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}}/change-title", srv.wrapHandlerWithBody(srv.HandleProblemChangeTitle)).Methods("POST")
+	router.Handle("/api/problem/{problem_id:[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}}/submit", srv.wrapHandlerWithBody(srv.HandleProblemSubmit)).Methods("POST")
 	/*
 		router.Handle("/api/problemset/create", srv.wrapHandlerWithBody(srv.HandleCreateProblemset)).Methods("POST")
 		router.Handle("/api/problemset/{problemset_id:[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/add", srv.wrapHandlerWithBody(srv.HandleProblemsetAdd)).Methods("POST")
@@ -55,7 +57,6 @@ func (srv *ApiServer) setupRoutes() {
 		router.Handle("/api/problemset/{problemset_id:[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/submit", srv.wrapHandlerWithBody(srv.HandleProblemsetSubmit)).Methods("POST")
 		router.Handle("/api/problem/{problem_id:[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}}/reset-token", srv.wrapHandlerWithBody(srv.HandleResetProblemToken)).Methods("POST")
 		router.Handle("/api/problem/{problem_id:[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}}/update", srv.wrapHandlerWithBody(srv.HandleProblemUpdate)).Methods("POST")
-		router.Handle("/api/problem/{problem_id:[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}}/change-title", srv.wrapHandlerWithBody(srv.HandleProblemChangeTitle)).Methods("POST")
 	*/
 	srv.router = router
 }

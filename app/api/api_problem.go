@@ -28,7 +28,9 @@ func (srv *ApiServer) HandleProblemCreate(c *ApiContext) (apiErr ApiError) {
 			return
 		}
 		if len(sess.AuthUser) == 0 {
-			apiErr = ErrNotLoggedIn
+			t.Defer(func() {
+				apiErr = ErrNotLoggedIn
+			})
 			return
 		}
 		var problemId uuid.UUID
@@ -72,6 +74,7 @@ type ViewProblemResponse struct {
 	Statement string `json:"statement"`
 	IsOwner   bool   `json:"is_owner"`
 	Token     string `json:"token"`
+	CanSubmit bool `json:"can_submit"`
 }
 
 func (srv *ApiServer) HandleProblemView(c *ApiContext) (apiErr ApiError) {
@@ -109,7 +112,10 @@ query ProblemViewQuery($problemId: string) {
 			return
 		}
 		if len(resp.Problem) == 0 {
-			return ErrProblemNotFound
+			t.Defer(func() {
+				apiErr = ErrProblemNotFound
+			})
+			return
 		}
 		var problem = resp.Problem[0]
 		t.Defer(func() {
@@ -120,7 +126,97 @@ query ProblemViewQuery($problemId: string) {
 			if myresp.IsOwner {
 				myresp.Token = problem.Token
 			}
+			myresp.CanSubmit = true
 			writeResponse(c, &myresp)
+		})
+		return
+	})
+	if err != nil {
+		return internalServerError(err)
+	}
+	return
+}
+
+type SubmitProblemRequest struct {
+	Language string `json:"language"`
+	Code string `json:"code"`
+}
+type SubmitProblemResponse struct {
+	SubmissionId uuid.UUID `json:"submission_id"`
+}
+func (srv *ApiServer) HandleProblemSubmit(c *ApiContext) (apiErr ApiError) {
+	var err error
+	vars := mux.Vars(c.r)
+	problemId := uuid.MustParse(vars["problem_id"])
+	var req SubmitProblemRequest
+	if err = json.NewDecoder(c.r.Body).Decode(&req); err != nil {
+		return badRequestError(err)
+	}
+	err = srv.withDgraphTransaction(c.r.Context(), func(ctx context.Context, t *DgraphTransaction) (err error) {
+		var sess *Session
+		if sess, err = srv.getSession(ctx, c, t); err != nil {
+			return
+		}
+		if len(sess.AuthUser) == 0 {
+			t.Defer(func() {
+				apiErr = ErrNotLoggedIn
+			})
+			return
+		}
+		const CanSubmitQuery = `
+query CanSubmitQuery($problemId: string) {
+	problem(func: eq(problem.id, $problemId)) {
+		uid
+	}
+}
+`
+		var apiResponse *dgo_api.Response
+		apiResponse, err = t.T.QueryWithVars(ctx, CanSubmitQuery, map[string]string{"$problemId": problemId.String()})
+		if err != nil {
+			return
+		}
+		type response struct {
+			Problem []*Problem `json:"problem"`
+		}
+		var resp response
+		if err = json.Unmarshal(apiResponse.Json, &resp); err != nil {
+			return
+		}
+		if len(resp.Problem) == 0 {
+			t.Defer(func() {
+				apiErr = ErrProblemNotFound
+			})
+			return
+		}
+		var submissionId uuid.UUID
+		if submissionId, err = uuid.NewRandom(); err != nil {
+			return
+		}
+		if _, err = t.T.Mutate(ctx, &dgo_api.Mutation{
+			Set: []*dgo_api.NQuad{
+				&dgo_api.NQuad{
+					Subject: "_:submission",
+					Predicate: "submission.id",
+					ObjectValue: &dgo_api.Value{Val: &dgo_api.Value_StrVal{StrVal: submissionId.String()}},
+				},
+				&dgo_api.NQuad{
+					Subject: "_:submission",
+					Predicate: "submission.language",
+					ObjectValue: &dgo_api.Value{Val: &dgo_api.Value_StrVal{StrVal: req.Language}},
+				},
+				&dgo_api.NQuad{
+					Subject: "_:submission",
+					Predicate: "submission.code",
+					ObjectValue: &dgo_api.Value{Val: &dgo_api.Value_StrVal{StrVal: req.Code}},
+				},
+			},
+		}); err != nil {
+			return
+		}
+		t.Defer(func() {
+			writeResponse(c, &SubmitProblemResponse{
+				SubmissionId: submissionId,
+			})
 		})
 		return
 	})
@@ -180,28 +276,81 @@ type ProblemChangeTitleRequest struct {
 	Title string `json:"title"`
 }
 
-/*
-func (s *ApiServer) HandleProblemChangeTitle(w http.ResponseWriter, r *http.Request, _ uuid.UUID, sess *session.Session) ApiError {
+func (srv *ApiServer) HandleProblemChangeTitle(c *ApiContext) (apiErr ApiError) {
 	var err error
-	vars := mux.Vars(r)
+	vars := mux.Vars(c.r)
 	var problemId = uuid.MustParse(vars["problem_id"])
 	var req ProblemChangeTitleRequest
-	if err = json.NewDecoder(r.Body).Decode(&req); err != nil {
+	if err = json.NewDecoder(c.r.Body).Decode(&req); err != nil {
 		return badRequestError(err)
 	}
-
-	var info = new(judge.Problem)
-	if err = s.judgeService.GetProblemOwnerInfo(problemId, info); err != nil {
-		return judgeError(err)
+	err = srv.withDgraphTransaction(c.r.Context(), func(ctx context.Context, t *DgraphTransaction) (err error) {
+		var sess *Session
+		if sess, err = srv.getSession(ctx, c, t); err != nil {
+			return
+		}
+		if len(sess.AuthUser) == 0 {
+			apiErr = ErrNotLoggedIn
+			return
+		}
+		const problemOwnerQuery = `
+query ProblemOwnerQuery($problemId: string) {
+	problem(func: eq(problem.id, $problemId)) {
+		uid
+		problem.owner {
+			uid
+		}
 	}
-	if info.Owner != sess.AuthUserId {
-		return ErrPermissionDenied
-	}
-	info.Title = req.Title
-	if err = s.judgeService.ChangeProblemTitle(problemId, info); err != nil {
-		return judgeError(err)
-	}
-	writeResponse(w, struct{}{}, sess)
-	return nil
 }
-*/
+`
+		var apiResponse *dgo_api.Response
+		if apiResponse, err = t.T.QueryWithVars(ctx, problemOwnerQuery, map[string]string{"$problemId": problemId.String()}); err != nil {
+			return
+		}
+		type response struct {
+			Problem []*Problem `json:"problem"`
+		}
+		var resp response
+		if err = json.Unmarshal(apiResponse.Json, &resp); err != nil {
+			return
+		}
+		if len(resp.Problem) == 0 {
+			apiErr = ErrProblemNotFound
+			return
+		}
+		if resp.Problem[0].Owner[0].Uid != sess.AuthUser[0].Uid {
+			apiErr = ErrPermissionDenied
+			return
+		}
+		if _, err = t.T.Mutate(ctx, &dgo_api.Mutation{
+			Del: []*dgo_api.NQuad{
+				&dgo_api.NQuad{
+					Subject: resp.Problem[0].Uid,
+					Predicate: "problem.title",
+					ObjectValue: &dgo_api.Value{Val: &dgo_api.Value_DefaultVal{DefaultVal: "_STAR_ALL"}},
+				},
+			},
+		}); err != nil {
+			return
+		}
+		if _, err = t.T.Mutate(ctx, &dgo_api.Mutation{
+			Set: []*dgo_api.NQuad{
+				&dgo_api.NQuad{
+					Subject: resp.Problem[0].Uid,
+					Predicate: "problem.title",
+					ObjectValue: &dgo_api.Value{Val: &dgo_api.Value_StrVal{StrVal: req.Title}},
+				},
+			},
+		}); err != nil {
+			return
+		}
+		t.Defer(func() {
+			writeResponse(c, nil)
+		})
+		return
+	})
+	if err != nil {
+		return internalServerError(err)
+	}
+	return
+}
