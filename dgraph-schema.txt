@@ -1,0 +1,12 @@
+session.auth_user: uid .
+session.user_agent: string .
+session.remote_ip: string .
+session.token: string @index(hash) .
+user.username: string @index(hash) @upsert .
+user.password: password .
+user.register_time: dateTime .
+problem.id: string @index(hash) .
+problem.owner: uid .
+problem.title: string @lang @index(trigram) .
+problem.statement: string @lang @index(fulltext) .
+problem.token: string .

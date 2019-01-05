@@ -1,9 +1,7 @@
 package api
 
 import (
-	"github.com/syzoj/syzoj-ng-go/app/auth"
 	"github.com/syzoj/syzoj-ng-go/app/judge"
-	"github.com/syzoj/syzoj-ng-go/app/problemset"
 )
 
 type ApiError interface {
@@ -62,6 +60,7 @@ var ErrNotImplemented = &apiError{501, "Not implemented"}
 var ErrProblemNotFound = &apiError{404, "Problem not found"}
 var ErrQueueFull = &apiError{503, "Submission queue full"}
 
+var ErrAlreadyLoggedIn = &apiError{200, "Already logged in"}
 var ErrNotLoggedIn = &apiError{401, "Authentication required"}
 var ErrPermissionDenied = &apiError{403, "Permission denied"}
 
@@ -71,6 +70,7 @@ var ErrPasswordIncorrect = &apiError{200, "Password incorrect"}
 
 var ErrDuplicateProblemName = &apiError{200, "Duplicate problem name"}
 var ErrProblemsetNotFound = &apiError{404, "Problemset not found"}
+var ErrCSRF = &apiError{403, "CSRF token didn't match"}
 
 func judgeError(err error) ApiError {
 	switch err {
@@ -82,38 +82,6 @@ func judgeError(err error) ApiError {
 		return ErrProblemNotFound
 	case judge.ErrQueueFull:
 		return ErrQueueFull
-	default:
-		return internalServerError(err)
-	}
-}
-
-func userError(err error) ApiError {
-	switch err {
-	case auth.ErrDuplicateUserName:
-		return ErrDuplicateUserName
-	case auth.ErrPasswordIncorrect:
-		return ErrPasswordIncorrect
-	case auth.ErrUserNotFound:
-		return ErrUserNotFound
-	default:
-		return internalServerError(err)
-	}
-}
-
-func problemsetError(err error) ApiError {
-	switch err {
-	case problemset.ErrNotImplemented:
-		return ErrNotImplemented
-	case problemset.ErrAnonymousSubmission:
-		return ErrNotLoggedIn
-	case problemset.ErrDuplicateProblemName:
-		return ErrDuplicateProblemName
-	case problemset.ErrPermissionDenied:
-		return ErrPermissionDenied
-	case problemset.ErrProblemNotFound:
-		return ErrProblemNotFound
-	case problemset.ErrProblemsetNotFound:
-		return ErrProblemsetNotFound
 	default:
 		return internalServerError(err)
 	}

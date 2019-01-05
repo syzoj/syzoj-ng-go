@@ -12,28 +12,19 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/dgraph-io/dgo"
+	dgo_api "github.com/dgraph-io/dgo/protos/api"
 	"github.com/sirupsen/logrus"
-	"github.com/syndtr/goleveldb/leveldb"
+	"google.golang.org/grpc"
 
 	"github.com/syzoj/syzoj-ng-go/app/api"
-	"github.com/syzoj/syzoj-ng-go/app/auth"
-	auth_impl "github.com/syzoj/syzoj-ng-go/app/auth/impl_leveldb"
-	"github.com/syzoj/syzoj-ng-go/app/judge"
-	judge_impl "github.com/syzoj/syzoj-ng-go/app/judge/impl_leveldb"
-	"github.com/syzoj/syzoj-ng-go/app/problemset"
-	problemset_impl "github.com/syzoj/syzoj-ng-go/app/problemset/impl_leveldb"
-	"github.com/syzoj/syzoj-ng-go/app/session"
-	session_impl "github.com/syzoj/syzoj-ng-go/app/session/impl_leveldb"
 )
 
 var log = logrus.StandardLogger()
 
 type syzoj_config struct {
-	Database string            `json:"database"`
-	Addr     string            `json:"addr"`
-	GitPath  string            `json:"git_path"`
-	LevelDB  string            `json:"leveldb_path"`
-	Judge    judge_impl.Config `json:"judge"`
+	Dgraph string            `json:"dgraph"`
+	Addr   string            `json:"addr"`
 }
 
 func init() {
@@ -56,65 +47,28 @@ func main() {
 		log.Fatal("Error parsing config file: ", err)
 	}
 
-	log.Info("Opening LevelDB")
-	var ldb *leveldb.DB
-	if ldb, err = leveldb.OpenFile(config.LevelDB, nil); err != nil {
-		log.Fatal("Error opening LevelDB: ", err)
+	log.Info("Connecting to Dgraph")
+	var dgraphConn *grpc.ClientConn
+	if dgraphConn, err = grpc.Dial(config.Dgraph, grpc.WithInsecure()); err != nil {
+		log.Fatal("Error connecting to Dgraph: ", err)
 	}
+	var dgraph = dgo.NewDgraphClient(dgo_api.NewDgraphClient(dgraphConn))
 	defer func() {
-		log.Info("Shutting down LevelDB")
-		ldb.Close()
+		log.Info("Disconnecting from Dgraph")
+		dgraphConn.Close()
 	}()
 
-	log.Info("Setting up session service")
-	var sessService session.Service
-	if sessService, err = session_impl.NewLevelDBSessionService(ldb); err != nil {
-		log.Fatal("Error initializing session service: ", err)
-	}
-	defer func() {
-		log.Info("Shutting down session service")
-		sessService.Close()
-	}()
-
-	log.Info("Setting up auth service")
-	var authService auth.Service
-	if authService, err = auth_impl.NewLevelDBAuthService(ldb); err != nil {
-		log.Fatal("Error initializing auth service: ", err)
-	}
-	defer func() {
-		log.Info("Shutting down auth service")
-		authService.Close()
-	}()
-
-	log.Info("Setting up judge service")
-	var tjudgeService judge.Service
-	if tjudgeService, err = judge_impl.NewJudgeService(ldb, &config.Judge); err != nil {
-		log.Fatal("Error initializing traditional judge service: ", err)
-	}
-	defer func() {
-		log.Info("Shutting down traditional judge service")
-		tjudgeService.Close()
-	}()
-
-	log.Info("Setting up problemset service")
-	var problemsetService problemset.Service
-	if problemsetService = problemset_impl.NewLevelDBProblemset(ldb, tjudgeService); err != nil {
-		log.Fatal("Error initializing regular problemset service: ", err)
-	}
-	defer func() {
-		log.Info("Shutting down problemset service")
-		problemsetService.Close()
-	}()
+	log.Info("TODO: start judge service")
 
 	log.Info("Setting up api server")
 	var apiServer *api.ApiServer
-	if apiServer, err = api.CreateApiServer(sessService, authService, problemsetService, tjudgeService); err != nil {
+	if apiServer, err = api.CreateApiServer(dgraph); err != nil {
 		log.Fatal("Error intializing api server: ", err)
 	}
 
 	router := mux.NewRouter()
 	router.PathPrefix("/api").Handler(apiServer)
-	router.Handle("/judge-traditional", tjudgeService)
+	//router.Handle("/judge-traditional", tjudgeService)
 	router.Handle("/", http.FileServer(http.Dir("static")))
 
 	server := &http.Server{
