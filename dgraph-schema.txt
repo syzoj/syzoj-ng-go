@@ -16,4 +16,6 @@ submission.language: string @index(exact) .
 submission.submit_time: dateTime .
 submission.code: string .
 submission.owner: uid @reverse .
-submission.status: string @index(exact) .
+submission.status: string .
+submission.message: string @index(exact) .
+submission.score: float .

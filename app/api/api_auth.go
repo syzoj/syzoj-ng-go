@@ -70,8 +70,8 @@ query RegisterCheck($userName: string) {
 					ObjectValue: &dgo_api.Value{Val: &dgo_api.Value_StrVal{StrVal: req.Password}},
 				},
 				{
-					Subject: "_:user",
-					Predicate: "user.register_time",
+					Subject:     "_:user",
+					Predicate:   "user.register_time",
 					ObjectValue: &dgo_api.Value{Val: &dgo_api.Value_DatetimeVal{DatetimeVal: timeNow}},
 				},
 			},

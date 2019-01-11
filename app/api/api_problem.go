@@ -1,13 +1,13 @@
 package api
 
 import (
-	"encoding/json"
 	"context"
+	"encoding/json"
 	"time"
 
+	dgo_api "github.com/dgraph-io/dgo/protos/api"
 	"github.com/google/uuid"
 	"github.com/gorilla/mux"
-	dgo_api "github.com/dgraph-io/dgo/protos/api"
 )
 
 type CreateProblemRequest struct {
@@ -44,24 +44,24 @@ func (srv *ApiServer) HandleProblemCreate(c *ApiContext) (apiErr ApiError) {
 		}
 		if _, err = t.T.Mutate(ctx, &dgo_api.Mutation{
 			Set: []*dgo_api.NQuad{
-				&dgo_api.NQuad{
-					Subject: "_:problem",
-					Predicate: "problem.id",
+				{
+					Subject:     "_:problem",
+					Predicate:   "problem.id",
 					ObjectValue: &dgo_api.Value{Val: &dgo_api.Value_StrVal{StrVal: problemId.String()}},
 				},
-				&dgo_api.NQuad{
-					Subject: "_:problem",
+				{
+					Subject:   "_:problem",
 					Predicate: "problem.owner",
-					ObjectId: sess.AuthUser[0].Uid,
+					ObjectId:  sess.AuthUser[0].Uid,
 				},
-				&dgo_api.NQuad{
-					Subject: "_:problem",
-					Predicate: "problem.title",
+				{
+					Subject:     "_:problem",
+					Predicate:   "problem.title",
 					ObjectValue: &dgo_api.Value{Val: &dgo_api.Value_StrVal{StrVal: req.Title}},
 				},
-				&dgo_api.NQuad{
-					Subject: "_:problem",
-					Predicate: "problem.create_time",
+				{
+					Subject:     "_:problem",
+					Predicate:   "problem.create_time",
 					ObjectValue: &dgo_api.Value{Val: &dgo_api.Value_DatetimeVal{DatetimeVal: datetimeVal}},
 				},
 			},
@@ -84,7 +84,7 @@ type ViewProblemResponse struct {
 	Statement string `json:"statement"`
 	IsOwner   bool   `json:"is_owner"`
 	Token     string `json:"token"`
-	CanSubmit bool `json:"can_submit"`
+	CanSubmit bool   `json:"can_submit"`
 }
 
 func (srv *ApiServer) HandleProblemView(c *ApiContext) (apiErr ApiError) {
@@ -149,11 +149,12 @@ query ProblemViewQuery($problemId: string) {
 
 type SubmitProblemRequest struct {
 	Language string `json:"language"`
-	Code string `json:"code"`
+	Code     string `json:"code"`
 }
 type SubmitProblemResponse struct {
 	SubmissionId uuid.UUID `json:"submission_id"`
 }
+
 func (srv *ApiServer) HandleProblemSubmit(c *ApiContext) (apiErr ApiError) {
 	var err error
 	vars := mux.Vars(c.r)
@@ -206,42 +207,43 @@ query CanSubmitQuery($problemId: string) {
 		if datetimeVal, err = time.Now().MarshalBinary(); err != nil {
 			return
 		}
-		if _, err = t.T.Mutate(ctx, &dgo_api.Mutation{
+		var assigned *dgo_api.Assigned
+		if assigned, err = t.T.Mutate(ctx, &dgo_api.Mutation{
 			Set: []*dgo_api.NQuad{
-				&dgo_api.NQuad{
-					Subject: "_:submission",
-					Predicate: "submission.id",
+				{
+					Subject:     "_:submission",
+					Predicate:   "submission.id",
 					ObjectValue: &dgo_api.Value{Val: &dgo_api.Value_StrVal{StrVal: submissionId.String()}},
 				},
-				&dgo_api.NQuad{
-					Subject: "_:submission",
+				{
+					Subject:   "_:submission",
 					Predicate: "submission.problem",
-					ObjectId: resp.Problem[0].Uid,
+					ObjectId:  resp.Problem[0].Uid,
 				},
-				&dgo_api.NQuad{
-					Subject: "_:submission",
-					Predicate: "submission.language",
+				{
+					Subject:     "_:submission",
+					Predicate:   "submission.language",
 					ObjectValue: &dgo_api.Value{Val: &dgo_api.Value_StrVal{StrVal: req.Language}},
 				},
-				&dgo_api.NQuad{
-					Subject: "_:submission",
-					Predicate: "submission.code",
+				{
+					Subject:     "_:submission",
+					Predicate:   "submission.code",
 					ObjectValue: &dgo_api.Value{Val: &dgo_api.Value_StrVal{StrVal: req.Code}},
 				},
-				&dgo_api.NQuad{
-					Subject: "_:submission",
+				{
+					Subject:   "_:submission",
 					Predicate: "submission.owner",
-					ObjectId: sess.AuthUser[0].Uid,
+					ObjectId:  sess.AuthUser[0].Uid,
 				},
-				&dgo_api.NQuad{
-					Subject: "_:submission",
-					Predicate: "submission.submit_time",
+				{
+					Subject:     "_:submission",
+					Predicate:   "submission.submit_time",
 					ObjectValue: &dgo_api.Value{Val: &dgo_api.Value_DatetimeVal{DatetimeVal: datetimeVal}},
 				},
-				&dgo_api.NQuad{
-					Subject: "_:submission",
-					Predicate: "submission.status",
-					ObjectValue: &dgo_api.Value{Val: &dgo_api.Value_StrVal{StrVal: "Submitted"}},
+				{
+					Subject:     "_:submission",
+					Predicate:   "submission.status",
+					ObjectValue: &dgo_api.Value{Val: &dgo_api.Value_StrVal{StrVal: "Waiting"}},
 				},
 			},
 		}); err != nil {
@@ -251,6 +253,11 @@ query CanSubmitQuery($problemId: string) {
 			writeResponse(c, &SubmitProblemResponse{
 				SubmissionId: submissionId,
 			})
+		})
+		t.Defer(func() {
+			if err := srv.judgeService.NotifySubmission(ctx, assigned.Uids["submission"]); err != nil {
+				log.Error(err)
+			}
 		})
 		return
 	})
@@ -264,10 +271,11 @@ type MyProblemResponse struct {
 	Problems []MyProblemSummary `json:"problems"`
 }
 type MyProblemSummary struct {
-	Title string `json:"title"`
-	Id uuid.UUID `json:"id"`
+	Title      string    `json:"title"`
+	Id         uuid.UUID `json:"id"`
 	CreateTime time.Time `json:"create_time"`
 }
+
 func (srv *ApiServer) HandleMyProblem(c *ApiContext) (apiErr ApiError) {
 	var err error
 	err = srv.withDgraphTransaction(c.r.Context(), func(ctx context.Context, t *DgraphTransaction) (err error) {
@@ -305,7 +313,7 @@ query MyProblem($userId: string) {
 		}
 		var myresp MyProblemResponse
 		myresp.Problems = make([]MyProblemSummary, len(resp.Problem))
-		for k, v := range(resp.Problem) {
+		for k, v := range resp.Problem {
 			myresp.Problems[k] = MyProblemSummary{Title: v.Title, Id: v.Id, CreateTime: v.CreateTime}
 		}
 		t.Defer(func() {
@@ -322,6 +330,7 @@ query MyProblem($userId: string) {
 type MySubmissionResponse struct {
 	Submissions json.RawMessage `json:"submissions"`
 }
+
 func (srv *ApiServer) HandleMySubmission(c *ApiContext) (apiErr ApiError) {
 	var err error
 	err = srv.withDgraphTransaction(c.r.Context(), func(ctx context.Context, t *DgraphTransaction) (err error) {
@@ -382,6 +391,8 @@ func (srv *ApiServer) HandleSubmissionView(c *ApiContext) (apiErr ApiError) {
 query SubmissionViewQuery($submissionId: string) {
 	submission(func: eq(submission.id, $submissionId)) @normalize {
 		status: submission.status
+		message: submission.message
+		score: submission.score
 		language: submission.language
 		code: submission.code
 		submit_time: submission.submit_time
@@ -521,9 +532,9 @@ query ProblemOwnerQuery($problemId: string) {
 		}
 		if _, err = t.T.Mutate(ctx, &dgo_api.Mutation{
 			Set: []*dgo_api.NQuad{
-				&dgo_api.NQuad{
-					Subject: resp.Problem[0].Uid,
-					Predicate: "problem.title",
+				{
+					Subject:     resp.Problem[0].Uid,
+					Predicate:   "problem.title",
 					ObjectValue: &dgo_api.Value{Val: &dgo_api.Value_StrVal{StrVal: req.Title}},
 				},
 			},

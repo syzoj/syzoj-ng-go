@@ -6,6 +6,7 @@ import (
 	"flag"
 	"github.com/gorilla/mux"
 	"io/ioutil"
+	"net"
 	"net/http"
 	"os"
 	"os/signal"
@@ -16,15 +17,18 @@ import (
 	dgo_api "github.com/dgraph-io/dgo/protos/api"
 	"github.com/sirupsen/logrus"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/reflection"
 
 	"github.com/syzoj/syzoj-ng-go/app/api"
+	"github.com/syzoj/syzoj-ng-go/app/judge"
+	judge_api "github.com/syzoj/syzoj-ng-go/app/judge/protos"
 )
 
 var log = logrus.StandardLogger()
 
 type syzoj_config struct {
-	Dgraph string            `json:"dgraph"`
-	Addr   string            `json:"addr"`
+	Dgraph string `json:"dgraph"`
+	Addr   string `json:"addr"`
 }
 
 func init() {
@@ -58,11 +62,34 @@ func main() {
 		dgraphConn.Close()
 	}()
 
-	log.Info("TODO: start judge service")
+	var grpcServer *grpc.Server = grpc.NewServer()
+
+	log.Info("Start judge service")
+	var judgeService judge.Service
+	if judgeService, err = judge.CreateJudgeService(dgraph); err != nil {
+		log.Fatal("Error starting judge service: ", err)
+	}
+	defer func() {
+		log.Info("Stopping judge service")
+		judgeService.Close()
+	}()
+	judge_api.RegisterJudgeServer(grpcServer, judgeService)
+
+	reflection.Register(grpcServer)
+	go func() {
+		log.Info("Setting up gRPC service")
+		lis, err := net.Listen("tcp", "0.0.0.0:3073")
+		if err != nil {
+			log.Fatal("Failed to listen: ", err)
+		}
+		if err = grpcServer.Serve(lis); err != nil {
+			log.Fatal("Failed to serve gRPC service: ", err)
+		}
+	}()
 
 	log.Info("Setting up api server")
 	var apiServer *api.ApiServer
-	if apiServer, err = api.CreateApiServer(dgraph); err != nil {
+	if apiServer, err = api.CreateApiServer(dgraph, judgeService); err != nil {
 		log.Fatal("Error intializing api server: ", err)
 	}
 

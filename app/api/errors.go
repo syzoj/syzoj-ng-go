@@ -1,9 +1,5 @@
 package api
 
-import (
-	"github.com/syzoj/syzoj-ng-go/app/judge"
-)
-
 type ApiError interface {
 	Code() int
 	Error() string
@@ -72,18 +68,3 @@ var ErrPasswordIncorrect = &apiError{200, "Password incorrect"}
 var ErrDuplicateProblemName = &apiError{200, "Duplicate problem name"}
 var ErrProblemsetNotFound = &apiError{404, "Problemset not found"}
 var ErrCSRF = &apiError{403, "CSRF token didn't match"}
-
-func judgeError(err error) ApiError {
-	switch err {
-	case judge.ErrConcurrentUpdate:
-		return ErrRetry
-	case judge.ErrNotImplemented:
-		return ErrNotImplemented
-	case judge.ErrProblemNotExist:
-		return ErrProblemNotFound
-	case judge.ErrQueueFull:
-		return ErrQueueFull
-	default:
-		return internalServerError(err)
-	}
-}

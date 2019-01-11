@@ -9,6 +9,8 @@ import (
 	"github.com/dgraph-io/dgo"
 	"github.com/gorilla/mux"
 	"github.com/sirupsen/logrus"
+
+	"github.com/syzoj/syzoj-ng-go/app/judge"
 )
 
 var log = logrus.StandardLogger()
@@ -16,6 +18,7 @@ var log = logrus.StandardLogger()
 type ApiServer struct {
 	router       *mux.Router
 	dgraph       *dgo.Dgraph
+	judgeService judge.Service
 }
 type ApiContext struct {
 	w            http.ResponseWriter
@@ -32,9 +35,10 @@ type SessionResponse struct {
 	LoggedIn bool   `json:"logged_in"`
 }
 
-func CreateApiServer(dgraph *dgo.Dgraph) (*ApiServer, error) {
+func CreateApiServer(dgraph *dgo.Dgraph, judgeService judge.Service) (*ApiServer, error) {
 	srv := &ApiServer{
 		dgraph:       dgraph,
+		judgeService: judgeService,
 	}
 	srv.setupRoutes()
 	return srv, nil

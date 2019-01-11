@@ -9,9 +9,9 @@ import (
 	"time"
 
 	"github.com/dgraph-io/dgo"
-	"github.com/google/uuid"
 	dgo_api "github.com/dgraph-io/dgo/protos/api"
 	dgo_y "github.com/dgraph-io/dgo/y"
+	"github.com/google/uuid"
 )
 
 type Session struct {
@@ -28,13 +28,13 @@ type User struct {
 }
 
 type Problem struct {
-	Uid string `json:"uid",omitempty`
-	Id uuid.UUID `json:"problem.id",omitempty`
-	Title string `json:"problem.title",omitempty`
-	Statement string `json:"problem.statement",omitempty`
-	Token string `json:"problem.token",omitempty`
+	Uid        string    `json:"uid",omitempty`
+	Id         uuid.UUID `json:"problem.id",omitempty`
+	Title      string    `json:"problem.title",omitempty`
+	Statement  string    `json:"problem.statement",omitempty`
+	Token      string    `json:"problem.token",omitempty`
 	CreateTime time.Time `json:"problem.create_time",omitempty`
-	Owner []*User `json:"problem.owner",omitempty`
+	Owner      []*User   `json:"problem.owner",omitempty`
 }
 
 type DgraphTransaction struct {
