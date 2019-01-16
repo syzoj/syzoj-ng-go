@@ -1,8 +1,0 @@
-{
-    "dgraph": "127.0.0.1:9180",
-    "addr": ":5900",
-    "git_path": "git",
-    "config": {
-        "data_path": "problem-data"
-    }
-}

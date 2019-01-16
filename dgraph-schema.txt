@@ -10,6 +10,7 @@ problem.owner: uid @reverse .
 problem.title: string @lang @index(trigram) .
 problem.statement: string @lang @index(fulltext) .
 problem.token: string .
+problem.tags: [string] @index(hash) .
 submission.id: string @index(hash) .
 submission.problem: uid .
 submission.language: string @index(exact) .
@@ -19,3 +20,10 @@ submission.owner: uid @reverse .
 submission.status: string .
 submission.message: string @index(exact) .
 submission.score: float .
+submission.problemsetentry: uid .
+problemset.name: string @index(hash) .
+problemset.entries: uid .
+problemset.owner: uid .
+problemsetentry.id: string @index(hash) .
+problemsetentry.name: string @index(hash) .
+problemsetentry.problem: uid .

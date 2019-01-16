@@ -2,6 +2,7 @@ package api
 
 import (
 	"crypto/rand"
+	"crypto/subtle"
 	"encoding/hex"
 	"encoding/json"
 	"net/http"
@@ -19,6 +20,7 @@ type ApiServer struct {
 	router       *mux.Router
 	dgraph       *dgo.Dgraph
 	judgeService judge.Service
+	config       Config
 }
 type ApiContext struct {
 	w            http.ResponseWriter
@@ -34,11 +36,15 @@ type SessionResponse struct {
 	UserName string `json:"user_name"`
 	LoggedIn bool   `json:"logged_in"`
 }
+type Config struct {
+	DebugToken string `json:"debug_token"`
+}
 
-func CreateApiServer(dgraph *dgo.Dgraph, judgeService judge.Service) (*ApiServer, error) {
+func CreateApiServer(dgraph *dgo.Dgraph, judgeService judge.Service, config Config) (*ApiServer, error) {
 	srv := &ApiServer{
 		dgraph:       dgraph,
 		judgeService: judgeService,
+		config:       config,
 	}
 	srv.setupRoutes()
 	return srv, nil
@@ -46,16 +52,26 @@ func CreateApiServer(dgraph *dgo.Dgraph, judgeService judge.Service) (*ApiServer
 
 func (srv *ApiServer) setupRoutes() {
 	router := mux.NewRouter()
-	router.Handle("/api/auth/register", srv.wrapHandlerWithBody(srv.HandleAuthRegister)).Methods("POST")
-	router.Handle("/api/auth/login", srv.wrapHandlerWithBody(srv.HandleAuthLogin)).Methods("POST")
-	router.Handle("/api/auth/logout", srv.wrapHandlerWithBody(srv.HandleAuthLogout)).Methods("POST")
-	router.Handle("/api/problem/create", srv.wrapHandlerWithBody(srv.HandleProblemCreate)).Methods("POST")
-	router.Handle("/api/problem/my", srv.wrapHandler(srv.HandleMyProblem)).Methods("GET")
-	router.Handle("/api/problem/{problem_id:[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}}/view", srv.wrapHandler(srv.HandleProblemView)).Methods("GET")
-	router.Handle("/api/problem/{problem_id:[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}}/change-title", srv.wrapHandlerWithBody(srv.HandleProblemChangeTitle)).Methods("POST")
-	router.Handle("/api/problem/{problem_id:[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}}/submit", srv.wrapHandlerWithBody(srv.HandleProblemSubmit)).Methods("POST")
-	router.Handle("/api/submission/my", srv.wrapHandler(srv.HandleMySubmission)).Methods("GET")
-	router.Handle("/api/submission/{submission_id:[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}}/view", srv.wrapHandler(srv.HandleSubmissionView)).Methods("GET")
+	router.Handle("/api/register", srv.wrapHandlerWithBody(srv.Handle_Register)).Methods("POST")
+	router.Handle("/api/login", srv.wrapHandlerWithBody(srv.Handle_Login)).Methods("POST")
+	router.Handle("/api/nav/logout", srv.wrapHandlerWithBody(srv.Handle_Nav_Logout)).Methods("POST")
+	router.Handle("/api/problem-db/new", srv.wrapHandlerWithBody(srv.Handle_ProblemDb_New)).Methods("POST")
+	router.Handle("/api/problem-db/my", srv.wrapHandler(srv.Handle_ProblemDb_My)).Methods("GET")
+	router.Handle("/api/problem-db/view/{problem_id:[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}}", srv.wrapHandler(srv.Handle_ProblemDb_View)).Methods("GET")
+	router.Handle("/api/problem-db/view/{problem_id:[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}}/submit", srv.wrapHandlerWithBody(srv.Handle_ProblemDb_View_Submit)).Methods("POST")
+	router.Handle("/api/submission/my", srv.wrapHandler(srv.Handle_Submission_My)).Methods("GET")
+	router.Handle("/api/submission/view/{submission_id:[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}}", srv.wrapHandler(srv.Handle_Submission_View)).Methods("GET")
+	debugRouter := mux.NewRouter()
+	if srv.config.DebugToken != "" {
+		router.PathPrefix("/api/debug/").HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			token := r.Header.Get("X-Debug-Token")
+			if token != "" && subtle.ConstantTimeCompare([]byte(token), []byte(srv.config.DebugToken)) == 1 {
+				debugRouter.ServeHTTP(w, r)
+			} else {
+				http.Error(w, "Token mismatch", 403)
+			}
+		})
+	}
 	/*
 		router.Handle("/api/problemset/create", srv.wrapHandlerWithBody(srv.HandleCreateProblemset)).Methods("POST")
 		router.Handle("/api/problemset/{problemset_id:[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/add", srv.wrapHandlerWithBody(srv.HandleProblemsetAdd)).Methods("POST")

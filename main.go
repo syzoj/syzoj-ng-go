@@ -27,8 +27,9 @@ import (
 var log = logrus.StandardLogger()
 
 type syzoj_config struct {
-	Dgraph string `json:"dgraph"`
-	Addr   string `json:"addr"`
+	Dgraph string     `json:"dgraph"`
+	Addr   string     `json:"addr"`
+	Api    api.Config `json:"api_server"`
 }
 
 func init() {
@@ -89,7 +90,7 @@ func main() {
 
 	log.Info("Setting up api server")
 	var apiServer *api.ApiServer
-	if apiServer, err = api.CreateApiServer(dgraph, judgeService); err != nil {
+	if apiServer, err = api.CreateApiServer(dgraph, judgeService, config.Api); err != nil {
 		log.Fatal("Error intializing api server: ", err)
 	}
 
