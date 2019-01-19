@@ -1,52 +1,41 @@
 package api
 
 import (
-	"context"
-	"encoding/json"
 	"time"
 
 	dgo_api "github.com/dgraph-io/dgo/protos/api"
+	"github.com/valyala/fastjson"
 )
 
-type RegisterRequest struct {
-	UserName string `json:"username"`
-	Password string `json:"password"`
-}
-
-func (srv *ApiServer) Handle_Register(c *ApiContext) (apiErr ApiError) {
+func Handle_Register(c *ApiContext) (apiErr ApiError) {
 	var err error
-	var req RegisterRequest
-	if err = json.NewDecoder(c.r.Body).Decode(&req); err != nil {
+	if err = c.SessionStart(); err != nil {
+		return internalServerError(err)
+	}
+	if c.Session.LoggedIn() {
+		return ErrAlreadyLoggedIn
+	}
+	var body *fastjson.Value
+	if body, err = c.GetBody(); err != nil {
 		return badRequestError(err)
 	}
-	err = srv.withDgraphTransaction(c.r.Context(), func(ctx context.Context, t *DgraphTransaction) (err error) {
-		var sess *Session
-		if sess, err = srv.getSession(ctx, c, t); err != nil {
-			return
-		}
-		if len(sess.AuthUser) != 0 {
-			apiErr = ErrAlreadyLoggedIn
-			return
-		}
-		const registerCheck = `
-query RegisterCheck($userName: string) {
-	user(func: eq(user.username, $userName)) {
-		uid
+	userName := string(body.GetStringBytes("username"))
+	if !checkUserName(userName) {
+		return ErrInvalidUserName
 	}
-}
-`
-		var apiResponse *dgo_api.Response
-		if apiResponse, err = t.T.QueryWithVars(ctx, registerCheck, map[string]string{"$userName": req.UserName}); err != nil {
+	password := string(body.GetStringBytes("password"))
+	if err = c.DgraphTransaction(func(t *DgraphTransaction) (err error) {
+		var dgResponse *dgo_api.Response
+		if dgResponse, err = t.T.QueryWithVars(c.Context(), CheckUserNameQuery, map[string]string{"$userName": userName}); err != nil {
 			return
 		}
-		type response struct {
-			User []*User `json:"user"`
+		dgParser := c.GetParser()
+		defer c.PutParser(dgParser)
+		var val *fastjson.Value
+		if val, err = dgParser.ParseBytes(dgResponse.Json); err != nil {
+			panic(err)
 		}
-		var resp response
-		if err = json.Unmarshal(apiResponse.Json, &resp); err != nil {
-			return
-		}
-		if len(resp.User) != 0 {
+		if len(val.GetArray("user")) != 0 {
 			t.Defer(func() {
 				apiErr = ErrDuplicateUserName
 			})
@@ -55,19 +44,19 @@ query RegisterCheck($userName: string) {
 		var timeNow []byte
 		timeNow, err = time.Now().MarshalBinary()
 		if err != nil {
-			return
+			panic(err)
 		}
-		if _, err = t.T.Mutate(ctx, &dgo_api.Mutation{
+		if _, err = t.T.Mutate(c.Context(), &dgo_api.Mutation{
 			Set: []*dgo_api.NQuad{
 				{
 					Subject:     "_:user",
 					Predicate:   "user.username",
-					ObjectValue: &dgo_api.Value{Val: &dgo_api.Value_StrVal{StrVal: req.UserName}},
+					ObjectValue: &dgo_api.Value{Val: &dgo_api.Value_StrVal{StrVal: userName}},
 				},
 				{
 					Subject:     "_:user",
 					Predicate:   "user.password",
-					ObjectValue: &dgo_api.Value{Val: &dgo_api.Value_StrVal{StrVal: req.Password}},
+					ObjectValue: &dgo_api.Value{Val: &dgo_api.Value_StrVal{StrVal: password}},
 				},
 				{
 					Subject:     "_:user",
@@ -76,15 +65,14 @@ query RegisterCheck($userName: string) {
 				},
 			},
 		}); err != nil {
-			return err
+			return
 		}
-		log.WithField("username", req.UserName).Info("Created account")
+		log.WithField("username", userName).Info("Created account")
 		t.Defer(func() {
-			writeResponse(c, nil)
+			c.SendValue(fastjson.NewNull())
 		})
 		return
-	})
-	if err != nil {
+	}); err != nil {
 		return internalServerError(err)
 	}
 	return

@@ -20,10 +20,10 @@ submission.owner: uid @reverse .
 submission.status: string .
 submission.message: string @index(exact) .
 submission.score: float .
-submission.problemsetentry: uid .
+submission.problemsetentry: uid @reverse .
 problemset.name: string @index(hash) .
-problemset.entries: uid .
 problemset.owner: uid .
 problemsetentry.id: string @index(hash) .
-problemsetentry.name: string @index(hash) .
-problemsetentry.problem: uid .
+problemsetentry.short_name: string @index(hash) @upsert .
+problemsetentry.problem: uid @reverse .
+problemsetentry.problemset: uid @reverse .

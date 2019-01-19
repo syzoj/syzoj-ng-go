@@ -1,198 +1,209 @@
 package api
 
 import (
-	"context"
-	"encoding/json"
 	"time"
 
 	dgo_api "github.com/dgraph-io/dgo/protos/api"
 	"github.com/google/uuid"
-	"github.com/gorilla/mux"
+	"github.com/valyala/fastjson"
 )
 
-type ViewProblemResponse struct {
-	Title     string `json:"title"`
-	Statement string `json:"statement"`
-	IsOwner   bool   `json:"is_owner"`
-	Token     string `json:"token"`
-	CanSubmit bool   `json:"can_submit"`
+func Handle_ProblemDb_View(c *ApiContext) (apiErr ApiError) {
+	var err error
+	vars := c.Vars()
+	var problemId = uuid.MustParse(vars["problem_id"])
+	if err = c.SessionStart(); err != nil {
+		return internalServerError(err)
+	}
+	var dgValue *fastjson.Value
+	var userId string
+	if c.Session.LoggedIn() {
+		userId = c.Session.AuthUserUid
+	} else {
+		userId = "0x0"
+	}
+	if dgValue, err = c.Query(ViewProblemQuery, map[string]string{"$problemId": problemId.String(), "$userId": userId}); err != nil {
+		return internalServerError(err)
+	}
+	if len(dgValue.GetArray("problem")) == 0 {
+		return ErrProblemNotFound
+	}
+	problemValue := dgValue.Get("problem", "0")
+	resp := make(map[string]*fastjson.Value)
+	resp["title"] = fastjson.NewString(string(problemValue.GetStringBytes("title")))
+	resp["statement"] = fastjson.NewString(string(problemValue.GetStringBytes("statement")))
+	resp["can_submit"] = fastjson.NewBool(c.Session.LoggedIn())
+	resp["can_publicize"] = fastjson.NewBool(len(dgValue.GetArray("problemset")) > 0)
+	if c.Session.LoggedIn() && string(problemValue.GetStringBytes("owner_uid")) == c.Session.AuthUserUid {
+		resp["is_owner"] = fastjson.NewBool(true)
+		resp["token"] = fastjson.NewString(string(problemValue.GetStringBytes("token")))
+	} else {
+		resp["is_owner"] = fastjson.NewBool(false)
+	}
+	c.SendValue(fastjson.NewObject(resp))
+	return
 }
 
-func (srv *ApiServer) Handle_ProblemDb_View(c *ApiContext) (apiErr ApiError) {
+func Handle_ProblemDb_View_Submit(c *ApiContext) (apiErr ApiError) {
 	var err error
-	vars := mux.Vars(c.r)
-	var problemId = uuid.MustParse(vars["problem_id"])
-	err = srv.withDgraphTransaction(c.r.Context(), func(ctx context.Context, t *DgraphTransaction) (err error) {
-		var sess *Session
-		if sess, err = srv.getSession(ctx, c, t); err != nil {
-			return
-		}
-		var apiResponse *dgo_api.Response
-		const problemViewQuery = `
-query ProblemViewQuery($problemId: string) {
-	problem(func: eq(problem.id, $problemId)) {
-		uid
-		problem.title: problem.title@.
-		problem.statement: problem.statement@.
-		problem.token
-		problem.owner {
-			uid
-		}
+	vars := c.Vars()
+	problemId := uuid.MustParse(vars["problem_id"])
+	var body *fastjson.Value
+	if body, err = c.GetBody(); err != nil {
+		return badRequestError(err)
 	}
-}
-`
-		apiResponse, err = t.T.QueryWithVars(ctx, problemViewQuery, map[string]string{"$problemId": problemId.String()})
-		if err != nil {
-			return
-		}
-		type response struct {
-			Problem []*Problem `json:"problem"`
-		}
-		var resp response
-		if err = json.Unmarshal(apiResponse.Json, &resp); err != nil {
-			return
-		}
-		if len(resp.Problem) == 0 {
-			t.Defer(func() {
-				apiErr = ErrProblemNotFound
-			})
-			return
-		}
-		var problem = resp.Problem[0]
-		t.Defer(func() {
-			var myresp ViewProblemResponse
-			myresp.Title = problem.Title
-			myresp.Statement = problem.Statement
-			myresp.IsOwner = len(problem.Owner) > 0 && len(sess.AuthUser) > 0 && problem.Owner[0].Uid == sess.AuthUser[0].Uid
-			if myresp.IsOwner {
-				myresp.Token = problem.Token
-			}
-			myresp.CanSubmit = len(sess.AuthUser) > 0
-			writeResponse(c, &myresp)
-		})
-		return
-	})
-	if err != nil {
+	if err = c.SessionStart(); err != nil {
 		return internalServerError(err)
+	}
+	if !c.Session.LoggedIn() {
+		return ErrNotLoggedIn
+	}
+	var dgValue *fastjson.Value
+	if dgValue, err = c.Query(CheckProblemCanSubmitQuery, map[string]string{"$problemId": problemId.String()}); err != nil {
+		return
+	}
+	if len(dgValue.GetArray("problem")) == 0 {
+		return ErrProblemNotFound
+	}
+	submissionId := uuid.New()
+	var datetimeVal []byte
+	if datetimeVal, err = time.Now().MarshalBinary(); err != nil {
+		return
+	}
+	var assigned *dgo_api.Assigned
+	if assigned, err = c.Dgraph().NewTxn().Mutate(c.Context(), &dgo_api.Mutation{
+		Set: []*dgo_api.NQuad{
+			{
+				Subject:     "_:submission",
+				Predicate:   "submission.id",
+				ObjectValue: &dgo_api.Value{Val: &dgo_api.Value_StrVal{StrVal: submissionId.String()}},
+			},
+			{
+				Subject:   "_:submission",
+				Predicate: "submission.problem",
+				ObjectId:  string(dgValue.GetStringBytes("problem", "0", "uid")),
+			},
+			{
+				Subject:     "_:submission",
+				Predicate:   "submission.language",
+				ObjectValue: &dgo_api.Value{Val: &dgo_api.Value_StrVal{StrVal: string(body.GetStringBytes("language"))}},
+			},
+			{
+				Subject:     "_:submission",
+				Predicate:   "submission.code",
+				ObjectValue: &dgo_api.Value{Val: &dgo_api.Value_StrVal{StrVal: string(body.GetStringBytes("code"))}},
+			},
+			{
+				Subject:   "_:submission",
+				Predicate: "submission.owner",
+				ObjectId:  c.Session.AuthUserUid,
+			},
+			{
+				Subject:     "_:submission",
+				Predicate:   "submission.submit_time",
+				ObjectValue: &dgo_api.Value{Val: &dgo_api.Value_DatetimeVal{DatetimeVal: datetimeVal}},
+			},
+			{
+				Subject:     "_:submission",
+				Predicate:   "submission.status",
+				ObjectValue: &dgo_api.Value{Val: &dgo_api.Value_StrVal{StrVal: "Waiting"}},
+			},
+		},
+		CommitNow: true,
+	}); err != nil {
+		return internalServerError(err)
+	}
+	c.SendValue(fastjson.NewObject(map[string]*fastjson.Value{
+		"submission_id": fastjson.NewString(submissionId.String()),
+	}))
+	if err := c.JudgeService().NotifySubmission(c.Context(), assigned.Uids["submission"]); err != nil {
+		log.Error(err)
 	}
 	return
 }
 
-type SubmitProblemRequest struct {
-	Language string `json:"language"`
-	Code     string `json:"code"`
-}
-type SubmitProblemResponse struct {
-	SubmissionId uuid.UUID `json:"submission_id"`
-}
-
-func (srv *ApiServer) Handle_ProblemDb_View_Submit(c *ApiContext) (apiErr ApiError) {
+func Handle_ProblemDb_View_Publicize(c *ApiContext) (apiErr ApiError) {
 	var err error
-	vars := mux.Vars(c.r)
-	problemId := uuid.MustParse(vars["problem_id"])
-	var req SubmitProblemRequest
-	if err = json.NewDecoder(c.r.Body).Decode(&req); err != nil {
+	vars := c.Vars()
+	var problemId = uuid.MustParse(vars["problem_id"])
+	if err = c.SessionStart(); err != nil {
+		return internalServerError(err)
+	}
+	var body *fastjson.Value
+	if body, err = c.GetBody(); err != nil {
 		return badRequestError(err)
 	}
-	err = srv.withDgraphTransaction(c.r.Context(), func(ctx context.Context, t *DgraphTransaction) (err error) {
-		var sess *Session
-		if sess, err = srv.getSession(ctx, c, t); err != nil {
-			return
+	name := string(body.GetStringBytes("name"))
+	if name == "" {
+		return badRequestError(ErrInvalidPublicName)
+	}
+	if !c.Session.LoggedIn() {
+		return ErrNotLoggedIn
+	}
+	if err = c.DgraphTransaction(func(t *DgraphTransaction) (err error) {
+		var dgResponse *dgo_api.Response
+		if dgResponse, err = c.Dgraph().NewReadOnlyTxn().QueryWithVars(c.Context(), CheckProblemPublicizeQuery, map[string]string{"$problemId": problemId.String(), "$userId": c.Session.AuthUserUid, "$name": name}); err != nil {
+			return err
 		}
-		if len(sess.AuthUser) == 0 {
+		dgParser := c.GetParser()
+		defer c.PutParser(dgParser)
+		var dgValue *fastjson.Value
+		if dgValue, err = dgParser.ParseBytes(dgResponse.Json); err != nil {
+			panic(err)
+		}
+		if len(dgValue.GetArray("problem")) == 0 {
 			t.Defer(func() {
-				apiErr = ErrNotLoggedIn
+				apiErr = ErrProblemNotFound
+				return
 			})
 			return
 		}
-		const CanSubmitQuery = `
-query CanSubmitQuery($problemId: string) {
-	problem(func: eq(problem.id, $problemId)) {
-		uid
-	}
-}
-`
-		var apiResponse *dgo_api.Response
-		apiResponse, err = t.T.QueryWithVars(ctx, CanSubmitQuery, map[string]string{"$problemId": problemId.String()})
+		if string(dgValue.GetStringBytes("problem", "0", "owner_uid")) != c.Session.AuthUserUid || len(dgValue.GetArray("problemset")) == 0 {
+			t.Defer(func() {
+				apiErr = ErrPermissionDenied
+				return
+			})
+			return
+		}
+		if len(dgValue.GetArray("name")) != 0 {
+			t.Defer(func() {
+				apiErr = ErrDuplicatePublicName
+				return
+			})
+			return
+		}
+		_, err = t.T.Mutate(c.Context(), &dgo_api.Mutation{
+			Set: []*dgo_api.NQuad{
+				{
+					Subject:     "_:problemsetentry",
+					Predicate:   "problemsetentry.id",
+					ObjectValue: &dgo_api.Value{Val: &dgo_api.Value_StrVal{StrVal: uuid.New().String()}},
+				},
+				{
+					Subject:     "_:problemsetentry",
+					Predicate:   "problemsetentry.short_name",
+					ObjectValue: &dgo_api.Value{Val: &dgo_api.Value_StrVal{StrVal: name}},
+				},
+				{
+					Subject:   "_:problemsetentry",
+					Predicate: "problemsetentry.problem",
+					ObjectId:  string(dgValue.GetStringBytes("problem", "0", "uid")),
+				},
+				{
+					Subject:   "_:problemsetentry",
+					Predicate: "problemsetentry.problemset",
+					ObjectId:  string(dgValue.GetStringBytes("problemset", "0", "uid")),
+				},
+			},
+		})
 		if err != nil {
 			return
 		}
-		type response struct {
-			Problem []*Problem `json:"problem"`
-		}
-		var resp response
-		if err = json.Unmarshal(apiResponse.Json, &resp); err != nil {
-			return
-		}
-		if len(resp.Problem) == 0 {
-			t.Defer(func() {
-				apiErr = ErrProblemNotFound
-			})
-			return
-		}
-		var submissionId uuid.UUID
-		if submissionId, err = uuid.NewRandom(); err != nil {
-			return
-		}
-		var datetimeVal []byte
-		if datetimeVal, err = time.Now().MarshalBinary(); err != nil {
-			return
-		}
-		var assigned *dgo_api.Assigned
-		if assigned, err = t.T.Mutate(ctx, &dgo_api.Mutation{
-			Set: []*dgo_api.NQuad{
-				{
-					Subject:     "_:submission",
-					Predicate:   "submission.id",
-					ObjectValue: &dgo_api.Value{Val: &dgo_api.Value_StrVal{StrVal: submissionId.String()}},
-				},
-				{
-					Subject:   "_:submission",
-					Predicate: "submission.problem",
-					ObjectId:  resp.Problem[0].Uid,
-				},
-				{
-					Subject:     "_:submission",
-					Predicate:   "submission.language",
-					ObjectValue: &dgo_api.Value{Val: &dgo_api.Value_StrVal{StrVal: req.Language}},
-				},
-				{
-					Subject:     "_:submission",
-					Predicate:   "submission.code",
-					ObjectValue: &dgo_api.Value{Val: &dgo_api.Value_StrVal{StrVal: req.Code}},
-				},
-				{
-					Subject:   "_:submission",
-					Predicate: "submission.owner",
-					ObjectId:  sess.AuthUser[0].Uid,
-				},
-				{
-					Subject:     "_:submission",
-					Predicate:   "submission.submit_time",
-					ObjectValue: &dgo_api.Value{Val: &dgo_api.Value_DatetimeVal{DatetimeVal: datetimeVal}},
-				},
-				{
-					Subject:     "_:submission",
-					Predicate:   "submission.status",
-					ObjectValue: &dgo_api.Value{Val: &dgo_api.Value_StrVal{StrVal: "Waiting"}},
-				},
-			},
-		}); err != nil {
-			return
-		}
 		t.Defer(func() {
-			writeResponse(c, &SubmitProblemResponse{
-				SubmissionId: submissionId,
-			})
-		})
-		t.Defer(func() {
-			if err := srv.judgeService.NotifySubmission(ctx, assigned.Uids["submission"]); err != nil {
-				log.Error(err)
-			}
+			c.SendValue(dgParser.NewNull())
 		})
 		return
-	})
-	if err != nil {
+	}); err != nil {
 		return internalServerError(err)
 	}
 	return

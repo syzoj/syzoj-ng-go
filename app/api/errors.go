@@ -62,9 +62,12 @@ var ErrNotLoggedIn = &apiError{401, "Authentication required"}
 var ErrPermissionDenied = &apiError{403, "Permission denied"}
 
 var ErrUserNotFound = &apiError{200, "User not found"}
+var ErrInvalidUserName = &apiError{400, "Invalid user name"}
 var ErrDuplicateUserName = &apiError{200, "Duplicate user name"}
 var ErrPasswordIncorrect = &apiError{200, "Password incorrect"}
 
-var ErrDuplicateProblemName = &apiError{200, "Duplicate problem name"}
-var ErrProblemsetNotFound = &apiError{404, "Problemset not found"}
+var ErrDuplicatePublicName = &apiError{200, "Duplicate problem name"}
+var ErrInvalidPublicName = &apiError{400, "Invalid public name"}
+var ErrProblemAlreadyPublic = &apiError{200, "Problem already public"}
+
 var ErrCSRF = &apiError{403, "CSRF token didn't match"}
