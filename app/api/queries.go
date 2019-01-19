@@ -53,8 +53,8 @@ query MyProblem($userId: string) {
 }
 `
 
-const ViewProblemQuery = `
-query ViewProblemQuery($problemId: string, $userId: string) {
+const ViewProblemDbQuery = `
+query ViewProblemDbQuery($problemId: string, $userId: string) {
 	problem(func: eq(problem.id, $problemId)) @normalize {
 		uid: uid
 		title: problem.title@.

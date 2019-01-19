@@ -22,7 +22,7 @@ func Handle_ProblemDb_View(c *ApiContext) (apiErr ApiError) {
 	} else {
 		userId = "0x0"
 	}
-	if dgValue, err = c.Query(ViewProblemQuery, map[string]string{"$problemId": problemId.String(), "$userId": userId}); err != nil {
+	if dgValue, err = c.Query(ViewProblemDbQuery, map[string]string{"$problemId": problemId.String(), "$userId": userId}); err != nil {
 		return internalServerError(err)
 	}
 	if len(dgValue.GetArray("problem")) == 0 {

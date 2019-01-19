@@ -49,6 +49,7 @@ func (srv *ApiServer) setupRoutes() {
 	router.Handle("/api/problem-db/view/{problem_id:[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}}/publicize", srv.wrapHandler(Handle_ProblemDb_View_Publicize)).Methods("POST")
 	router.Handle("/api/problem-db/view/{problem_id:[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}}/submit", srv.wrapHandler(Handle_ProblemDb_View_Submit)).Methods("POST")
 	router.Handle("/api/problems", srv.wrapHandler(Handle_Problems)).Methods("GET")
+	router.Handle("/api/problem/{name}", srv.wrapHandler(Handle_Problem)).Methods("GET")
 	router.Handle("/api/submission/view/{submission_id:[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}}", srv.wrapHandler(Handle_Submission_View)).Methods("GET")
 	router.Handle("/api/submission/my", srv.wrapHandler(Handle_Submission_My)).Methods("GET")
 	debugRouter := mux.NewRouter()
