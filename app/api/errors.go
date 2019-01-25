@@ -65,6 +65,7 @@ var ErrUserNotFound = &apiError{200, "User not found"}
 var ErrInvalidUserName = &apiError{400, "Invalid user name"}
 var ErrDuplicateUserName = &apiError{200, "Duplicate user name"}
 var ErrPasswordIncorrect = &apiError{200, "Password incorrect"}
+var ErrCannotLogin = &apiError{403, "Cannot login"}
 
 var ErrDuplicatePublicName = &apiError{200, "Duplicate problem name"}
 var ErrInvalidPublicName = &apiError{400, "Invalid public name"}

@@ -1,7 +1,7 @@
 {
-    "dgraph": "127.0.0.1:9080",
+    "mongo": "mongodb://localhost:27017",
     "addr": ":5900",
-    "git_path": "git",
+    "judge_addr": "0.0.0.0:3073",
     "config": {
         "data_path": "problem-data"
     }

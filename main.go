@@ -2,34 +2,39 @@ package main
 
 import (
 	"context"
+    "database/sql"
 	"encoding/json"
 	"flag"
 	"github.com/gorilla/mux"
 	"io/ioutil"
 	"net"
+    "fmt"
 	"net/http"
 	"os"
 	"os/signal"
 	"syscall"
 	"time"
 
-	"github.com/dgraph-io/dgo"
-	dgo_api "github.com/dgraph-io/dgo/protos/api"
+	"github.com/mongodb/mongo-go-driver/mongo"
 	"github.com/sirupsen/logrus"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/reflection"
+    _ "github.com/go-sql-driver/mysql"
 
 	"github.com/syzoj/syzoj-ng-go/app/api"
 	"github.com/syzoj/syzoj-ng-go/app/judge"
+	"github.com/syzoj/syzoj-ng-go/app/contest"
 	judge_api "github.com/syzoj/syzoj-ng-go/app/judge/protos"
+    "github.com/syzoj/syzoj-ng-go/tool/import"
 )
 
 var log = logrus.StandardLogger()
 
 type syzoj_config struct {
-	Dgraph string     `json:"dgraph"`
-	Addr   string     `json:"addr"`
-	Api    api.Config `json:"api_server"`
+	Mongo     string     `json:"mongo"`
+	Addr      string     `json:"addr"`
+	JudgeAddr string     `json:"judge_addr"`
+	Api       api.Config `json:"api_server"`
 }
 
 func init() {
@@ -37,10 +42,69 @@ func init() {
 }
 
 func main() {
-	// Parse config
-	configPtr := flag.String("config", "config.json", "Sets the config file")
+    if len(os.Args) <= 1 {
+        fmt.Println("Must specify a subcommand: run or import")
+        return
+    }
+    switch os.Args[1] {
+    case "run":
+        cmdRun()
+    case "import":
+        cmdImport()
+    default:
+        fmt.Println("Must specify a subcommand: run or import")
+        return
+    }
+}
 
-	flag.Parse()
+func cmdImport() {
+    importFlagSet := flag.NewFlagSet("import", flag.ExitOnError)
+    configPtr := importFlagSet.String("config", "config.json", "Sets the config file")
+    mysqlPtr := importFlagSet.String("mysql", "root:@/syzoj", "MySQL database to import from")
+    importFlagSet.Parse(os.Args[2:])
+    
+	var err error
+	var configData []byte
+	if configData, err = ioutil.ReadFile(*configPtr); err != nil {
+		log.Fatal("Error reading config file: ", err)
+	}
+	var config *syzoj_config
+	if err = json.Unmarshal(configData, &config); err != nil {
+		log.Fatal("Error parsing config file: ", err)
+	}
+   
+	log.Info("Connecting to MongoDB")
+	var mongoClient *mongo.Client
+	if mongoClient, err = mongo.Connect(context.Background(), config.Mongo); err != nil {
+		log.Fatal("Error connecting to MongoDB: ", err)
+	}
+	if err = mongoClient.Ping(context.Background(), nil); err != nil {
+		log.Fatal("Failed to ping MongoDB: ", err)
+	}
+	defer func() {
+		ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
+		defer cancel()
+		log.Info("Disconnecting from MongoDB")
+		mongoClient.Disconnect(ctx)
+	}()
+
+    log.Info("Connecting to MySQL")
+    var mysql *sql.DB
+    if mysql, err = sql.Open("mysql", *mysqlPtr); err != nil {
+        log.Fatal("Error connecting to MySQL: ", err)
+    }
+    defer func() {
+        log.Info("Disconnecting from MySQL")
+        mysql.Close()
+    }()
+
+    tool_import.ImportMySQL(mongoClient, mysql)
+}
+
+func cmdRun() {
+    runFlagSet := flag.NewFlagSet("run", flag.ExitOnError)
+    configPtr := runFlagSet.String("config", "config.json", "Sets the config file")
+	runFlagSet.Parse(os.Args[2:])
 
 	var err error
 	var configData []byte
@@ -52,22 +116,26 @@ func main() {
 		log.Fatal("Error parsing config file: ", err)
 	}
 
-	log.Info("Connecting to Dgraph")
-	var dgraphConn *grpc.ClientConn
-	if dgraphConn, err = grpc.Dial(config.Dgraph, grpc.WithInsecure()); err != nil {
-		log.Fatal("Error connecting to Dgraph: ", err)
+	log.Info("Connecting to MongoDB")
+	var mongoClient *mongo.Client
+	if mongoClient, err = mongo.Connect(context.Background(), config.Mongo); err != nil {
+		log.Fatal("Error connecting to MongoDB: ", err)
 	}
-	var dgraph = dgo.NewDgraphClient(dgo_api.NewDgraphClient(dgraphConn))
+	if err = mongoClient.Ping(context.Background(), nil); err != nil {
+		log.Fatal("Failed to ping MongoDB: ", err)
+	}
 	defer func() {
-		log.Info("Disconnecting from Dgraph")
-		dgraphConn.Close()
+		ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
+		defer cancel()
+		log.Info("Disconnecting from MongoDB")
+		mongoClient.Disconnect(ctx)
 	}()
 
 	var grpcServer *grpc.Server = grpc.NewServer()
 
 	log.Info("Start judge service")
 	var judgeService judge.Service
-	if judgeService, err = judge.CreateJudgeService(dgraph); err != nil {
+	if judgeService, err = judge.CreateJudgeService(mongoClient); err != nil {
 		log.Fatal("Error starting judge service: ", err)
 	}
 	defer func() {
@@ -88,9 +156,19 @@ func main() {
 		}
 	}()
 
+    log.Info("Start contest service")
+    var contestService = contest.NewContestService(mongoClient)
+    if err = contestService.Init(context.Background()); err != nil {
+        log.Fatal("Failed to start contest service")
+    }
+    defer func() {
+        log.Info("Stopping contest service")
+        contestService.Close()
+    }()
+
 	log.Info("Setting up api server")
 	var apiServer *api.ApiServer
-	if apiServer, err = api.CreateApiServer(dgraph, judgeService, config.Api); err != nil {
+	if apiServer, err = api.CreateApiServer(mongoClient, judgeService, contestService, config.Api); err != nil {
 		log.Fatal("Error intializing api server: ", err)
 	}
 

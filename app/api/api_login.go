@@ -1,14 +1,19 @@
 package api
 
 import (
-	dgo_api "github.com/dgraph-io/dgo/protos/api"
+	"github.com/mongodb/mongo-go-driver/bson"
+	"github.com/mongodb/mongo-go-driver/mongo"
+	mongo_options "github.com/mongodb/mongo-go-driver/mongo/options"
 	"github.com/valyala/fastjson"
+	"golang.org/x/crypto/bcrypt"
+
+	"github.com/syzoj/syzoj-ng-go/app/model"
 )
 
 func Handle_Login(c *ApiContext) (apiErr ApiError) {
 	var err error
 	if err = c.SessionStart(); err != nil {
-		return internalServerError(err)
+		panic(err)
 	}
 	if c.Session.LoggedIn() {
 		return ErrAlreadyLoggedIn
@@ -19,32 +24,28 @@ func Handle_Login(c *ApiContext) (apiErr ApiError) {
 	}
 	userName := string(body.GetStringBytes("username"))
 	password := string(body.GetStringBytes("password"))
-	var dgValue *fastjson.Value
-	if dgValue, err = c.Query(LoginQuery, map[string]string{"$userName": userName, "$password": password}); err != nil {
-		return internalServerError(err)
+	var user model.User
+	if err = c.Server().mongodb.Collection("user").FindOne(c.Context(),
+		bson.D{{"username", userName}},
+		mongo_options.FindOne().SetProjection(bson.D{{"_id", 1}, {"auth", 1}}),
+	).Decode(&user); err != nil {
+		if err == mongo.ErrNoDocuments {
+			return ErrUserNotFound
+		}
+		panic(err)
 	}
-	if len(dgValue.GetArray("user")) == 0 {
-		return ErrUserNotFound
+	if user.Auth == nil {
+		return ErrCannotLogin
 	}
-	userVal := dgValue.Get("user", "0")
-	if !userVal.GetBool("check") {
+	if err = bcrypt.CompareHashAndPassword(user.Auth.Password, []byte(password)); err != nil {
 		return ErrPasswordIncorrect
 	}
-	if _, err = c.Dgraph().NewTxn().Mutate(c.Context(), &dgo_api.Mutation{
-		Set: []*dgo_api.NQuad{
-			{
-				Subject:   c.Session.SessUid,
-				Predicate: "session.auth_user",
-				ObjectId:  string(userVal.GetStringBytes("uid")),
-			},
-		},
-		CommitNow: true,
-	}); err != nil {
-		return internalServerError(err)
+	if _, err = c.Server().mongodb.Collection("session").UpdateOne(c.Context(),
+		bson.D{{"_id", c.Session.SessUid}},
+		bson.D{{"$set", bson.D{{"session_user", user.Id}}}},
+	); err != nil {
+		panic(err)
 	}
-	if err = c.SessionReload(); err != nil {
-		return internalServerError(err)
-	}
-	c.SendValue(fastjson.NewNull())
+	c.SendValue(new(fastjson.Arena).NewNull())
 	return
 }
