@@ -3,7 +3,7 @@ syntax = "proto3";
 import "google/protobuf/empty.proto";
 
 service Judge {
-	rpc RegisterJudger (JudgeRequest) returns (stream JudgerEvent) {}
+    rpc FetchTask (JudgeRequest) returns (FetchTaskResult) {}
 	rpc SetTaskProgress (stream TaskProgress) returns (google.protobuf.Empty) {}
 	rpc SetTaskResult (TaskResult) returns (google.protobuf.Empty) {}
 }
@@ -13,14 +13,9 @@ message JudgeRequest {
 	string judger_token = 2;
 }
 
-message JudgerEvent {
-	oneof message {
-		JudgeEvent judge_event = 1;
-	}
-}
-
-message JudgeEvent {
-	Task task = 1;
+message FetchTaskResult {
+    bool success = 1;
+    Task task = 2;
 }
 
 message Task {

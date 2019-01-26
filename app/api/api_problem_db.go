@@ -25,7 +25,7 @@ func Handle_ProblemDb(c *ApiContext) (apiErr ApiError) {
 	if cursor, err = c.Server().mongodb.Collection("problem").Find(c.Context(), query,
 		mongo_options.Find().SetProjection(bson.D{{"_id", "1"}, {"title", 1}, {"create_time", 1}}),
 	); err != nil {
-		panic(err)
+        panic(err)
 	}
 	defer cursor.Close(c.Context())
 

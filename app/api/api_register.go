@@ -3,12 +3,10 @@ package api
 import (
 	"time"
 
-	"github.com/google/uuid"
+	"github.com/mongodb/mongo-go-driver/bson"
 	"github.com/mongodb/mongo-go-driver/bson/primitive"
 	"github.com/valyala/fastjson"
 	"golang.org/x/crypto/bcrypt"
-
-	"github.com/syzoj/syzoj-ng-go/app/model"
 )
 
 func Handle_Register(c *ApiContext) (apiErr ApiError) {
@@ -28,17 +26,17 @@ func Handle_Register(c *ApiContext) (apiErr ApiError) {
 		return ErrInvalidUserName
 	}
 	password := string(body.GetStringBytes("password"))
-	var user model.User
-	user.Id = primitive.NewObjectID()
-	user.UserName = &userName
-	user.RegisterTime = time.Now()
-	user.Auth = new(model.UserAuth)
-	xid := uuid.New()
-	user.Xid = &xid
-	if user.Auth.Password, err = bcrypt.GenerateFromPassword([]byte(password), 0); err != nil {
+    var passwordHash []byte
+	if passwordHash, err = bcrypt.GenerateFromPassword([]byte(password), 0); err != nil {
 		panic(err)
 	}
-	if _, err = c.Server().mongodb.Collection("user").InsertOne(c.Context(), user); err != nil {
+    userId := primitive.NewObjectID()
+	if _, err = c.Server().mongodb.Collection("user").InsertOne(c.Context(), bson.D{
+        {"_id", userId},
+        {"username", userName},
+        {"register_time", time.Now()},
+        {"auth", bson.D{{"password", passwordHash}, {"method", int64(1)}}},
+    }); err != nil {
 		panic(err)
 	}
 	log.WithField("username", userName).Info("Created account")

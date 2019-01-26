@@ -28,14 +28,14 @@ func (c *ApiContext) newSession() (err error) {
 	var tokenBytes [16]byte
 	rand.Read(tokenBytes[:])
 	newToken := hex.EncodeToString(tokenBytes[:])
-	var session model.Session
-	session.Id = primitive.NewObjectID()
-	session.SessionToken = &newToken
-	if _, err = c.Server().mongodb.Collection("session").InsertOne(c.Context(), session); err != nil {
+    sessionId := primitive.NewObjectID()
+	if _, err = c.Server().mongodb.Collection("session").InsertOne(c.Context(), bson.D{
+        {"_id", sessionId},
+        {"session_token", newToken}}); err != nil {
 		panic(err)
 	}
 	c.Session = new(Session)
-	c.Session.SessUid = session.Id
+	c.Session.SessUid = sessionId
 	c.SetCookie(&http.Cookie{
 		Name:     "SYZOJSESSION",
 		HttpOnly: true,
@@ -62,16 +62,20 @@ func (c *ApiContext) SessionStart() (err error) {
 	}
 	c.Session = new(Session)
 	c.Session.SessUid = session.Id
-	if session.SessionUser != nil {
-		c.Session.AuthUserUid = *session.SessionUser
+	if session.SessionUser != (primitive.ObjectID{}) {
+		c.Session.AuthUserUid = session.SessionUser
 		var user model.User
 		if err = c.Server().mongodb.Collection("user").FindOne(c.Context(),
-			bson.D{{"_id", *session.SessionUser}},
+			bson.D{{"_id", session.SessionUser}},
 			mongo_options.FindOne().SetProjection(bson.D{{"_id", "1"}, {"username", 1}}),
 		).Decode(&user); err != nil {
-			panic(err)
+            if err == mongo.ErrNoDocuments {
+                log.WithField("SessUid", c.Session.SessUid).WithField("UserID", c.Session.AuthUserUid).Warning("Broken session: user doesn't exist")
+            } else {
+    			panic(err)
+            }
 		}
-		c.Session.AuthUserUserName = *user.UserName
+		c.Session.AuthUserUserName = user.UserName
 	}
 	return nil
 }
@@ -91,8 +95,8 @@ func (c *ApiContext) SessionReload() (err error) {
 	}
 	c.Session = new(Session)
 	c.Session.SessUid = session.Id
-	if session.SessionUser != nil {
-		c.Session.AuthUserUid = *session.SessionUser
+	if session.SessionUser != (primitive.ObjectID{}) {
+		c.Session.AuthUserUid = session.SessionUser
 		var user model.User
 		if err = c.Server().mongodb.Collection("user").FindOne(c.Context(),
 			bson.D{{"_id", session.SessionUser}},
@@ -100,7 +104,7 @@ func (c *ApiContext) SessionReload() (err error) {
 		).Decode(&user); err != nil {
 			panic(err)
 		}
-		c.Session.AuthUserUserName = *user.UserName
+		c.Session.AuthUserUserName = user.UserName
 	}
 	return nil
 }

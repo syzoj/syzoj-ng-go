@@ -70,104 +70,47 @@ func (m *JudgeRequest) GetJudgerToken() string {
 	return ""
 }
 
-type JudgerEvent struct {
-	// Types that are valid to be assigned to Message:
-	//	*JudgerEvent_JudgeEvent
-	Message              isJudgerEvent_Message `protobuf_oneof:"message"`
-	XXX_NoUnkeyedLiteral struct{}              `json:"-"`
-	XXX_unrecognized     []byte                `json:"-"`
-	XXX_sizecache        int32                 `json:"-"`
-}
-
-func (m *JudgerEvent) Reset()         { *m = JudgerEvent{} }
-func (m *JudgerEvent) String() string { return proto.CompactTextString(m) }
-func (*JudgerEvent) ProtoMessage()    {}
-func (*JudgerEvent) Descriptor() ([]byte, []int) {
-	return fileDescriptor_a2b4fa635fb2baaa, []int{1}
-}
-
-func (m *JudgerEvent) XXX_Unmarshal(b []byte) error {
-	return xxx_messageInfo_JudgerEvent.Unmarshal(m, b)
-}
-func (m *JudgerEvent) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
-	return xxx_messageInfo_JudgerEvent.Marshal(b, m, deterministic)
-}
-func (m *JudgerEvent) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_JudgerEvent.Merge(m, src)
-}
-func (m *JudgerEvent) XXX_Size() int {
-	return xxx_messageInfo_JudgerEvent.Size(m)
-}
-func (m *JudgerEvent) XXX_DiscardUnknown() {
-	xxx_messageInfo_JudgerEvent.DiscardUnknown(m)
-}
-
-var xxx_messageInfo_JudgerEvent proto.InternalMessageInfo
-
-type isJudgerEvent_Message interface {
-	isJudgerEvent_Message()
-}
-
-type JudgerEvent_JudgeEvent struct {
-	JudgeEvent *JudgeEvent `protobuf:"bytes,1,opt,name=judge_event,json=judgeEvent,proto3,oneof"`
-}
-
-func (*JudgerEvent_JudgeEvent) isJudgerEvent_Message() {}
-
-func (m *JudgerEvent) GetMessage() isJudgerEvent_Message {
-	if m != nil {
-		return m.Message
-	}
-	return nil
-}
-
-func (m *JudgerEvent) GetJudgeEvent() *JudgeEvent {
-	if x, ok := m.GetMessage().(*JudgerEvent_JudgeEvent); ok {
-		return x.JudgeEvent
-	}
-	return nil
-}
-
-// XXX_OneofWrappers is for the internal use of the proto package.
-func (*JudgerEvent) XXX_OneofWrappers() []interface{} {
-	return []interface{}{
-		(*JudgerEvent_JudgeEvent)(nil),
-	}
-}
-
-type JudgeEvent struct {
-	Task                 *Task    `protobuf:"bytes,1,opt,name=task,proto3" json:"task,omitempty"`
+type FetchTaskResult struct {
+	Success              bool     `protobuf:"varint,1,opt,name=success,proto3" json:"success,omitempty"`
+	Task                 *Task    `protobuf:"bytes,2,opt,name=task,proto3" json:"task,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`
 }
 
-func (m *JudgeEvent) Reset()         { *m = JudgeEvent{} }
-func (m *JudgeEvent) String() string { return proto.CompactTextString(m) }
-func (*JudgeEvent) ProtoMessage()    {}
-func (*JudgeEvent) Descriptor() ([]byte, []int) {
-	return fileDescriptor_a2b4fa635fb2baaa, []int{2}
+func (m *FetchTaskResult) Reset()         { *m = FetchTaskResult{} }
+func (m *FetchTaskResult) String() string { return proto.CompactTextString(m) }
+func (*FetchTaskResult) ProtoMessage()    {}
+func (*FetchTaskResult) Descriptor() ([]byte, []int) {
+	return fileDescriptor_a2b4fa635fb2baaa, []int{1}
 }
 
-func (m *JudgeEvent) XXX_Unmarshal(b []byte) error {
-	return xxx_messageInfo_JudgeEvent.Unmarshal(m, b)
+func (m *FetchTaskResult) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_FetchTaskResult.Unmarshal(m, b)
 }
-func (m *JudgeEvent) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
-	return xxx_messageInfo_JudgeEvent.Marshal(b, m, deterministic)
+func (m *FetchTaskResult) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_FetchTaskResult.Marshal(b, m, deterministic)
 }
-func (m *JudgeEvent) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_JudgeEvent.Merge(m, src)
+func (m *FetchTaskResult) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_FetchTaskResult.Merge(m, src)
 }
-func (m *JudgeEvent) XXX_Size() int {
-	return xxx_messageInfo_JudgeEvent.Size(m)
+func (m *FetchTaskResult) XXX_Size() int {
+	return xxx_messageInfo_FetchTaskResult.Size(m)
 }
-func (m *JudgeEvent) XXX_DiscardUnknown() {
-	xxx_messageInfo_JudgeEvent.DiscardUnknown(m)
+func (m *FetchTaskResult) XXX_DiscardUnknown() {
+	xxx_messageInfo_FetchTaskResult.DiscardUnknown(m)
 }
 
-var xxx_messageInfo_JudgeEvent proto.InternalMessageInfo
+var xxx_messageInfo_FetchTaskResult proto.InternalMessageInfo
 
-func (m *JudgeEvent) GetTask() *Task {
+func (m *FetchTaskResult) GetSuccess() bool {
+	if m != nil {
+		return m.Success
+	}
+	return false
+}
+
+func (m *FetchTaskResult) GetTask() *Task {
 	if m != nil {
 		return m.Task
 	}
@@ -188,7 +131,7 @@ func (m *Task) Reset()         { *m = Task{} }
 func (m *Task) String() string { return proto.CompactTextString(m) }
 func (*Task) ProtoMessage()    {}
 func (*Task) Descriptor() ([]byte, []int) {
-	return fileDescriptor_a2b4fa635fb2baaa, []int{3}
+	return fileDescriptor_a2b4fa635fb2baaa, []int{2}
 }
 
 func (m *Task) XXX_Unmarshal(b []byte) error {
@@ -247,7 +190,7 @@ func (m *TaskProgress) Reset()         { *m = TaskProgress{} }
 func (m *TaskProgress) String() string { return proto.CompactTextString(m) }
 func (*TaskProgress) ProtoMessage()    {}
 func (*TaskProgress) Descriptor() ([]byte, []int) {
-	return fileDescriptor_a2b4fa635fb2baaa, []int{4}
+	return fileDescriptor_a2b4fa635fb2baaa, []int{3}
 }
 
 func (m *TaskProgress) XXX_Unmarshal(b []byte) error {
@@ -281,7 +224,7 @@ func (m *TaskResult) Reset()         { *m = TaskResult{} }
 func (m *TaskResult) String() string { return proto.CompactTextString(m) }
 func (*TaskResult) ProtoMessage()    {}
 func (*TaskResult) Descriptor() ([]byte, []int) {
-	return fileDescriptor_a2b4fa635fb2baaa, []int{5}
+	return fileDescriptor_a2b4fa635fb2baaa, []int{4}
 }
 
 func (m *TaskResult) XXX_Unmarshal(b []byte) error {
@@ -325,8 +268,7 @@ func (m *TaskResult) GetScore() float32 {
 
 func init() {
 	proto.RegisterType((*JudgeRequest)(nil), "JudgeRequest")
-	proto.RegisterType((*JudgerEvent)(nil), "JudgerEvent")
-	proto.RegisterType((*JudgeEvent)(nil), "JudgeEvent")
+	proto.RegisterType((*FetchTaskResult)(nil), "FetchTaskResult")
 	proto.RegisterType((*Task)(nil), "Task")
 	proto.RegisterType((*TaskProgress)(nil), "TaskProgress")
 	proto.RegisterType((*TaskResult)(nil), "TaskResult")
@@ -335,31 +277,29 @@ func init() {
 func init() { proto.RegisterFile("judge.proto", fileDescriptor_a2b4fa635fb2baaa) }
 
 var fileDescriptor_a2b4fa635fb2baaa = []byte{
-	// 372 bytes of a gzipped FileDescriptorProto
-	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x7c, 0x92, 0x4d, 0xef, 0xd2, 0x40,
-	0x10, 0xc6, 0x29, 0x94, 0x97, 0x4e, 0x0b, 0x26, 0x1b, 0x43, 0x4a, 0x89, 0x89, 0xee, 0x45, 0x4e,
-	0x8b, 0x62, 0xe2, 0xc9, 0x93, 0x09, 0x09, 0x78, 0x30, 0xa6, 0xe2, 0x99, 0x14, 0x3a, 0x6e, 0x80,
-	0xc2, 0xd6, 0xdd, 0xad, 0x89, 0xdf, 0xca, 0x8f, 0x68, 0xf6, 0x05, 0xe9, 0xe5, 0xff, 0xbf, 0xf5,
-	0xf7, 0xec, 0xb3, 0x3b, 0xcf, 0x4c, 0x07, 0xe2, 0x73, 0x53, 0x72, 0x64, 0xb5, 0x14, 0x5a, 0x64,
-	0x73, 0x2e, 0x04, 0xaf, 0x70, 0x69, 0xe9, 0xd0, 0xfc, 0x5c, 0xe2, 0xb5, 0xd6, 0x7f, 0xdc, 0x21,
-	0xfd, 0x0a, 0xc9, 0x17, 0xe3, 0xcd, 0xf1, 0x57, 0x83, 0x4a, 0x93, 0x39, 0x44, 0xf6, 0xae, 0xdc,
-	0x9f, 0xca, 0x34, 0x78, 0x1d, 0x2c, 0xa2, 0x7c, 0xe4, 0x84, 0x6d, 0x49, 0xde, 0x40, 0xe2, 0x0f,
-	0xb5, 0xb8, 0xe0, 0x2d, 0xed, 0xda, 0x73, 0x57, 0x4c, 0xee, 0x8c, 0x44, 0x37, 0x10, 0xdb, 0xf7,
-	0xe4, 0xfa, 0x37, 0xde, 0x34, 0x61, 0x3e, 0xca, 0x1e, 0x0d, 0xda, 0x07, 0xe3, 0x55, 0xcc, 0xac,
-	0xc5, 0x3a, 0x36, 0x9d, 0x1c, 0xce, 0xff, 0xe9, 0x73, 0x04, 0xc3, 0x2b, 0x2a, 0x55, 0x70, 0xa4,
-	0x6f, 0x01, 0x1e, 0x36, 0x32, 0x83, 0x50, 0x17, 0xea, 0xe2, 0x5f, 0xe8, 0xb3, 0x5d, 0xa1, 0x2e,
-	0xb9, 0x95, 0x68, 0x0d, 0xa1, 0x21, 0x32, 0x83, 0x91, 0xe1, 0xbd, 0x2e, 0xb8, 0xb5, 0xf5, 0xf2,
-	0xa1, 0xe1, 0x5d, 0xc1, 0xc9, 0x2b, 0x80, 0x5a, 0x8a, 0x43, 0x85, 0x57, 0xd3, 0x96, 0x8b, 0x1d,
-	0x79, 0x65, 0x5b, 0x92, 0x0c, 0x46, 0x55, 0x71, 0xe3, 0x4d, 0xc1, 0x31, 0xed, 0xb9, 0x9e, 0xef,
-	0x4c, 0x08, 0x84, 0x47, 0x51, 0x62, 0x1a, 0x5a, 0xdd, 0x7e, 0xd3, 0x09, 0x24, 0xa6, 0xe2, 0x37,
-	0x29, 0xb8, 0x44, 0xa5, 0xe8, 0x0f, 0x00, 0x9b, 0x07, 0x55, 0x53, 0xe9, 0xe7, 0x72, 0x4c, 0x61,
-	0x20, 0xad, 0xc9, 0x67, 0xf0, 0x44, 0x5e, 0x42, 0x5f, 0x1d, 0x85, 0x74, 0xd5, 0xbb, 0xb9, 0x83,
-	0xd5, 0xdf, 0x00, 0xfa, 0x76, 0x04, 0xe4, 0x3d, 0x4c, 0x72, 0xe4, 0x27, 0xa5, 0x51, 0xba, 0xe9,
-	0x92, 0x31, 0x6b, 0xff, 0xb6, 0x2c, 0x61, 0xad, 0xa9, 0xd3, 0xce, 0xbb, 0x80, 0x7c, 0x82, 0x17,
-	0xdf, 0x51, 0xb7, 0x63, 0x92, 0x31, 0x6b, 0x63, 0x36, 0x65, 0x6e, 0x31, 0xd8, 0x7d, 0x31, 0xd8,
-	0xda, 0x2c, 0x06, 0xed, 0x2c, 0x02, 0xf2, 0x11, 0xc6, 0xfe, 0xb6, 0x6f, 0x2a, 0x66, 0x0f, 0x78,
-	0xfa, 0xe6, 0x61, 0x60, 0x95, 0x0f, 0xff, 0x02, 0x00, 0x00, 0xff, 0xff, 0x01, 0x8f, 0x24, 0x40,
-	0x81, 0x02, 0x00, 0x00,
+	// 345 bytes of a gzipped FileDescriptorProto
+	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x7c, 0x91, 0xc1, 0x4f, 0xea, 0x40,
+	0x10, 0xc6, 0x29, 0x14, 0x68, 0x07, 0x78, 0xbc, 0x4c, 0x5e, 0x48, 0x29, 0x79, 0x89, 0xee, 0x89,
+	0xd3, 0x92, 0x60, 0xe2, 0xc9, 0xab, 0x24, 0x78, 0x30, 0xa6, 0xe2, 0x99, 0x94, 0x76, 0x5d, 0x95,
+	0xc2, 0xd6, 0xdd, 0xed, 0xc1, 0x3f, 0xca, 0xff, 0xd1, 0xec, 0x6e, 0xd1, 0xc6, 0x44, 0x6f, 0xfd,
+	0x7d, 0xd3, 0x6f, 0xe7, 0x9b, 0x19, 0x18, 0xbc, 0x54, 0x39, 0x67, 0xb4, 0x94, 0x42, 0x8b, 0x78,
+	0xc6, 0x85, 0xe0, 0x05, 0x5b, 0x58, 0xda, 0x55, 0x8f, 0x0b, 0x76, 0x28, 0xf5, 0x9b, 0x2b, 0x92,
+	0x5b, 0x18, 0xde, 0x98, 0x7f, 0x13, 0xf6, 0x5a, 0x31, 0xa5, 0x71, 0x06, 0xa1, 0xf5, 0xca, 0xed,
+	0x73, 0x1e, 0x79, 0x67, 0xde, 0x3c, 0x4c, 0x02, 0x27, 0xac, 0x73, 0x3c, 0x87, 0x61, 0x5d, 0xd4,
+	0x62, 0xcf, 0x8e, 0x51, 0xdb, 0xd6, 0x5d, 0x33, 0xb9, 0x31, 0x12, 0x59, 0xc1, 0x78, 0xc5, 0x74,
+	0xf6, 0xb4, 0x49, 0xd5, 0x3e, 0x61, 0xaa, 0x2a, 0x34, 0x46, 0xd0, 0x57, 0x55, 0x96, 0x31, 0xa5,
+	0xec, 0x83, 0x41, 0x72, 0x42, 0x9c, 0x82, 0xaf, 0x53, 0xb5, 0xb7, 0xef, 0x0c, 0x96, 0x5d, 0x6a,
+	0x4d, 0x56, 0x22, 0x25, 0xf8, 0x86, 0x70, 0x0a, 0x81, 0xe1, 0xad, 0x4e, 0xb9, 0x75, 0x77, 0x92,
+	0xbe, 0xe1, 0x4d, 0xca, 0xf1, 0x3f, 0x40, 0x29, 0xc5, 0xae, 0x60, 0x07, 0x93, 0xd5, 0x65, 0x09,
+	0x6b, 0x65, 0x9d, 0x63, 0x0c, 0x41, 0x91, 0x1e, 0x79, 0x95, 0x72, 0x16, 0x75, 0xdc, 0x20, 0x27,
+	0x46, 0x04, 0x3f, 0x13, 0x39, 0x8b, 0x7c, 0xab, 0xdb, 0x6f, 0xf2, 0x07, 0x86, 0xa6, 0xe3, 0x9d,
+	0x14, 0x5c, 0x32, 0xa5, 0xc8, 0x03, 0x40, 0x63, 0x88, 0x5f, 0x72, 0x4c, 0xa0, 0x27, 0xed, 0x4f,
+	0x75, 0x86, 0x9a, 0xf0, 0x1f, 0x74, 0x55, 0x26, 0xa4, 0xeb, 0xde, 0x4e, 0x1c, 0x2c, 0xdf, 0x3d,
+	0xe8, 0xda, 0x8d, 0x23, 0x85, 0xf0, 0x73, 0x55, 0x38, 0xa2, 0xcd, 0x33, 0xc4, 0x7f, 0xe9, 0xb7,
+	0x2d, 0x92, 0x16, 0x5e, 0xc1, 0xf8, 0x9e, 0xe9, 0x66, 0x46, 0x1c, 0xd1, 0x26, 0xc6, 0x13, 0xea,
+	0x4e, 0x4d, 0x4f, 0xa7, 0xa6, 0xd7, 0xe6, 0xd4, 0xa4, 0x35, 0xf7, 0xf0, 0x12, 0x46, 0xb5, 0xbb,
+	0x9e, 0x68, 0x40, 0xbf, 0xe0, 0x67, 0xe7, 0xae, 0x67, 0x95, 0x8b, 0x8f, 0x00, 0x00, 0x00, 0xff,
+	0xff, 0xbf, 0xc2, 0x02, 0xdd, 0x53, 0x02, 0x00, 0x00,
 }
 
 // Reference imports to suppress errors if they are not otherwise used.
@@ -374,7 +314,7 @@ const _ = grpc.SupportPackageIsVersion4
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://godoc.org/google.golang.org/grpc#ClientConn.NewStream.
 type JudgeClient interface {
-	RegisterJudger(ctx context.Context, in *JudgeRequest, opts ...grpc.CallOption) (Judge_RegisterJudgerClient, error)
+	FetchTask(ctx context.Context, in *JudgeRequest, opts ...grpc.CallOption) (*FetchTaskResult, error)
 	SetTaskProgress(ctx context.Context, opts ...grpc.CallOption) (Judge_SetTaskProgressClient, error)
 	SetTaskResult(ctx context.Context, in *TaskResult, opts ...grpc.CallOption) (*empty.Empty, error)
 }
@@ -387,40 +327,17 @@ func NewJudgeClient(cc *grpc.ClientConn) JudgeClient {
 	return &judgeClient{cc}
 }
 
-func (c *judgeClient) RegisterJudger(ctx context.Context, in *JudgeRequest, opts ...grpc.CallOption) (Judge_RegisterJudgerClient, error) {
-	stream, err := c.cc.NewStream(ctx, &_Judge_serviceDesc.Streams[0], "/Judge/RegisterJudger", opts...)
+func (c *judgeClient) FetchTask(ctx context.Context, in *JudgeRequest, opts ...grpc.CallOption) (*FetchTaskResult, error) {
+	out := new(FetchTaskResult)
+	err := c.cc.Invoke(ctx, "/Judge/FetchTask", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
-	x := &judgeRegisterJudgerClient{stream}
-	if err := x.ClientStream.SendMsg(in); err != nil {
-		return nil, err
-	}
-	if err := x.ClientStream.CloseSend(); err != nil {
-		return nil, err
-	}
-	return x, nil
-}
-
-type Judge_RegisterJudgerClient interface {
-	Recv() (*JudgerEvent, error)
-	grpc.ClientStream
-}
-
-type judgeRegisterJudgerClient struct {
-	grpc.ClientStream
-}
-
-func (x *judgeRegisterJudgerClient) Recv() (*JudgerEvent, error) {
-	m := new(JudgerEvent)
-	if err := x.ClientStream.RecvMsg(m); err != nil {
-		return nil, err
-	}
-	return m, nil
+	return out, nil
 }
 
 func (c *judgeClient) SetTaskProgress(ctx context.Context, opts ...grpc.CallOption) (Judge_SetTaskProgressClient, error) {
-	stream, err := c.cc.NewStream(ctx, &_Judge_serviceDesc.Streams[1], "/Judge/SetTaskProgress", opts...)
+	stream, err := c.cc.NewStream(ctx, &_Judge_serviceDesc.Streams[0], "/Judge/SetTaskProgress", opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -464,7 +381,7 @@ func (c *judgeClient) SetTaskResult(ctx context.Context, in *TaskResult, opts ..
 
 // JudgeServer is the server API for Judge service.
 type JudgeServer interface {
-	RegisterJudger(*JudgeRequest, Judge_RegisterJudgerServer) error
+	FetchTask(context.Context, *JudgeRequest) (*FetchTaskResult, error)
 	SetTaskProgress(Judge_SetTaskProgressServer) error
 	SetTaskResult(context.Context, *TaskResult) (*empty.Empty, error)
 }
@@ -473,25 +390,22 @@ func RegisterJudgeServer(s *grpc.Server, srv JudgeServer) {
 	s.RegisterService(&_Judge_serviceDesc, srv)
 }
 
-func _Judge_RegisterJudger_Handler(srv interface{}, stream grpc.ServerStream) error {
-	m := new(JudgeRequest)
-	if err := stream.RecvMsg(m); err != nil {
-		return err
+func _Judge_FetchTask_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(JudgeRequest)
+	if err := dec(in); err != nil {
+		return nil, err
 	}
-	return srv.(JudgeServer).RegisterJudger(m, &judgeRegisterJudgerServer{stream})
-}
-
-type Judge_RegisterJudgerServer interface {
-	Send(*JudgerEvent) error
-	grpc.ServerStream
-}
-
-type judgeRegisterJudgerServer struct {
-	grpc.ServerStream
-}
-
-func (x *judgeRegisterJudgerServer) Send(m *JudgerEvent) error {
-	return x.ServerStream.SendMsg(m)
+	if interceptor == nil {
+		return srv.(JudgeServer).FetchTask(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/Judge/FetchTask",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(JudgeServer).FetchTask(ctx, req.(*JudgeRequest))
+	}
+	return interceptor(ctx, in, info, handler)
 }
 
 func _Judge_SetTaskProgress_Handler(srv interface{}, stream grpc.ServerStream) error {
@@ -543,16 +457,15 @@ var _Judge_serviceDesc = grpc.ServiceDesc{
 	HandlerType: (*JudgeServer)(nil),
 	Methods: []grpc.MethodDesc{
 		{
+			MethodName: "FetchTask",
+			Handler:    _Judge_FetchTask_Handler,
+		},
+		{
 			MethodName: "SetTaskResult",
 			Handler:    _Judge_SetTaskResult_Handler,
 		},
 	},
 	Streams: []grpc.StreamDesc{
-		{
-			StreamName:    "RegisterJudger",
-			Handler:       _Judge_RegisterJudger_Handler,
-			ServerStreams: true,
-		},
 		{
 			StreamName:    "SetTaskProgress",
 			Handler:       _Judge_SetTaskProgress_Handler,

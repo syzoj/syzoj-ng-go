@@ -4,6 +4,8 @@ import (
     "context"
     "database/sql"
     "strconv"
+    "strings"
+    "regexp"
 
     "github.com/mongodb/mongo-go-driver/mongo"
     "github.com/mongodb/mongo-go-driver/bson"
@@ -64,13 +66,37 @@ func (i *importer) getProblems() {
     close(i.problems)
 }
 
+// LEGACY
+var inlineMathRegexp = regexp.MustCompile("\\$(.+?)\\$")
+var mathRegexp = regexp.MustCompile("(?m)\\$\\$(.+?)\\$\\$")
+func convertMath(s string) string {
+    s2 := inlineMathRegexp.ReplaceAll([]byte(s), []byte("<math inline>$1</math>"))
+    return string(mathRegexp.ReplaceAll(s2, []byte("<math>$1</math>")))
+}
+
 func (i *importer) writeProblems() {
     var err error
     for p := range i.problems {
         problemId := primitive.NewObjectID()
-        content := p.Description + p.InputFormat + p.OutputFormat + p.Example + p.LimitAndHint
+        var content []string
+        if p.Description != "" {
+            content = append(content, "# 题目描述\n", p.Description)
+        }
+        if p.InputFormat != "" {
+            content = append(content, "# 输入格式\n", p.InputFormat)
+        }
+        if p.OutputFormat != "" {
+            content = append(content, "# 输出格式\n", p.OutputFormat)
+        }
+        if p.Example != "" {
+            content = append(content, "# 样例\n", p.Example)
+        }
+        if p.LimitAndHint != "" {
+            content = append(content, "# 数据范围与提示\n", p.LimitAndHint)
+        }
+        contents := strings.Join(content, "\n\n")
         if _, err = i.mongodb.Collection("problem").InsertOne(context.Background(),
-            bson.D{{"_id", problemId}, {"title", p.Title}, {"statement", content}},
+            bson.D{{"_id", problemId}, {"title", p.Title}, {"statement", contents}},
         ); err != nil {
             log.WithField("id", p.Id).Info("Error insering problem: ", err.Error())
             err = nil

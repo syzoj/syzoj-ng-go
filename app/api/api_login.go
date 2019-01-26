@@ -34,7 +34,7 @@ func Handle_Login(c *ApiContext) (apiErr ApiError) {
 		}
 		panic(err)
 	}
-	if user.Auth == nil {
+	if user.Auth.Method != 1 {
 		return ErrCannotLogin
 	}
 	if err = bcrypt.CompareHashAndPassword(user.Auth.Password, []byte(password)); err != nil {
