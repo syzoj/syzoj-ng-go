@@ -9,6 +9,31 @@ import (
     "github.com/syzoj/syzoj-ng-go/app/model"
 )
 
+// GET /api/submissions
+//
+// Query parameters:
+//     my: If exists, show ony submissions by myself (requires login)
+//
+// Response: A `submissions` array with each object corresponding to a submission in the results.
+//
+// Example response:
+// {
+//     "data": {
+//         "submissions": [
+//             {
+//                 "id": "XEx94jSYlxu3ZWQ7",
+//                 "language": "cpp",
+//                 "problem_id": "XExfwInQgxRHvIzm",
+//                 "problem_title": "TODO",
+//                 "score": 0,
+//                 "status": "Done",
+//                 "submit_time": "2019-01-26 15:33:54.216 +0000 UTC",
+//                 "submit_user_id": "XExegYnQgxRHvIzf",
+//                 "submit_user_name": "TODO"
+//             }
+//         ]
+//     }
+// }
 func Handle_Submissions(c *ApiContext) (apiErr ApiError) {
     var err error
     if err = c.SessionStart(); err != nil {

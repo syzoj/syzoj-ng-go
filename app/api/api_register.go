@@ -9,6 +9,14 @@ import (
 	"golang.org/x/crypto/bcrypt"
 )
 
+// POST /api/register
+//
+// Example request:
+//     {
+//         "username": "username",
+//         "password": "password"
+//     }
+// If register succeeds, returns `nil`. Otherwise, returns an error indicating the reason for failure.
 func Handle_Register(c *ApiContext) (apiErr ApiError) {
 	var err error
 	if err = c.SessionStart(); err != nil {

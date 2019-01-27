@@ -10,6 +10,14 @@ import (
 	"github.com/syzoj/syzoj-ng-go/app/model"
 )
 
+// POST /api/login
+//
+// Example request:
+//     {
+//         "username": "username",
+//         "password": "password"
+//     }
+// If login succeeds, returns `nil`. Otherwise, returns an error indicating the reason for failure.
 func Handle_Login(c *ApiContext) (apiErr ApiError) {
 	var err error
 	if err = c.SessionStart(); err != nil {

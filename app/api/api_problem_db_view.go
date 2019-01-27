@@ -15,6 +15,18 @@ import (
     "github.com/syzoj/syzoj-ng-go/app/model"
 )
 
+// GET /api/problem-db/view/{problem_id}
+//
+// Path parameters:
+//     problem_id: The ObjectID of the problem.
+//
+// Example response:
+//     {
+//         "title": "Problem Title",
+//         "statement": "Problem Statement",
+//         "is_owner": false,
+//         "can_submit": false
+//     }
 func Handle_ProblemDb_View(c *ApiContext) (apiErr ApiError) {
 	var err error
 	vars := c.Vars()
@@ -56,6 +68,17 @@ func Handle_ProblemDb_View(c *ApiContext) (apiErr ApiError) {
 	return
 }
 
+// POST /api/problem-db/view/{problem_id}/edit
+//
+// Path parameters:
+//     problem_id: The ObjectID of the problem.
+//
+// Example request:
+//     {
+//         "statement": "Problem Statement"
+//     }
+//
+// If edit succeeds, returns `nil`. Otherwise, returns an error indicating the reason for failure.
 func Handle_ProblemDb_View_Edit(c *ApiContext) (apiErr ApiError) {
     var err error
     vars := c.Vars()
@@ -95,6 +118,20 @@ func Handle_ProblemDb_View_Edit(c *ApiContext) (apiErr ApiError) {
     return
 }
 
+// POST /api/problem-db/view/{problem_id}/submit
+//
+// Path parameters:
+//     problem_id: The ObjectID of the problem.
+//
+// Example request:
+//     {
+//         "code": {
+//             "code": "#include <bits/stdc++.h>",
+//             "language": "cpp"
+//         }
+//     }
+//
+// If edit succeeds, returns `nil`. Otherwise, returns an error indicating the reason for failure.
 func Handle_ProblemDb_View_Submit(c *ApiContext) (apiErr ApiError) {
     var err error
     vars := c.Vars();

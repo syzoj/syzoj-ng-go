@@ -5,6 +5,11 @@ import (
 	"github.com/valyala/fastjson"
 )
 
+// POST /api/nav/logout
+//
+// Does not take a body.
+//
+// If logout succeeds, returns `nil`. Otherwise, returns an error indicating reason for failure/
 func Handle_Nav_Logout(c *ApiContext) (apiErr ApiError) {
 	var err error
 	if err = c.SessionStart(); err != nil {

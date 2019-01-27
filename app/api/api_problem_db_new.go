@@ -8,6 +8,20 @@ import (
     "github.com/mongodb/mongo-go-driver/bson/primitive"
 )
 
+// POST /api/problem-db/new
+//
+// Example request:
+//     {
+//         "problem": {
+//             "title": "PRoblem Title"
+//         }
+//     }
+//
+// Example response:
+//     {
+//          "problem_id": "AAAAAAAAAAAAAAAA"
+//     }
+//
 func Handle_ProblemDb_New(c *ApiContext) (apiErr ApiError) {
 	var err error
 	if err = c.SessionStart(); err != nil {

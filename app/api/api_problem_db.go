@@ -9,6 +9,25 @@ import (
 	"github.com/syzoj/syzoj-ng-go/app/model"
 )
 
+// GET /api/problem-db
+//
+// Query parameters:
+//     my: if exists, show only problems by myself (requires login)
+//
+// Response: A `problems` array with each object corresponding to a problem in the results.
+//
+// Example response:
+//     {
+//         "problems": [
+//             {
+//                 "id": "AAAAAAAAAAAAAAAA",
+//                 "title": "Problem Title",
+//                 "create_time": " 2019-01-26 13:20:10.247 +0000 UTC",
+//             }
+//          ]
+//      }
+//
+// 
 func Handle_ProblemDb(c *ApiContext) (apiErr ApiError) {
 	var err error
 	if err = c.SessionStart(); err != nil {
