@@ -10,30 +10,27 @@ import (
 	"github.com/mongodb/mongo-go-driver/mongo"
 	"github.com/sirupsen/logrus"
 
-	"github.com/syzoj/syzoj-ng-go/app/judge"
-	"github.com/syzoj/syzoj-ng-go/app/contest"
+	"github.com/syzoj/syzoj-ng-go/app/core"
 )
 
 var log = logrus.StandardLogger()
 
 type ApiServer struct {
-	router       *mux.Router
-	mongodb      *mongo.Database
-	judgeService judge.Service
-    contestService *contest.ContestService
-	config       Config
+	router  *mux.Router
+	mongodb *mongo.Database
+	c       *core.Core
+	config  Config
 }
 type Config struct {
 	DebugToken string `json:"debug_token"`
 }
 
 // Creates an API server.
-func CreateApiServer(mongodb *mongo.Client, judgeService judge.Service, contestService *contest.ContestService, config Config) (*ApiServer, error) {
+func CreateApiServer(mongodb *mongo.Client, c *core.Core, config Config) (*ApiServer, error) {
 	srv := &ApiServer{
-		mongodb:      mongodb.Database("syzoj"),
-		judgeService: judgeService,
-        contestService: contestService,
-		config:       config,
+		mongodb: mongodb.Database("syzoj"),
+		c:       c,
+		config:  config,
 	}
 	srv.setupRoutes()
 	return srv, nil
@@ -49,10 +46,10 @@ func (srv *ApiServer) setupRoutes() {
 	router.Handle("/api/problem-db/view/{problem_id:[0-9A-Za-z\\-_]{16}}", srv.wrapHandler(Handle_ProblemDb_View)).Methods("GET")
 	router.Handle("/api/problem-db/view/{problem_id:[0-9A-Za-z\\-_]{16}}/submit", srv.wrapHandler(Handle_ProblemDb_View_Submit)).Methods("POST")
 	router.Handle("/api/problem-db/view/{problem_id:[0-9A-Za-z\\-_]{16}}/edit", srv.wrapHandler(Handle_ProblemDb_View_Edit)).Methods("POST")
-    router.Handle("/api/contests", srv.wrapHandler(Handle_Contests)).Methods("GET")
-    router.Handle("/api/contest/new", srv.wrapHandler(Handle_Contest_New)).Methods("POST")
-    router.Handle("/api/submissions", srv.wrapHandler(Handle_Submissions)).Methods("GET")
-    router.Handle("/api/submission/view/{submission_id:[0-9A-Za-z\\-_]{16}}", srv.wrapHandler(Handle_Submission_View)).Methods("GET")
+	router.Handle("/api/contests", srv.wrapHandler(Handle_Contests)).Methods("GET")
+	router.Handle("/api/contest/new", srv.wrapHandler(Handle_Contest_New)).Methods("POST")
+	router.Handle("/api/submissions", srv.wrapHandler(Handle_Submissions)).Methods("GET")
+	router.Handle("/api/submission/view/{submission_id:[0-9A-Za-z\\-_]{16}}", srv.wrapHandler(Handle_Submission_View)).Methods("GET")
 	debugRouter := mux.NewRouter()
 	if srv.config.DebugToken != "" {
 		router.PathPrefix("/api/debug/").HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

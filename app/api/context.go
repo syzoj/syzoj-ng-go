@@ -5,7 +5,7 @@ import (
 	"context"
 	"io"
 	"net/http"
-    "strconv"
+	"strconv"
 
 	"github.com/gorilla/mux"
 	"github.com/valyala/fastjson"
@@ -87,8 +87,8 @@ func (c *ApiContext) SendValue(val *fastjson.Value) {
 	if c.Session != nil {
 		mval.Set("session", c.getSessionVal(arena))
 	}
-    data := mval.MarshalTo(nil)
-    c.SetHeader("Content-Length", strconv.Itoa(len(data)))
+	data := mval.MarshalTo(nil)
+	c.SetHeader("Content-Length", strconv.Itoa(len(data)))
 	_, err := c.res.Write(data)
 	if err != nil {
 		log.WithField("error", err).Warning("Failed to write response")

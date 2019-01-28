@@ -8,12 +8,12 @@ import (
 
 type User struct {
 	Id           primitive.ObjectID `bson:"_id"`
-	UserName     string            `bson:"username,omitempty"`
+	UserName     string             `bson:"username,omitempty"`
 	RegisterTime time.Time          `bson:"register_time,omitempty"`
-	Auth         UserAuth          `bson:"auth,omitempty"`
+	Auth         UserAuth           `bson:"auth,omitempty"`
 }
 
 type UserAuth struct {
-    Method int64 `bson:"method",omitempty` // 1: password login
+	Method   int64  `bson:"method",omitempty` // 1: password login
 	Password []byte `bson:"password",omitempty`
 }

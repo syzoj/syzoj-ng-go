@@ -27,7 +27,7 @@ import (
 //          ]
 //      }
 //
-// 
+//
 func Handle_ProblemDb(c *ApiContext) (apiErr ApiError) {
 	var err error
 	if err = c.SessionStart(); err != nil {
@@ -44,7 +44,7 @@ func Handle_ProblemDb(c *ApiContext) (apiErr ApiError) {
 	if cursor, err = c.Server().mongodb.Collection("problem").Find(c.Context(), query,
 		mongo_options.Find().SetProjection(bson.D{{"_id", "1"}, {"title", 1}, {"create_time", 1}}),
 	); err != nil {
-        panic(err)
+		panic(err)
 	}
 	defer cursor.Close(c.Context())
 
@@ -63,9 +63,9 @@ func Handle_ProblemDb(c *ApiContext) (apiErr ApiError) {
 		value.Set("create_time", arena.NewString(problem.CreateTime.String()))
 		problems.SetArrayItem(item, value)
 		item += 1
-        if item >= 100 {
-            break
-        }
+		if item >= 100 {
+			break
+		}
 	}
 	if err = cursor.Err(); err != nil {
 		panic(err)

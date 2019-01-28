@@ -28,10 +28,10 @@ func (c *ApiContext) newSession() (err error) {
 	var tokenBytes [16]byte
 	rand.Read(tokenBytes[:])
 	newToken := hex.EncodeToString(tokenBytes[:])
-    sessionId := primitive.NewObjectID()
+	sessionId := primitive.NewObjectID()
 	if _, err = c.Server().mongodb.Collection("session").InsertOne(c.Context(), bson.D{
-        {"_id", sessionId},
-        {"session_token", newToken}}); err != nil {
+		{"_id", sessionId},
+		{"session_token", newToken}}); err != nil {
 		panic(err)
 	}
 	c.Session = new(Session)
@@ -69,11 +69,11 @@ func (c *ApiContext) SessionStart() (err error) {
 			bson.D{{"_id", session.SessionUser}},
 			mongo_options.FindOne().SetProjection(bson.D{{"_id", "1"}, {"username", 1}}),
 		).Decode(&user); err != nil {
-            if err == mongo.ErrNoDocuments {
-                log.WithField("SessUid", c.Session.SessUid).WithField("UserID", c.Session.AuthUserUid).Warning("Broken session: user doesn't exist")
-            } else {
-    			panic(err)
-            }
+			if err == mongo.ErrNoDocuments {
+				log.WithField("SessUid", c.Session.SessUid).WithField("UserID", c.Session.AuthUserUid).Warning("Broken session: user doesn't exist")
+			} else {
+				panic(err)
+			}
 		}
 		c.Session.AuthUserUserName = user.UserName
 	}

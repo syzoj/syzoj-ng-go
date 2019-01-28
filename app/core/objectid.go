@@ -1,4 +1,4 @@
-package judge
+package core
 
 import (
 	"encoding/base64"
