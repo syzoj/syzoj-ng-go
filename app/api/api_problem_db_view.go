@@ -1,17 +1,13 @@
 package api
 
 import (
-	"encoding/hex"
-	"math/rand"
-	"time"
-
 	"github.com/mongodb/mongo-go-driver/bson"
-	"github.com/mongodb/mongo-go-driver/bson/primitive"
 	"github.com/mongodb/mongo-go-driver/mongo"
 	mongo_options "github.com/mongodb/mongo-go-driver/mongo/options"
 	"github.com/valyala/fastjson"
 
 	"github.com/syzoj/syzoj-ng-go/app/model"
+	"github.com/syzoj/syzoj-ng-go/app/core"
 )
 
 // GET /api/problem-db/view/{problem_id}
@@ -138,7 +134,7 @@ func Handle_ProblemDb_View_Submit(c *ApiContext) (apiErr ApiError) {
 	var problemModel model.Problem
 	if err = c.Server().mongodb.Collection("problem").FindOne(c.Context(),
 		bson.D{{"_id", problemId}},
-		mongo_options.FindOne().SetProjection(bson.D{{"x", "y"}}),
+		mongo_options.FindOne().SetProjection(bson.D{{"_id", 1}}),
 	).Decode(&problemModel); err != nil {
 		if err == mongo.ErrNoDocuments {
 			return ErrProblemNotFound
@@ -155,28 +151,22 @@ func Handle_ProblemDb_View_Submit(c *ApiContext) (apiErr ApiError) {
 	if body, err = c.GetBody(); err != nil {
 		return badRequestError(err)
 	}
-	submissionId := primitive.NewObjectID()
-	var versionBytes [16]byte
-	rand.Read(versionBytes[:])
-	if _, err = c.Server().mongodb.Collection("submission").InsertOne(c.Context(), bson.D{
-		{"_id", submissionId},
-		{"type", "standard"},
-		{"user", c.Session.AuthUserUid},
-		{"owner", []primitive.ObjectID{c.Session.AuthUserUid}},
-		{"problem", problemId},
-		{"content", bson.D{
-			{"language", string(body.GetStringBytes("code", "language"))},
-			{"code", string(body.GetStringBytes("code", "code"))},
-		}},
-		{"submit_time", time.Now()},
-		{"judge_queue_status", bson.D{{"version", hex.EncodeToString(versionBytes[:])}}},
-	}); err != nil {
-		return
-	}
-	arena := new(fastjson.Arena)
-	result := arena.NewObject()
-	result.Set("id", arena.NewString(EncodeObjectID(submissionId)))
-	c.SendValue(result)
-	go c.Server().c.NotifySubmission(submissionId)
-	return
+    resp, err := c.Server().c.Action_Submit(c.Context(), &core.Submit1{
+        ProblemId: problemId,
+        Submitter: c.Session.AuthUserUid,
+        Language: string(body.GetStringBytes("code", "language")),
+        Code: string(body.GetStringBytes("code", "code")),
+    })
+    switch err {
+    case core.ErrProblemNotExist:
+        return ErrProblemNotFound
+    case nil:
+        arena := new(fastjson.Arena)
+        result := arena.NewObject()
+        result.Set("id", arena.NewString(EncodeObjectID(resp.SubmissionId)))
+        c.SendValue(result)
+        return
+    default:
+        panic(err)
+    }
 }

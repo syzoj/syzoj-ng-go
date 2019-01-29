@@ -44,7 +44,6 @@ func (o *OracleLock) Release() {
 		for _, v := range o.keys {
 			delete(o.core.oracle, v)
 		}
-	} else {
-		panic("Double call to OracleLock.Release()")
+        o.core = nil
 	}
 }

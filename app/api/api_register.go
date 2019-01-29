@@ -1,14 +1,7 @@
 package api
 
 import (
-	"time"
-
-	"github.com/mongodb/mongo-go-driver/bson"
-	"github.com/mongodb/mongo-go-driver/bson/primitive"
-	"github.com/mongodb/mongo-go-driver/mongo"
-	mongo_options "github.com/mongodb/mongo-go-driver/mongo/options"
 	"github.com/valyala/fastjson"
-	"golang.org/x/crypto/bcrypt"
 
 	"github.com/syzoj/syzoj-ng-go/app/core"
 )
@@ -34,36 +27,20 @@ func Handle_Register(c *ApiContext) (apiErr ApiError) {
 		return badRequestError(err)
 	}
 	userName := string(body.GetStringBytes("username"))
-	if !checkUserName(userName) {
-		return ErrInvalidUserName
-	}
 	password := string(body.GetStringBytes("password"))
-	var passwordHash []byte
-	if passwordHash, err = bcrypt.GenerateFromPassword([]byte(password), 0); err != nil {
-		panic(err)
-	}
-	lock := c.Server().c.LockOracle([]interface{}{core.KeyUserName(userName)})
-	if lock == nil {
-		return ErrConflict
-	}
-	defer lock.Release()
-	if _, err = c.Server().mongodb.Collection("user").FindOne(c.Context(), bson.D{{"username", userName}}, mongo_options.FindOne().SetProjection(bson.D{{"_id", 1}})).DecodeBytes(); err != nil {
-		if err != mongo.ErrNoDocuments {
-			panic(err)
-		}
-	} else {
-		return ErrDuplicateUserName
-	}
-	userId := primitive.NewObjectID()
-	if _, err = c.Server().mongodb.Collection("user").InsertOne(c.Context(), bson.D{
-		{"_id", userId},
-		{"username", userName},
-		{"register_time", time.Now()},
-		{"auth", bson.D{{"password", passwordHash}, {"method", int64(1)}}},
-	}); err != nil {
-		panic(err)
-	}
-	log.WithField("username", userName).Info("Created account")
-	c.SendValue(new(fastjson.Arena).NewNull())
-	return
+    _, err = c.Server().c.Action_Register(c.Context(), &core.Register1{
+        UserName: userName,
+        Password: password,
+    })
+    switch err {
+    case core.ErrInvalidUserName:
+        return ErrInvalidUserName
+    case core.ErrDuplicateUserName:
+        return ErrDuplicateUserName
+    case nil:
+	    c.SendValue(new(fastjson.Arena).NewNull())
+    	return
+    default:
+        panic(err)
+    }
 }

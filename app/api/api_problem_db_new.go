@@ -1,11 +1,9 @@
 package api
 
 import (
-	"time"
-
-	"github.com/mongodb/mongo-go-driver/bson"
-	"github.com/mongodb/mongo-go-driver/bson/primitive"
 	"github.com/valyala/fastjson"
+
+    "github.com/syzoj/syzoj-ng-go/app/core"
 )
 
 // POST /api/problem-db/new
@@ -34,16 +32,21 @@ func Handle_ProblemDb_New(c *ApiContext) (apiErr ApiError) {
 	if body, err = c.GetBody(); err != nil {
 		return badRequestError(err)
 	}
-	problemId := primitive.NewObjectID()
 	title := string(body.GetStringBytes("title"))
-	if _, err = c.Server().mongodb.Collection("problem").InsertOne(c.Context(),
-		bson.D{{"_id", problemId}, {"title", title}, {"owner", []primitive.ObjectID{c.Session.AuthUserUid}}, {"create_time", time.Now()}},
-	); err != nil {
-		panic(err)
-	}
-	arena := new(fastjson.Arena)
-	result := arena.NewObject()
-	result.Set("problem_id", arena.NewString(EncodeObjectID(problemId)))
-	c.SendValue(result)
-	return
+    resp, err := c.Server().c.Action_ProblemDb_New(c.Context(), &core.ProblemDbNew1{
+        Title: title,
+        Owner: c.Session.AuthUserUid,
+    })
+    switch err {
+    case core.ErrInvalidProblem:
+        return badRequestError(err)
+    case nil:
+        arena := new(fastjson.Arena)
+        result := arena.NewObject()
+        result.Set("problem_id", arena.NewString(EncodeObjectID(resp.ProblemId)))
+        c.SendValue(result)
+        return
+    default:
+        panic(err)
+    }
 }
