@@ -3,7 +3,6 @@ package core
 import (
 	"context"
 	"sync"
-	"sync/atomic"
 
 	"github.com/mongodb/mongo-go-driver/bson"
 	"github.com/mongodb/mongo-go-driver/bson/primitive"
@@ -22,6 +21,13 @@ type queueItem struct {
 	version   string
 }
 
+type judger struct {
+	fetchLock   chan struct{} // size = 1, effectively a lock, held by FetchTask when it is waiting for tasks
+	abortNotify chan struct{} // Notifies FetchTask to abort
+	listLock    sync.Mutex    // protects judgingTask
+	judgingTask []int
+}
+
 func (item *queueItem) getFields() logrus.Fields {
 	return logrus.Fields{
 		"id":        EncodeObjectID(item.id),
@@ -30,9 +36,10 @@ func (item *queueItem) getFields() logrus.Fields {
 }
 
 func (srv *Core) initJudge(ctx context.Context) (err error) {
-	srv.queue = make(chan int64, 1000)
-	srv.queueItems = sync.Map{}
+	srv.queue = make(chan int, 1000)
+	srv.queueItems = make(map[int]*queueItem)
 	srv.queueSize = 0
+	srv.judgers = make(map[primitive.ObjectID]*judger)
 	var cursor mongo.Cursor
 	if cursor, err = srv.mongodb.Collection("submission").Find(ctx,
 		bson.D{{"judge_queue_status", bson.D{{"$exists", true}}}},
@@ -45,7 +52,7 @@ func (srv *Core) initJudge(ctx context.Context) (err error) {
 		if err = cursor.Decode(&submission); err != nil {
 			panic(err)
 		}
-		go srv.enqueueModel(submission)
+		srv.enqueueModel(submission)
 	}
 	if err = cursor.Err(); err != nil {
 		return
@@ -66,8 +73,11 @@ func (srv *Core) enqueueModel(model *model.Submission) {
 
 func (srv *Core) enqueue(item *queueItem) {
 	log.WithFields(item.getFields()).Info("Adding submission to queue")
-	i := atomic.AddInt64(&srv.queueSize, 1)
-	srv.queueItems.Store(i, item)
+	srv.queueLock.Lock()
+	defer srv.queueLock.Unlock()
+	i := srv.queueSize
+	srv.queueSize++
+	srv.queueItems[i] = item
 	srv.queue <- i
 }
 
@@ -82,4 +92,17 @@ func (srv *Core) NotifySubmission(id primitive.ObjectID) {
 		return
 	}
 	srv.enqueueModel(submission)
+}
+
+func (c *Core) getJudger(id primitive.ObjectID) *judger {
+	c.judgerLock.Lock()
+	defer c.judgerLock.Unlock()
+	j, ok := c.judgers[id]
+	if !ok {
+		j = new(judger)
+		j.abortNotify = make(chan struct{})
+		j.fetchLock = make(chan struct{}, 1)
+		c.judgers[id] = j
+	}
+	return j
 }

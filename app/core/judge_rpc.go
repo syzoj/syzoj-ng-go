@@ -6,6 +6,7 @@ import (
 
 	"github.com/golang/protobuf/ptypes/empty"
 	"github.com/mongodb/mongo-go-driver/bson"
+	"github.com/mongodb/mongo-go-driver/bson/primitive"
 	"github.com/mongodb/mongo-go-driver/mongo"
 
 	judge_api "github.com/syzoj/syzoj-ng-go/app/core/protos"
@@ -19,25 +20,66 @@ func (srv *Core) JudgeRpc() judge_api.JudgeServer {
 	return judgeRpc{srv}
 }
 
-func (srv judgeRpc) FetchTask(ctx context.Context, req *judge_api.JudgeRequest) (res *judge_api.FetchTaskResult, err error) {
+func (srv judgeRpc) FetchTask(ctx context.Context, in *judge_api.JudgeRequest) (res *judge_api.FetchTaskResult, err error) {
+	var judgerId primitive.ObjectID
+	var ok bool
+	if judgerId, ok = DecodeObjectIDOK(in.JudgerId); !ok {
+		err = errors.New("Invalid judger id")
+		return
+	}
+	log.WithField("judgerId", judgerId).Info("FetchTask")
+	judger := srv.getJudger(judgerId)
+loop:
+	for {
+		select {
+		case judger.fetchLock <- struct{}{}:
+			log.WithField("judgerId", judgerId).Info("Got fetchLock")
+			defer func() {
+				log.WithField("judgerId", judgerId).Info("Judger aborting")
+				<-judger.fetchLock
+			}()
+			break loop
+		case judger.abortNotify <- struct{}{}:
+			log.WithField("judgerId", judgerId).Info("Abort notify")
+		}
+	}
+	log.WithField("judgerId", judgerId).Info("Judger fetching tasks")
+	for _, task := range judger.judgingTask {
+		// TODO: potential deadlock here
+		srv.queue <- task
+	}
+	judger.judgingTask = nil
 	select {
+	case <-ctx.Done():
+		return nil, ctx.Err()
+	case <-judger.abortNotify:
+		return nil, errors.New("Aborted")
 	case id := <-srv.queue:
-		itemObj, _ := srv.queueItems.Load(id)
-		item := itemObj.(*queueItem)
+		judger.listLock.Lock()
+		judger.judgingTask = append(judger.judgingTask, id)
+		judger.listLock.Unlock()
+		srv.queueLock.Lock()
+		item, ok := srv.queueItems[id]
+		srv.queueLock.Unlock()
+		if !ok {
+			panic("Queue item doesn't exist")
+		}
 		res = new(judge_api.FetchTaskResult)
 		res.Success = true
 		res.Task = &judge_api.Task{
-			TaskTag:   id,
+			TaskTag:   int64(id),
 			ProblemId: EncodeObjectID(item.problemId),
 			Language:  item.language,
 			Code:      item.code,
 		}
-		log.WithFields(item.getFields()).WithField("judgerId", req.GetJudgerId()).Info("Judge item taken by judger")
+		log.WithFields(item.getFields()).WithField("judgerId", judgerId).Info("Judge item taken by judger")
 		return
-	default:
-		res = new(judge_api.FetchTaskResult)
-		res.Success = false
-		return
+		/*
+			default:
+				res = new(judge_api.FetchTaskResult)
+				res.Success = false
+				return
+		*/
 	}
 }
 
@@ -45,23 +87,40 @@ func (srv judgeRpc) SetTaskProgress(s judge_api.Judge_SetTaskProgressServer) (er
 	return
 }
 
-func (srv judgeRpc) SetTaskResult(ctx context.Context, in *judge_api.TaskResult) (e *empty.Empty, err error) {
-	id := in.TaskTag
-	itemObj, found := srv.queueItems.Load(id)
+func (srv judgeRpc) SetTaskResult(ctx context.Context, in *judge_api.SetTaskResultMessage) (e *empty.Empty, err error) {
+	var judgerId primitive.ObjectID
+	var ok bool
+	if judgerId, ok = DecodeObjectIDOK(in.JudgerId); !ok {
+		err = errors.New("Invalid judger id")
+		return
+	}
+	judger := srv.getJudger(judgerId)
+	id := int(in.TaskTag)
+	judger.listLock.Lock()
+	var found bool
+	for k, v := range judger.judgingTask {
+		if v == id {
+			judger.judgingTask = append(judger.judgingTask[:k], judger.judgingTask[k+1:]...)
+			found = true
+		}
+	}
+	judger.listLock.Unlock()
 	if !found {
 		err = errors.New("Invalid taskTag")
 		return
 	}
-	item := itemObj.(*queueItem)
-	srv.queueItems.Delete(id)
+	srv.queueLock.Lock()
+	item := srv.queueItems[id]
+	delete(srv.queueItems, id)
+	srv.queueLock.Unlock()
 	var result *mongo.UpdateResult
 	if result, err = srv.mongodb.Collection("submission").UpdateOne(ctx,
 		bson.D{{"_id", item.id}, {"judge_queue_status.version", item.version}},
 		bson.D{
 			{"$set", bson.D{
 				{"result", bson.D{
-					{"status", in.Result},
-					{"score", in.Score}},
+					{"status", in.Result.Result},
+					{"score", in.Result.Score}},
 				}},
 			},
 			{"$unset", bson.D{{"judge_queue_status", 1}}},

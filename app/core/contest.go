@@ -53,7 +53,6 @@ func (c *Core) CreateContest(ctx context.Context, id primitive.ObjectID, options
 }
 
 func (c *Core) initContest(ctx context.Context) (err error) {
-	log.Info("Initializing contest service")
 	c.lock.Lock()
 	defer c.lock.Unlock()
 	c.contests = make(map[primitive.ObjectID]*Contest)

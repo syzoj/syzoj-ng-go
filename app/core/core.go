@@ -17,9 +17,13 @@ type Core struct {
 	context    context.Context
 	cancelFunc func()
 
-	queue      chan int64
-	queueSize  int64
-	queueItems sync.Map
+	queue      chan int
+	queueSize  int
+	queueItems map[int]*queueItem
+	queueLock  sync.Mutex
+
+	judgers    map[primitive.ObjectID]*judger
+	judgerLock sync.Mutex
 
 	contests map[primitive.ObjectID]*Contest
 	wg       sync.WaitGroup
