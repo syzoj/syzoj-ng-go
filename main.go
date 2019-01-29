@@ -17,6 +17,9 @@ import (
 
 	_ "github.com/go-sql-driver/mysql"
 	"github.com/mongodb/mongo-go-driver/mongo"
+	mongo_options "github.com/mongodb/mongo-go-driver/mongo/options"
+	"github.com/mongodb/mongo-go-driver/mongo/readconcern"
+	"github.com/mongodb/mongo-go-driver/mongo/writeconcern"
 	"github.com/sirupsen/logrus"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/reflection"
@@ -74,6 +77,10 @@ func cmdImport() {
 
 	log.Info("Connecting to MongoDB")
 	var mongoClient *mongo.Client
+	options := mongo_options.Client()
+	options.ReadConcern = readconcern.Majority()
+	options.WriteConcern = new(writeconcern.WriteConcern)
+	writeconcern.WMajority()(options.WriteConcern)
 	if mongoClient, err = mongo.Connect(context.Background(), config.Mongo); err != nil {
 		log.Fatal("Error connecting to MongoDB: ", err)
 	}

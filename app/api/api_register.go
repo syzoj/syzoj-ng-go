@@ -5,8 +5,12 @@ import (
 
 	"github.com/mongodb/mongo-go-driver/bson"
 	"github.com/mongodb/mongo-go-driver/bson/primitive"
+	"github.com/mongodb/mongo-go-driver/mongo"
+	mongo_options "github.com/mongodb/mongo-go-driver/mongo/options"
 	"github.com/valyala/fastjson"
 	"golang.org/x/crypto/bcrypt"
+
+	"github.com/syzoj/syzoj-ng-go/app/core"
 )
 
 // POST /api/register
@@ -37,6 +41,18 @@ func Handle_Register(c *ApiContext) (apiErr ApiError) {
 	var passwordHash []byte
 	if passwordHash, err = bcrypt.GenerateFromPassword([]byte(password), 0); err != nil {
 		panic(err)
+	}
+	lock := c.Server().c.LockOracle([]interface{}{core.KeyUserName(userName)})
+	if lock == nil {
+		return ErrConflict
+	}
+	defer lock.Release()
+	if _, err = c.Server().mongodb.Collection("user").FindOne(c.Context(), bson.D{{"username", userName}}, mongo_options.FindOne().SetProjection(bson.D{{"_id", 1}})).DecodeBytes(); err != nil {
+		if err != mongo.ErrNoDocuments {
+			panic(err)
+		}
+	} else {
+		return ErrDuplicateUserName
 	}
 	userId := primitive.NewObjectID()
 	if _, err = c.Server().mongodb.Collection("user").InsertOne(c.Context(), bson.D{

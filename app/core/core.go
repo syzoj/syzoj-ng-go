@@ -27,6 +27,9 @@ type Core struct {
 
 	contests map[primitive.ObjectID]*Contest
 	wg       sync.WaitGroup
+
+	oracle     map[interface{}]struct{}
+	oracleLock sync.Mutex
 }
 
 func NewCore(mongodb *mongo.Client) (srv *Core, err error) {
@@ -40,6 +43,7 @@ func NewCore(mongodb *mongo.Client) (srv *Core, err error) {
 	if err = srv.initContest(srv.context); err != nil {
 		return
 	}
+	srv.initOracle()
 	return
 }
 
