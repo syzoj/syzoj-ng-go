@@ -1,6 +1,8 @@
 package api
 
 import (
+	"strconv"
+
 	"github.com/mongodb/mongo-go-driver/bson"
 	"github.com/mongodb/mongo-go-driver/mongo"
 	mongo_options "github.com/mongodb/mongo-go-driver/mongo/options"
@@ -39,7 +41,7 @@ func Handle_Articles(c *ApiContext) (apiErr ApiError) {
 		article.Set("id", arena.NewString(EncodeObjectID(articleModel.Id)))
 		article.Set("title", arena.NewString(articleModel.Title))
 		article.Set("owner_id", arena.NewString(EncodeObjectID(articleModel.Owner)))
-		article.Set("create_time", arena.NewString(articleModel.CreateTime.String()))
+		article.Set("create_time", arena.NewNumberString(strconv.FormatInt(articleModel.CreateTime.Unix(), 10)))
 		articles.SetArrayItem(item, article)
 		item++
 	}

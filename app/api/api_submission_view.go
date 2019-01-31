@@ -1,6 +1,8 @@
 package api
 
 import (
+	"strconv"
+
 	"github.com/mongodb/mongo-go-driver/bson"
 	"github.com/mongodb/mongo-go-driver/mongo"
 	mongo_options "github.com/mongodb/mongo-go-driver/mongo/options"
@@ -42,7 +44,7 @@ func Handle_Submission_View(c *ApiContext) (apiErr ApiError) {
 	submission.Set("language", arena.NewString(submissionModel.Content.Language))
 	submission.Set("problem_id", arena.NewString(EncodeObjectID(submissionModel.Problem)))
 	submission.Set("problem_title", arena.NewString(problemTitle))
-	submission.Set("submit_time", arena.NewString(submissionModel.SubmitTime.String()))
+	submission.Set("submit_time", arena.NewNumberString(strconv.FormatInt(submissionModel.SubmitTime.Unix(), 10)))
 	submission.Set("code", arena.NewString(submissionModel.Content.Code))
 	result.Set("submission", submission)
 	c.SendValue(result)

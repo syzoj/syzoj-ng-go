@@ -1,6 +1,8 @@
 package api
 
 import (
+	"strconv"
+
 	"github.com/mongodb/mongo-go-driver/bson"
 	"github.com/mongodb/mongo-go-driver/mongo"
 	mongo_options "github.com/mongodb/mongo-go-driver/mongo/options"
@@ -22,7 +24,7 @@ import (
 //             {
 //                 "id": "AAAAAAAAAAAAAAAA",
 //                 "title": "Problem Title",
-//                 "create_time": " 2019-01-26 13:20:10.247 +0000 UTC",
+//                 "create_time": 0,
 //             }
 //          ]
 //      }
@@ -60,7 +62,7 @@ func Handle_ProblemDb(c *ApiContext) (apiErr ApiError) {
 		value := arena.NewObject()
 		value.Set("id", arena.NewString(EncodeObjectID(problem.Id)))
 		value.Set("title", arena.NewString(problem.Title))
-		value.Set("create_time", arena.NewString(problem.CreateTime.String()))
+		value.Set("create_time", arena.NewNumberString(strconv.FormatInt(problem.CreateTime.Unix(), 10)))
 		value.Set("submit_count", arena.NewNumberInt(int(problem.PublicStats.Submission)))
 		problems.SetArrayItem(item, value)
 		item += 1

@@ -1,6 +1,8 @@
 package api
 
 import (
+	"strconv"
+
 	"github.com/mongodb/mongo-go-driver/bson"
 	"github.com/mongodb/mongo-go-driver/mongo"
 	mongo_options "github.com/mongodb/mongo-go-driver/mongo/options"
@@ -39,7 +41,7 @@ func Handle_Contests(c *ApiContext) (apiErr ApiError) {
 		} else {
 			value.Set("running", arena.NewFalse())
 		}
-		value.Set("start_time", arena.NewString(contest.Contest.StartTime.String()))
+		value.Set("start_time", arena.NewNumberString(strconv.FormatInt(contest.Contest.StartTime.Unix(), 10)))
 		contests.SetArrayItem(i, value)
 		i++
 	}

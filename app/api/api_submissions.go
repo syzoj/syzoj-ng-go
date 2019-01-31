@@ -1,6 +1,8 @@
 package api
 
 import (
+	"strconv"
+
 	"github.com/mongodb/mongo-go-driver/bson"
 	"github.com/mongodb/mongo-go-driver/mongo"
 	mongo_options "github.com/mongodb/mongo-go-driver/mongo/options"
@@ -29,7 +31,7 @@ import (
 //                 "problem_title": "TODO",
 //                 "score": 0,
 //                 "status": "Done",
-//                 "submit_time": "2019-01-26 15:33:54.216 +0000 UTC",
+//                 "submit_time": 0,
 //                 "submit_user_id": "XExegYnQgxRHvIzf",
 //                 "submit_user_name": "TODO"
 //             }
@@ -73,7 +75,7 @@ func Handle_Submissions(c *ApiContext) (apiErr ApiError) {
 		value.Set("language", arena.NewString(submission.Content.Language))
 		value.Set("submit_user_id", arena.NewString(EncodeObjectID(submission.User)))
 		value.Set("submit_user_name", arena.NewString("TODO"))
-		value.Set("submit_time", arena.NewString(submission.SubmitTime.String()))
+		value.Set("submit_time", arena.NewNumberString(strconv.FormatInt(submission.SubmitTime.Unix(), 10)))
 		submissions.SetArrayItem(item, value)
 		item++
 	}

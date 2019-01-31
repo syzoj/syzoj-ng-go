@@ -1,6 +1,8 @@
 package api
 
 import (
+	"strconv"
+
 	"github.com/mongodb/mongo-go-driver/bson"
 	"github.com/mongodb/mongo-go-driver/mongo"
 	mongo_options "github.com/mongodb/mongo-go-driver/mongo/options"
@@ -18,9 +20,15 @@ import (
 //             "title": "Title",
 //             "owner": "TODO",
 //             "owner_id", "AAAAAAAAAAAAAAAA",
-//             "create_time": "2006-01-02 15:04:05.999999999 -0700 MST"
-//             "last_edit_time": "2006-01-02 15:04:05.999999999 -0700 MST",
-//             "text": "Text"
+//             "create_time": 0,
+//             "last_edit_time": 0,
+//             "text": "Text",
+//             "replies": {
+//                 "owner": "TODO",
+//                 "owner_id"< "AAAAAAAAAAAAAAAA",
+//                 "text": "Text",
+//                 "create_time": 0
+//             }
 //         }
 //     }
 func Handle_Article_View(c *ApiContext) (apiErr ApiError) {
@@ -54,8 +62,8 @@ func Handle_Article_View(c *ApiContext) (apiErr ApiError) {
 	article.Set("title", arena.NewString(articleModel.Title))
 	article.Set("owner", arena.NewString("TODO"))
 	article.Set("owner_id", arena.NewString(EncodeObjectID(articleModel.Owner)))
-	article.Set("create_time", arena.NewString(articleModel.CreateTime.String()))
-	article.Set("last_edit_time", arena.NewString(articleModel.LastEditTime.String()))
+	article.Set("create_time", arena.NewNumberString(strconv.FormatInt(articleModel.CreateTime.Unix(), 10)))
+	article.Set("last_edit_time", arena.NewNumberString(strconv.FormatInt(articleModel.LastEditTime.Unix(), 10)))
 	article.Set("text", arena.NewString(articleModel.Text))
 	replies := arena.NewArray()
 	itemReply := 0
@@ -64,7 +72,7 @@ func Handle_Article_View(c *ApiContext) (apiErr ApiError) {
 		reply.Set("owner", arena.NewString("TODO"))
 		reply.Set("owner_id", arena.NewString(EncodeObjectID(replyModel.Owner)))
 		reply.Set("text", arena.NewString(replyModel.Text))
-		reply.Set("create_time", arena.NewString(replyModel.CreateTime.String()))
+		reply.Set("create_time", arena.NewNumberString(strconv.FormatInt(replyModel.CreateTime.Unix(), 10)))
 		replies.SetArrayItem(itemReply, reply)
 	}
 	article.Set("replies", replies)
