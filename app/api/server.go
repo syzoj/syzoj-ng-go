@@ -1,9 +1,7 @@
 package api
 
 import (
-	"crypto/rand"
 	"crypto/subtle"
-	"encoding/hex"
 	"net/http"
 
 	"github.com/gorilla/mux"
@@ -50,6 +48,8 @@ func (srv *ApiServer) setupRoutes() {
 	router.Handle("/api/contest/new", srv.wrapHandler(Handle_Contest_New)).Methods("POST")
 	router.Handle("/api/submissions", srv.wrapHandler(Handle_Submissions)).Methods("GET")
 	router.Handle("/api/submission/view/{submission_id:[0-9A-Za-z\\-_]{16}}", srv.wrapHandler(Handle_Submission_View)).Methods("GET")
+	router.Handle("/api/articles", srv.wrapHandler(Handle_Articles)).Methods("GET")
+	router.Handle("/api/article/view/{article_id:[0-9A-Za-z\\-_]{16}}", srv.wrapHandler(Handle_Article_View)).Methods("GET")
 	debugRouter := mux.NewRouter()
 	if srv.config.DebugToken != "" {
 		router.PathPrefix("/api/debug/").HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -71,21 +71,8 @@ func (srv *ApiServer) wrapHandler(h func(*ApiContext) ApiError) http.Handler {
 			req: r,
 			srv: srv,
 		}
-		var err error
-		if _, err = c.req.Cookie("CSRF"); err != nil {
-			var token [16]byte
-			if _, err = rand.Read(token[:]); err != nil {
-				panic(err)
-			}
-			c.SetCookie(&http.Cookie{
-				Name:  "CSRF",
-				Value: hex.EncodeToString(token[:]),
-				Path:  "/",
-			})
-		}
 		token := c.GetHeader("X-CSRF-Token")
-		cookie_token := c.GetCookie("CSRF")
-		if cookie_token == "" || cookie_token != token {
+		if token != "1" {
 			c.SendError(ErrCSRF)
 			return
 		}

@@ -12,12 +12,12 @@ type Problem struct {
 	Statement  string               `bson:"statement,omitempty"`
 	Owner      []primitive.ObjectID `bson:"owner"`
 	CreateTime time.Time            `bson:"create_time"`
-    
-    // Couple with the public problemset
-    PublicStats ProblemStats `bson:"public_stats"`
+
+	// Couple with the public problemset
+	PublicStats ProblemStats `bson:"public_stats"`
 }
 
 type ProblemStats struct {
-    Accept int64 `bson:"accept"`
-    Submission int64 `bson:"submission"`
+	Accept     int64 `bson:"accept"`
+	Submission int64 `bson:"submission"`
 }

@@ -37,6 +37,10 @@ func (c *Core) Action_ProblemDb_New(ctx context.Context, req *ProblemDbNew1) (*P
 		{"title", req.Title},
 		{"owner", []primitive.ObjectID{req.Owner}},
 		{"create_time", time.Now()},
+		{"public_stats", bson.D{
+			{"accept", 0},
+			{"submission", 0},
+		}},
 	}); err != nil {
 		return nil, err
 	}

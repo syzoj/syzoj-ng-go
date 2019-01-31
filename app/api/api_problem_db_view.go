@@ -6,8 +6,8 @@ import (
 	mongo_options "github.com/mongodb/mongo-go-driver/mongo/options"
 	"github.com/valyala/fastjson"
 
-	"github.com/syzoj/syzoj-ng-go/app/model"
 	"github.com/syzoj/syzoj-ng-go/app/core"
+	"github.com/syzoj/syzoj-ng-go/app/model"
 )
 
 // GET /api/problem-db/view/{problem_id}
@@ -151,22 +151,23 @@ func Handle_ProblemDb_View_Submit(c *ApiContext) (apiErr ApiError) {
 	if body, err = c.GetBody(); err != nil {
 		return badRequestError(err)
 	}
-    resp, err := c.Server().c.Action_Submit(c.Context(), &core.Submit1{
-        ProblemId: problemId,
-        Submitter: c.Session.AuthUserUid,
-        Language: string(body.GetStringBytes("code", "language")),
-        Code: string(body.GetStringBytes("code", "code")),
-    })
-    switch err {
-    case core.ErrProblemNotExist:
-        return ErrProblemNotFound
-    case nil:
-        arena := new(fastjson.Arena)
-        result := arena.NewObject()
-        result.Set("id", arena.NewString(EncodeObjectID(resp.SubmissionId)))
-        c.SendValue(result)
-        return
-    default:
-        panic(err)
-    }
+	resp, err := c.Server().c.Action_Submit(c.Context(), &core.Submit1{
+		ProblemId: problemId,
+		Submitter: c.Session.AuthUserUid,
+		Language:  string(body.GetStringBytes("code", "language")),
+		Code:      string(body.GetStringBytes("code", "code")),
+		Enqueue:   true,
+	})
+	switch err {
+	case core.ErrProblemNotExist:
+		return ErrProblemNotFound
+	case nil:
+		arena := new(fastjson.Arena)
+		result := arena.NewObject()
+		result.Set("id", arena.NewString(EncodeObjectID(resp.SubmissionId)))
+		c.SendValue(result)
+		return
+	default:
+		panic(err)
+	}
 }

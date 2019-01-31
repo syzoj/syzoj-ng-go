@@ -3,7 +3,7 @@ package api
 import (
 	"github.com/valyala/fastjson"
 
-    "github.com/syzoj/syzoj-ng-go/app/core"
+	"github.com/syzoj/syzoj-ng-go/app/core"
 )
 
 // POST /api/problem-db/new
@@ -33,20 +33,20 @@ func Handle_ProblemDb_New(c *ApiContext) (apiErr ApiError) {
 		return badRequestError(err)
 	}
 	title := string(body.GetStringBytes("title"))
-    resp, err := c.Server().c.Action_ProblemDb_New(c.Context(), &core.ProblemDbNew1{
-        Title: title,
-        Owner: c.Session.AuthUserUid,
-    })
-    switch err {
-    case core.ErrInvalidProblem:
-        return badRequestError(err)
-    case nil:
-        arena := new(fastjson.Arena)
-        result := arena.NewObject()
-        result.Set("problem_id", arena.NewString(EncodeObjectID(resp.ProblemId)))
-        c.SendValue(result)
-        return
-    default:
-        panic(err)
-    }
+	resp, err := c.Server().c.Action_ProblemDb_New(c.Context(), &core.ProblemDbNew1{
+		Title: title,
+		Owner: c.Session.AuthUserUid,
+	})
+	switch err {
+	case core.ErrInvalidProblem:
+		return badRequestError(err)
+	case nil:
+		arena := new(fastjson.Arena)
+		result := arena.NewObject()
+		result.Set("problem_id", arena.NewString(EncodeObjectID(resp.ProblemId)))
+		c.SendValue(result)
+		return
+	default:
+		panic(err)
+	}
 }

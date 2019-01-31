@@ -13,6 +13,8 @@ import (
 //
 // Query parameters:
 //     my: If exists, show ony submissions by myself (requires login)
+//     problem: If exists, filter by problem id (multiple problems allowed)
+//     keyword: A string to match in problem title
 //
 // Response: A `submissions` array with each object corresponding to a submission in the results.
 //

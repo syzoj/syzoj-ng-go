@@ -42,7 +42,7 @@ func Handle_ProblemDb(c *ApiContext) (apiErr ApiError) {
 	}
 	var cursor mongo.Cursor
 	if cursor, err = c.Server().mongodb.Collection("problem").Find(c.Context(), query,
-		mongo_options.Find().SetProjection(bson.D{{"_id", "1"}, {"title", 1}, {"create_time", 1}}),
+		mongo_options.Find().SetProjection(bson.D{{"_id", "1"}, {"title", 1}, {"create_time", 1}, {"public_stats.submission", 1}}),
 	); err != nil {
 		panic(err)
 	}
@@ -61,6 +61,7 @@ func Handle_ProblemDb(c *ApiContext) (apiErr ApiError) {
 		value.Set("id", arena.NewString(EncodeObjectID(problem.Id)))
 		value.Set("title", arena.NewString(problem.Title))
 		value.Set("create_time", arena.NewString(problem.CreateTime.String()))
+		value.Set("submit_count", arena.NewNumberInt(int(problem.PublicStats.Submission)))
 		problems.SetArrayItem(item, value)
 		item += 1
 		if item >= 100 {

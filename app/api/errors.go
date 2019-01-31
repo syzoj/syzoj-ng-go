@@ -52,6 +52,7 @@ func badRequestError(err error) ApiError {
 
 var ErrConflict = &apiError{503, "Please retry"}
 var ErrNotImplemented = &apiError{501, "Not implemented"}
+var ErrNotFound = &apiError{404, "Not found"}
 
 var ErrProblemNotFound = &apiError{404, "Problem not found"}
 var ErrSubmissionNotFound = &apiError{404, "Submission not found"}
