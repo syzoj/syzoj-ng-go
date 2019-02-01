@@ -2,7 +2,6 @@ package core
 
 import (
 	"context"
-	"errors"
 	"time"
 
 	"github.com/mongodb/mongo-go-driver/bson"
@@ -10,9 +9,6 @@ import (
 	// "github.com/mongodb/mongo-go-driver/mongo"
 	// mongo_options "github.com/mongodb/mongo-go-driver/mongo/options"
 )
-
-var ErrInvalidProblem = errors.New("Invalid problem")
-var ErrProblemNotExist = errors.New("Problem doesn't exist")
 
 type ProblemDbNew1 struct {
 	Title string

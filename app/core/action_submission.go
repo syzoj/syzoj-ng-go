@@ -15,8 +15,11 @@ type Submit1 struct {
 	ProblemId primitive.ObjectID
 	Submitter primitive.ObjectID
 	Enqueue   bool
-	Language  string
-	Code      string
+	Code      Code
+}
+type Code struct {
+	Language string
+	Code     string
 }
 type Submit1Resp struct {
 	SubmissionId primitive.ObjectID
@@ -39,8 +42,8 @@ func (c *Core) Action_Submit(ctx context.Context, req *Submit1) (*Submit1Resp, e
 		{"owner", []primitive.ObjectID{req.Submitter}},
 		{"problem", req.ProblemId},
 		{"content", bson.D{
-			{"language", req.Language},
-			{"code", req.Code},
+			{"language", req.Code.Language},
+			{"code", req.Code.Code},
 		}},
 		{"submit_time", time.Now()},
 	}

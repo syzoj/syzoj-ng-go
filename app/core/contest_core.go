@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"math/rand"
+	"sort"
 	"sync"
 	"time"
 
@@ -17,15 +18,21 @@ import (
 
 type Contest struct {
 	// only c and id is populated before load()
-	c          *Core
-	id         primitive.ObjectID
-	lock       sync.Mutex
-	running    bool
-	loaded     bool
-	timers     []*time.Timer
-	state      string
-	closeChan  chan struct{}
-	updateChan chan mongo.WriteModel
+	c             *Core
+	id            primitive.ObjectID
+	lock          sync.Mutex
+	running       bool
+	loaded        bool
+	schedules     []*contestSchedule
+	scheduleTimer *time.Timer
+	state         string
+	closeChan     chan struct{}
+	updateChan    chan mongo.WriteModel
+}
+
+type contestSchedule struct {
+	t time.Time
+	f func()
 }
 
 func newState() string {
@@ -48,12 +55,10 @@ func (c *Contest) load(contestModel *model.Contest) {
 	go c.handleWrites()
 
 	// Load all schedules
-	curTime := time.Now()
 	for id, scheduleModel := range contestModel.Schedule {
 		if scheduleModel.Done {
 			continue
 		}
-		duration := scheduleModel.StartTime.Sub(curTime)
 		var f func()
 		switch scheduleModel.Type {
 		case "start":
@@ -77,21 +82,52 @@ func (c *Contest) load(contestModel *model.Contest) {
 				log.WithField("contestId", c.id).Debug("Contest stopped")
 			}
 		}
-		f2 := func() {
-			c.lock.Lock()
-			defer c.lock.Unlock()
-			if !c.loaded {
-				return
-			}
-			f()
-		}
-		if duration <= 0 {
-			go f2()
-		} else {
-			timer := time.AfterFunc(duration, f2)
-			c.timers = append(c.timers, timer)
-		}
+		c.schedules = append(c.schedules, &contestSchedule{
+			t: scheduleModel.StartTime,
+			f: f,
+		})
 	}
+	c.sortSchedules()
+	go c.startSchedule()
+}
+
+type scheduleSorter struct {
+	*Contest
+}
+
+func (s scheduleSorter) Len() int {
+	return len(s.schedules)
+}
+func (s scheduleSorter) Less(i, j int) bool {
+	return s.schedules[i].t.Before(s.schedules[j].t)
+}
+func (s scheduleSorter) Swap(i, j int) {
+	schedule := s.schedules[i]
+	s.schedules[i] = s.schedules[j]
+	s.schedules[j] = schedule
+}
+func (c *Contest) sortSchedules() {
+	sort.Stable(scheduleSorter{c})
+}
+
+func (c *Contest) startSchedule() {
+	if len(c.schedules) == 0 {
+		return
+	}
+	c.lock.Lock()
+	defer c.lock.Unlock()
+	if !c.loaded {
+		return
+	}
+	for len(c.schedules) > 0 && time.Now().After(c.schedules[0].t) {
+		c.schedules[0].f()
+		c.schedules = c.schedules[1:]
+	}
+	if len(c.schedules) == 0 {
+		return
+	}
+	d := c.schedules[0].t.Sub(time.Now())
+	time.AfterFunc(d, c.startSchedule)
 }
 
 // Call exactly once to unload the contest and save state into disk.
@@ -102,9 +138,7 @@ func (c *Contest) unload() {
 	c.loaded = false
 	close(c.closeChan)
 	close(c.updateChan)
-	for _, timer := range c.timers {
-		timer.Stop()
-	}
+	c.scheduleTimer.Stop()
 }
 
 func (c *Contest) handleWrites() {

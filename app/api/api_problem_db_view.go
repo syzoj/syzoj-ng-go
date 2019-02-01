@@ -154,9 +154,11 @@ func Handle_ProblemDb_View_Submit(c *ApiContext) (apiErr ApiError) {
 	resp, err := c.Server().c.Action_Submit(c.Context(), &core.Submit1{
 		ProblemId: problemId,
 		Submitter: c.Session.AuthUserUid,
-		Language:  string(body.GetStringBytes("code", "language")),
-		Code:      string(body.GetStringBytes("code", "code")),
-		Enqueue:   true,
+		Code: core.Code{
+			Language: string(body.GetStringBytes("code", "language")),
+			Code:     string(body.GetStringBytes("code", "code")),
+		},
+		Enqueue: true,
 	})
 	switch err {
 	case core.ErrProblemNotExist:

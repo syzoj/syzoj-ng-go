@@ -2,7 +2,6 @@ package core
 
 import (
 	"context"
-	"errors"
 	"regexp"
 	"time"
 
@@ -26,10 +25,6 @@ type Register1 struct {
 type Register1Resp struct {
 	UserId primitive.ObjectID
 }
-
-var ErrConflict = errors.New("Conflict operation")
-var ErrDuplicateUserName = errors.New("Duplicate user name")
-var ErrInvalidUserName = errors.New("Invalid user name")
 
 // Possible errors:
 // * nil: success
