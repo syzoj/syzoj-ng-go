@@ -27,23 +27,19 @@ func (srv judgeRpc) FetchTask(ctx context.Context, in *judge_api.JudgeRequest) (
 		err = errors.New("Invalid judger id")
 		return
 	}
-	log.WithField("judgerId", judgerId).Info("FetchTask")
 	judger := srv.getJudger(judgerId)
 loop:
 	for {
 		select {
 		case judger.fetchLock <- struct{}{}:
-			log.WithField("judgerId", judgerId).Info("Got fetchLock")
 			defer func() {
-				log.WithField("judgerId", judgerId).Info("Judger aborting")
 				<-judger.fetchLock
 			}()
 			break loop
 		case judger.abortNotify <- struct{}{}:
-			log.WithField("judgerId", judgerId).Info("Abort notify")
 		}
 	}
-	log.WithField("judgerId", judgerId).Info("Judger fetching tasks")
+	log.WithField("judgerId", judgerId).Debug("Judger fetching tasks")
 	for _, task := range judger.judgingTask {
 		// TODO: potential deadlock here
 		srv.queue <- task
@@ -51,8 +47,10 @@ loop:
 	judger.judgingTask = nil
 	select {
 	case <-ctx.Done():
+		log.WithField("judgerId", judgerId).Debug(ctx.Err())
 		return nil, ctx.Err()
 	case <-judger.abortNotify:
+		log.WithField("judgerId", judgerId).Debug("Aborted")
 		return nil, errors.New("Aborted")
 	case id := <-srv.queue:
 		judger.listLock.Lock()
@@ -72,7 +70,7 @@ loop:
 			Language:  item.language,
 			Code:      item.code,
 		}
-		log.WithFields(item.getFields()).WithField("judgerId", judgerId).Info("Judge item taken by judger")
+		log.WithFields(item.getFields()).WithField("judgerId", judgerId).Debug("Judge item taken by judger")
 		return
 		/*
 			default:

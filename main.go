@@ -111,6 +111,7 @@ func cmdRun() {
 	runFlagSet := flag.NewFlagSet("run", flag.ExitOnError)
 	configPtr := runFlagSet.String("config", "config.json", "Sets the config file")
 	runFlagSet.Parse(os.Args[2:])
+	log.SetLevel(logrus.DebugLevel)
 
 	var err error
 	var configData []byte

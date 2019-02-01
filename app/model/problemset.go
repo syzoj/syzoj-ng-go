@@ -19,16 +19,16 @@ type ProblemsetEntry struct {
 }
 
 type Contest struct {
-	StartTime time.Time            `bson:"start_time,omitempty"`
-	EndTime   time.Time            `bson:"end_time,omitempty"`
-	Owner     []primitive.ObjectID `bson:"owner,omitempty"`
-	Running   bool                 `bson:"running,omitempty"`
-	State     string               `bson:"state,omitempty"`
-	Schedule  []ContestSchedule    `bson:"schedule,omitempty"`
+	// StartTime and EndTime are for DISPLAY only, the real schedule is in Schedule
+	StartTime time.Time         `bson:"start_time,omitempty"`
+	EndTime   time.Time         `bson:"end_time,omitempty"`
+	Running   bool              `bson:"running,omitempty"`
+	State     string            `bson:"state,omitempty"`
+	Schedule  []ContestSchedule `bson:"schedule,omitempty"`
 }
 
 type ContestSchedule struct {
-	Key       string    `bson:"key"`
+	Type      string    `bson:"type"`
 	Done      bool      `bson:"done"`
 	Operation bson.Raw  `bson:"operation"`
 	StartTime time.Time `bson:"start_time"`
