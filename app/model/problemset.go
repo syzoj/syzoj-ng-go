@@ -9,7 +9,7 @@ import (
 
 type Problemset struct {
 	Id             primitive.ObjectID `bson:"_id"`
-	Problems       []ProblemsetEntry  `bsan:"problems,omitempty"`
+	Problems       []ProblemsetEntry  `bson:"problems,omitempty"`
 	ProblemsetName string             `bson:"problemset_name,omitempty"`
 	Contest        Contest            `bson:"contest,omitempty"`
 }

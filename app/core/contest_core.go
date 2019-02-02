@@ -18,16 +18,19 @@ import (
 
 type Contest struct {
 	// only c and id is populated before load()
-	c             *Core
-	id            primitive.ObjectID
-	lock          sync.Mutex
-	running       bool
-	loaded        bool
-	schedules     []*contestSchedule
-	scheduleTimer *time.Timer
-	state         string
-	closeChan     chan struct{}
-	updateChan    chan mongo.WriteModel
+	c                *Core
+	id               primitive.ObjectID
+	lock             sync.Mutex
+	running          bool
+	loaded           bool
+	schedules        []*contestSchedule
+	scheduleTimer    *time.Timer
+	state            string
+	closeChan        chan struct{}
+	updateChan       chan mongo.WriteModel
+	playerUpdateChan chan mongo.WriteModel
+
+	players map[primitive.ObjectID]*ContestPlayer
 }
 
 type contestSchedule struct {
@@ -51,8 +54,10 @@ func (c *Contest) load(contestModel *model.Contest) {
 	c.loaded = true
 	c.closeChan = make(chan struct{})
 	c.updateChan = make(chan mongo.WriteModel, 100)
+	c.playerUpdateChan = make(chan mongo.WriteModel, 1000)
 	// Bring up the writer
-	go c.handleWrites()
+	go handleWrites(c.updateChan, c.c.mongodb.Collection("problemset"), c.id)
+	go handleWrites(c.playerUpdateChan, c.c.mongodb.Collection("contest_player"), c.id)
 
 	// Load all schedules
 	for id, scheduleModel := range contestModel.Schedule {
@@ -88,6 +93,25 @@ func (c *Contest) load(contestModel *model.Contest) {
 		})
 	}
 	c.sortSchedules()
+
+	// Load all players
+	c.players = make(map[primitive.ObjectID]*ContestPlayer)
+	var (
+		cursor mongo.Cursor
+		err    error
+	)
+	if cursor, err = c.c.mongodb.Collection("contest_player").Find(context.Background(), bson.D{{"contest", c.id}}); err != nil {
+		log.WithField("contestId", c.id).Warning("Failed to load contest players: ", err)
+	}
+	for cursor.Next(context.TODO()) {
+		var contestPlayerModel *model.ContestPlayer
+		if err = cursor.Decode(&contestPlayerModel); err != nil {
+			log.WithField("contestId", c.id).Warning("Failed to load a contest player: ", err)
+		} else {
+			c.loadPlayer(contestPlayerModel)
+		}
+	}
+	log.WithField("contestId", c.id).WithField("playerCount", len(c.players)).Info("Loaded players")
 	go c.startSchedule()
 }
 
@@ -127,7 +151,7 @@ func (c *Contest) startSchedule() {
 		return
 	}
 	d := c.schedules[0].t.Sub(time.Now())
-	time.AfterFunc(d, c.startSchedule)
+	c.scheduleTimer = time.AfterFunc(d, c.startSchedule)
 }
 
 // Call exactly once to unload the contest and save state into disk.
@@ -138,14 +162,17 @@ func (c *Contest) unload() {
 	c.loaded = false
 	close(c.closeChan)
 	close(c.updateChan)
-	c.scheduleTimer.Stop()
+	close(c.playerUpdateChan)
+	if c.scheduleTimer != nil {
+		c.scheduleTimer.Stop()
+	}
 }
 
-func (c *Contest) handleWrites() {
+func handleWrites(ch chan mongo.WriteModel, coll *mongo.Collection, contestId primitive.ObjectID) {
 	for {
 		var writes []mongo.WriteModel
 		select {
-		case writeModel, ok := <-c.updateChan:
+		case writeModel, ok := <-ch:
 			if !ok {
 				return
 			}
@@ -153,18 +180,20 @@ func (c *Contest) handleWrites() {
 		loop:
 			for {
 				select {
-				case writeModel = <-c.updateChan:
+				case writeModel, ok = <-ch:
+					if !ok {
+						break loop
+					}
 					writes = append(writes, writeModel)
 				default:
 					break loop
 				}
 			}
-			if _, err := c.c.mongodb.Collection("problemset").BulkWrite(context.Background(), writes); err != nil {
-				log.WithField("contestId", c.id).WithField("writeCount", len(writes)).Error("Failed to write to contest model: ", err)
-				c.unload()
+			if _, err := coll.BulkWrite(context.Background(), writes); err != nil {
+				log.WithField("contestId", contestId).WithField("writeCount", len(writes)).Error("Failed to write to contest model: ", err)
 				return
 			} else {
-				log.WithField("contestId", c.id).WithField("writeCount", len(writes)).Debug("Applied updates")
+				log.WithField("contestId", contestId).WithField("writeCount", len(writes)).Debug("Applied updates")
 			}
 		}
 	}

@@ -55,6 +55,7 @@ var ErrNotImplemented = &apiError{501, "Not implemented"}
 var ErrNotFound = &apiError{404, "Not found"}
 
 var ErrProblemNotFound = &apiError{404, "Problem not found"}
+var ErrContestNotFound = &apiError{404, "Contest not found"}
 var ErrSubmissionNotFound = &apiError{404, "Submission not found"}
 var ErrQueueFull = &apiError{503, "Submission queue full"}
 
@@ -73,3 +74,5 @@ var ErrInvalidPublicName = &apiError{400, "Invalid public name"}
 var ErrProblemAlreadyPublic = &apiError{200, "Problem already public"}
 
 var ErrCSRF = &apiError{403, "CSRF token didn't match"}
+
+var ErrAlreadyRegistered = &apiError{200, "Already registered in contest"}
