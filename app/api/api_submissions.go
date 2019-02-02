@@ -44,7 +44,7 @@ func Handle_Submissions(c *ApiContext) (apiErr ApiError) {
 		panic(err)
 	}
 
-	query := bson.D{}
+	query := bson.D{{"public", true}}
 	if c.FormValue("my") != "" {
 		if c.Session.LoggedIn() {
 			query = append(query, bson.E{"user", c.Session.AuthUserUid})

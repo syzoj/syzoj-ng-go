@@ -159,6 +159,7 @@ func Handle_ProblemDb_View_Submit(c *ApiContext) (apiErr ApiError) {
 			Code:     string(body.GetStringBytes("code", "code")),
 		},
 		Enqueue: true,
+		Public: true,
 	})
 	switch err {
 	case core.ErrProblemNotExist:

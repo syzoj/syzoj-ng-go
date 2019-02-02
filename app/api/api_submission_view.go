@@ -20,7 +20,7 @@ func Handle_Submission_View(c *ApiContext) (apiErr ApiError) {
 	}
 	var submissionModel model.Submission
 	if err = c.Server().mongodb.Collection("submission").FindOne(c.Context(),
-		bson.D{{"_id", submissionId}},
+		bson.D{{"_id", submissionId}, {"public", true}},
 		mongo_options.FindOne().SetProjection(bson.D{{"_id", 1}, {"type", 1}, {"result.status", 1}, {"result.score", 1}, {"content.language", 1}, {"submit_time", 1}, {"problem", 1}, {"content.code", 1}}),
 	).Decode(&submissionModel); err != nil {
 		if err == mongo.ErrNoDocuments {

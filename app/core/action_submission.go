@@ -15,6 +15,7 @@ type Submit1 struct {
 	ProblemId primitive.ObjectID
 	Submitter primitive.ObjectID
 	Enqueue   bool
+	Public bool
 	Code      Code
 }
 type Code struct {
@@ -46,6 +47,7 @@ func (c *Core) Action_Submit(ctx context.Context, req *Submit1) (*Submit1Resp, e
 			{"code", req.Code.Code},
 		}},
 		{"submit_time", time.Now()},
+		{"public", req.Public},
 	}
 	if req.Enqueue {
 		var versionBytes [16]byte
