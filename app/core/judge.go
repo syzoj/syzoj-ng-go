@@ -29,10 +29,10 @@ type judger struct {
 }
 
 type submissionHandler struct {
-	lock sync.Mutex
+	lock        sync.Mutex
 	subscribers map[SubmissionSubscriber]struct{}
-	done bool
-	score float64
+	done        bool
+	score       float64
 }
 
 type SubmissionSubscriber interface {

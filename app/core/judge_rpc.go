@@ -115,7 +115,7 @@ func (srv judgeRpc) SetTaskResult(ctx context.Context, in *judge_api.SetTaskResu
 		handler := srv.loadSubmission(item.id)
 		handler.done = true
 		handler.score = float64(in.Result.Score)
-		for subscriber, _ := range handler.subscribers {
+		for subscriber := range handler.subscribers {
 			go subscriber.HandleNewScore(true, float64(in.Result.Score))
 		}
 		handler.lock.Unlock()

@@ -7,10 +7,10 @@ import (
 )
 
 type ContestPlayer struct {
-	Id           primitive.ObjectID          `bson:"_id"`
-	Contest      primitive.ObjectID          `bson:"contest"`
-	User         primitive.ObjectID          `bson:"user"`
-	RegisterTime time.Time                   `bson:"register_time"`
+	Id           primitive.ObjectID                   `bson:"_id"`
+	Contest      primitive.ObjectID                   `bson:"contest"`
+	User         primitive.ObjectID                   `bson:"user"`
+	RegisterTime time.Time                            `bson:"register_time"`
 	Problems     map[string]ContestPlayerProblemEntry `bson:"problems"`
 }
 

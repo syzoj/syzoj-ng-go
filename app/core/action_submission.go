@@ -15,7 +15,7 @@ type Submit1 struct {
 	ProblemId primitive.ObjectID
 	Submitter primitive.ObjectID
 	Enqueue   bool
-	Public bool
+	Public    bool
 	Code      Code
 }
 type Code struct {

@@ -16,7 +16,7 @@ type Submission struct {
 	Content          SubmissionContent    `bson:"content"`
 	Result           SubmissionResult     `bson:"result"`
 	JudgeQueueStatus JudgeQueueStatus     `bson:"judge_queue_status"`
-	Public bool `bson:"public"`
+	Public           bool                 `bson:"public"`
 }
 
 type SubmissionContent struct {

@@ -28,8 +28,8 @@ type Contest struct {
 	state            string
 	updateChan       chan mongo.WriteModel
 	playerUpdateChan chan mongo.WriteModel
-	context context.Context
-	cancelFunc func()
+	context          context.Context
+	cancelFunc       func()
 
 	players map[primitive.ObjectID]*ContestPlayer
 

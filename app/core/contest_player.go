@@ -9,20 +9,21 @@ import (
 )
 
 type ContestPlayer struct {
-	modelId primitive.ObjectID
-	userId  primitive.ObjectID
+	modelId  primitive.ObjectID
+	userId   primitive.ObjectID
 	problems map[string]*ContestPlayerProblem
 }
 type ContestPlayerProblem struct {
 	subscriptions []*contestPlayerSubscription
 }
 type contestPlayerSubscription struct {
-	c *Contest
-	userId primitive.ObjectID
+	c            *Contest
+	userId       primitive.ObjectID
 	submissionId primitive.ObjectID
-	done bool
-	score float64
+	done         bool
+	score        float64
 }
+
 func (s *contestPlayerSubscription) HandleNewScore(done bool, score float64) {
 	s.c.lock.Lock()
 	defer s.c.lock.Unlock()
@@ -40,7 +41,7 @@ func (c *Contest) updatePlayerRankInfo(player *ContestPlayer) {
 		problemInfo := new(ContestPlayerRankInfoProblem)
 		for _, subscription := range problem.subscriptions {
 			submissionInfo := &ContestPlayerRankInfoSubmission{
-				Done: subscription.done,
+				Done:  subscription.done,
 				Score: subscription.score,
 			}
 			problemInfo.submissions = append(problemInfo.submissions, submissionInfo)
@@ -59,8 +60,8 @@ func (c *Contest) loadPlayer(contestPlayerModel *model.ContestPlayer) {
 		problemEntry := new(ContestPlayerProblem)
 		for _, submissionId := range problemEntryModel.Submissions {
 			subscription := &contestPlayerSubscription{
-				c: c,
-				userId: player.userId,
+				c:            c,
+				userId:       player.userId,
 				submissionId: submissionId,
 			}
 			c.c.SubscribeSubmission(submissionId, subscription)

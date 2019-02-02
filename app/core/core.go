@@ -22,7 +22,7 @@ type Core struct {
 	queueItems map[int]*queueItem
 	queueLock  sync.Mutex
 
-	submissionHandlers map[primitive.ObjectID]*submissionHandler
+	submissionHandlers     map[primitive.ObjectID]*submissionHandler
 	submissionHandlersLock sync.Mutex
 
 	judgers    map[primitive.ObjectID]*judger
