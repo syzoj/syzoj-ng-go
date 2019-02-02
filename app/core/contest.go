@@ -43,7 +43,7 @@ func (c *Core) CreateContest(ctx context.Context, id primitive.ObjectID, options
 	}
 	go func() {
 		var contestModel model.Problemset
-		if err = c.mongodb.Collection("problemset").FindOne(context.Background(), bson.D{{"_id", id}}, mongo_options.FindOne().SetProjection(bson.D{{"_id", 1}, {"contest", 1}})).Decode(&contestModel); err != nil {
+		if err = c.mongodb.Collection("problemset").FindOne(c.context, bson.D{{"_id", id}}, mongo_options.FindOne().SetProjection(bson.D{{"_id", 1}, {"contest", 1}})).Decode(&contestModel); err != nil {
 			return
 		}
 		c.lock.Lock()

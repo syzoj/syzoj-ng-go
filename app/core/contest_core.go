@@ -26,9 +26,10 @@ type Contest struct {
 	schedules        []*contestSchedule
 	scheduleTimer    *time.Timer
 	state            string
-	closeChan        chan struct{}
 	updateChan       chan mongo.WriteModel
 	playerUpdateChan chan mongo.WriteModel
+	context context.Context
+	cancelFunc func()
 
 	players map[primitive.ObjectID]*ContestPlayer
 }
@@ -52,12 +53,12 @@ func (c *Contest) load(contestModel *model.Contest) {
 	c.running = contestModel.Running
 	c.state = contestModel.State
 	c.loaded = true
-	c.closeChan = make(chan struct{})
+	c.context, c.cancelFunc = context.WithCancel(context.Background())
 	c.updateChan = make(chan mongo.WriteModel, 100)
 	c.playerUpdateChan = make(chan mongo.WriteModel, 1000)
 	// Bring up the writer
-	go handleWrites(c.updateChan, c.c.mongodb.Collection("problemset"), c.id)
-	go handleWrites(c.playerUpdateChan, c.c.mongodb.Collection("contest_player"), c.id)
+	go handleWrites(c.context, c.updateChan, c.c.mongodb.Collection("problemset"), c.id)
+	go handleWrites(c.context, c.playerUpdateChan, c.c.mongodb.Collection("contest_player"), c.id)
 
 	// Load all schedules
 	for id, scheduleModel := range contestModel.Schedule {
@@ -100,10 +101,10 @@ func (c *Contest) load(contestModel *model.Contest) {
 		cursor mongo.Cursor
 		err    error
 	)
-	if cursor, err = c.c.mongodb.Collection("contest_player").Find(context.Background(), bson.D{{"contest", c.id}}); err != nil {
+	if cursor, err = c.c.mongodb.Collection("contest_player").Find(c.context, bson.D{{"contest", c.id}}); err != nil {
 		log.WithField("contestId", c.id).Warning("Failed to load contest players: ", err)
 	}
-	for cursor.Next(context.TODO()) {
+	for cursor.Next(c.context) {
 		var contestPlayerModel *model.ContestPlayer
 		if err = cursor.Decode(&contestPlayerModel); err != nil {
 			log.WithField("contestId", c.id).Warning("Failed to load a contest player: ", err)
@@ -160,7 +161,7 @@ func (c *Contest) unload() {
 	defer c.lock.Unlock()
 	log.WithField("contestId", c.id).Info("Unloading contest")
 	c.loaded = false
-	close(c.closeChan)
+	c.cancelFunc()
 	close(c.updateChan)
 	close(c.playerUpdateChan)
 	if c.scheduleTimer != nil {
@@ -168,7 +169,7 @@ func (c *Contest) unload() {
 	}
 }
 
-func handleWrites(ch chan mongo.WriteModel, coll *mongo.Collection, contestId primitive.ObjectID) {
+func handleWrites(ctx context.Context, ch chan mongo.WriteModel, coll *mongo.Collection, contestId primitive.ObjectID) {
 	for {
 		var writes []mongo.WriteModel
 		select {
@@ -189,7 +190,7 @@ func handleWrites(ch chan mongo.WriteModel, coll *mongo.Collection, contestId pr
 					break loop
 				}
 			}
-			if _, err := coll.BulkWrite(context.Background(), writes); err != nil {
+			if _, err := coll.BulkWrite(ctx, writes); err != nil {
 				log.WithField("contestId", contestId).WithField("writeCount", len(writes)).Error("Failed to write to contest model: ", err)
 				return
 			} else {

@@ -56,7 +56,7 @@ func (c *Core) Action_Submit(ctx context.Context, req *Submit1) (*Submit1Resp, e
 		return nil, err
 	}
 	go func() {
-		result, err := c.mongodb.Collection("problem").UpdateOne(context.TODO(), bson.D{{"_id", req.ProblemId}}, bson.D{{"$inc", bson.D{{"public_stats.submission", 1}}}})
+		result, err := c.mongodb.Collection("problem").UpdateOne(c.context, bson.D{{"_id", req.ProblemId}}, bson.D{{"$inc", bson.D{{"public_stats.submission", 1}}}})
 		if err == nil && result.MatchedCount == 0 {
 			err = ErrProblemNotExist
 		}

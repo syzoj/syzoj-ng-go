@@ -23,6 +23,9 @@ func (c *Contest) loadPlayer(contestPlayerModel *model.ContestPlayer) {
 func (c *Contest) Register(UserId primitive.ObjectID) error {
 	c.lock.Lock()
 	defer c.lock.Unlock()
+	if !c.loaded {
+		return ErrContestNotRunning
+	}
 	_, ok := c.players[UserId]
 	if ok {
 		return ErrAlreadyRegistered
