@@ -160,6 +160,10 @@ func (c *Contest) unload() {
 	c.lock.Lock()
 	defer c.lock.Unlock()
 	log.WithField("contestId", c.id).Info("Unloading contest")
+	for _, player := range c.players {
+		player.unload()
+	}
+	c.players = nil
 	c.loaded = false
 	c.cancelFunc()
 	close(c.updateChan)

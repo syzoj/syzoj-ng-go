@@ -67,7 +67,7 @@ func (c *Core) Action_Submit(ctx context.Context, req *Submit1) (*Submit1Resp, e
 		}
 	}()
 	if req.Enqueue {
-		go c.NotifySubmission(submissionId)
+		go c.EnqueueSubmission(submissionId)
 	}
 	return &Submit1Resp{SubmissionId: submissionId}, nil
 }

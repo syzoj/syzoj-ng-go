@@ -28,6 +28,17 @@ type judger struct {
 	judgingTask []int
 }
 
+type submissionHandler struct {
+	lock sync.Mutex
+	subscribers map[SubmissionSubscriber]struct{}
+	done bool
+	score float64
+}
+
+type SubmissionSubscriber interface {
+	HandleNewScore(done bool, score float64)
+}
+
 func (item *queueItem) getFields() logrus.Fields {
 	return logrus.Fields{
 		"id":        EncodeObjectID(item.id),
@@ -40,6 +51,7 @@ func (srv *Core) initJudge(ctx context.Context) (err error) {
 	srv.queueItems = make(map[int]*queueItem)
 	srv.queueSize = 0
 	srv.judgers = make(map[primitive.ObjectID]*judger)
+	srv.submissionHandlers = make(map[primitive.ObjectID]*submissionHandler)
 	var cursor mongo.Cursor
 	if cursor, err = srv.mongodb.Collection("submission").Find(ctx,
 		bson.D{{"judge_queue_status", bson.D{{"$exists", true}}}},
@@ -81,8 +93,8 @@ func (srv *Core) enqueue(item *queueItem) {
 	srv.queue <- i
 }
 
-// Notifies that a submission's status has changed.
-func (srv *Core) NotifySubmission(id primitive.ObjectID) {
+// Puts a submission into queue.
+func (srv *Core) EnqueueSubmission(id primitive.ObjectID) {
 	var err error
 	submission := new(model.Submission)
 	if err = srv.mongodb.Collection("submission").FindOne(srv.context,
@@ -105,4 +117,49 @@ func (c *Core) getJudger(id primitive.ObjectID) *judger {
 		c.judgers[id] = j
 	}
 	return j
+}
+
+func (c *Core) loadSubmission(submissionId primitive.ObjectID) *submissionHandler {
+	c.submissionHandlersLock.Lock()
+	handler, ok := c.submissionHandlers[submissionId]
+	if !ok {
+		handler = new(submissionHandler)
+		handler.subscribers = make(map[SubmissionSubscriber]struct{})
+		c.submissionHandlers[submissionId] = handler
+		handler.lock.Lock()
+	}
+	c.submissionHandlersLock.Unlock()
+	if !ok {
+		var submissionModel model.Submission
+		var err error
+		if err = c.mongodb.Collection("submission").FindOne(c.context, bson.D{{"_id", submissionId}}, mongo_options.FindOne().SetProjection(bson.D{{"_id", 1}, {"result", 1}})).Decode(&submissionModel); err != nil {
+			log.WithField("submissionId", submissionId).Error("Failed to load submission: ", err)
+		}
+		if submissionModel.Result.Status == "Done" {
+			handler.done = true
+			handler.score = submissionModel.Result.Score
+		} else {
+			handler.done = false
+		}
+	} else {
+		handler.lock.Lock()
+	}
+	return handler
+}
+
+// subscriber must be comparable
+func (c *Core) SubscribeSubmission(submissionId primitive.ObjectID, subscriber SubmissionSubscriber) {
+	handler := c.loadSubmission(submissionId)
+	defer handler.lock.Unlock()
+	handler.subscribers[subscriber] = struct{}{}
+	go subscriber.HandleNewScore(handler.done, handler.score)
+}
+
+func (c *Core) UnsubscribeSubmission(submissionId primitive.ObjectID, subscriber SubmissionSubscriber) {
+	handler := c.loadSubmission(submissionId)
+	defer handler.lock.Unlock()
+	delete(handler.subscribers, subscriber)
+	if len(handler.subscribers) == 0 {
+		log.WithField("submissionId", submissionId).Debug("TODO: Submission has no subscriber, remove from memory")
+	}
 }

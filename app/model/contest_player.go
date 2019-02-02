@@ -11,10 +11,9 @@ type ContestPlayer struct {
 	Contest      primitive.ObjectID          `bson:"contest"`
 	User         primitive.ObjectID          `bson:"user"`
 	RegisterTime time.Time                   `bson:"register_time"`
-	Problems     []ContestPlayerProblemEntry `bson:"problems"`
+	Problems     map[string]ContestPlayerProblemEntry `bson:"problems"`
 }
 
 type ContestPlayerProblemEntry struct {
 	Submissions []primitive.ObjectID `bson:"submissions"`
-	Score       float64              `bson:"score"`
 }
