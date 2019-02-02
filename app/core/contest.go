@@ -31,11 +31,27 @@ var ErrInvalidOptions = errors.New("Invalid contest options")
 
 func (c *Core) CreateContest(ctx context.Context, id primitive.ObjectID, options *ContestOptions) (err error) {
 	var result *mongo.UpdateResult
-	if result, err = c.mongodb.Collection("problemset").UpdateOne(ctx, bson.D{{"_id", id}}, bson.D{{"$set", bson.D{{"contest", bson.D{
+	schedule := bson.A{}
+	if options.Duration <= 0 {
+		log.Debug("CreateContest: Invalid contest options: Duration <= 0")
+		return ErrInvalidOptions
+	}
+	schedule = append(schedule, bson.D{
+		{"type", "start"},
+		{"done", false},
+		{"start_time", options.StartTime},
+	})
+	schedule = append(schedule, bson.D{
+		{"type", "stop"},
+		{"done", false},
+		{"start_time", options.StartTime.Add(options.Duration)},
+	})
+	contestD := bson.D{
 		{"running", false},
-		{"schedule", bson.A{}},
+		{"schedule", schedule},
 		{"state", ""},
-	}}}}}); err != nil {
+	}
+	if result, err = c.mongodb.Collection("problemset").UpdateOne(ctx, bson.D{{"_id", id}}, bson.D{{"$set", bson.D{{"contest", contestD}}}}); err != nil {
 		return
 	}
 	if result.MatchedCount == 0 {

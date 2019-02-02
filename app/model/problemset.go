@@ -25,6 +25,8 @@ type Contest struct {
 	Running   bool              `bson:"running,omitempty"`
 	State     string            `bson:"state,omitempty"`
 	Schedule  []ContestSchedule `bson:"schedule,omitempty"`
+	RanklistType string `bson:"ranklist_type",omitempty"`
+	RanklistComp string `bson:"ranklist_comp",omitempty"`
 }
 
 type ContestSchedule struct {

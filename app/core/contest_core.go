@@ -32,6 +32,10 @@ type Contest struct {
 	cancelFunc func()
 
 	players map[primitive.ObjectID]*ContestPlayer
+
+	// ranklist is NOT covcered by lock; it has its own synchronization mechanism
+	ranklist ContestRanklist
+	rankcomp ContestRankComp
 }
 
 type contestSchedule struct {
@@ -56,6 +60,19 @@ func (c *Contest) load(contestModel *model.Contest) {
 	c.context, c.cancelFunc = context.WithCancel(context.Background())
 	c.updateChan = make(chan mongo.WriteModel, 100)
 	c.playerUpdateChan = make(chan mongo.WriteModel, 1000)
+	switch contestModel.RanklistType {
+	case "realtime":
+		c.ranklist = &ContestRealTimeRanklist{c: c}
+	default:
+		c.ranklist = ContestDummyRanklist{}
+	}
+	c.ranklist.Load()
+	switch contestModel.RanklistComp {
+	case "maxsum":
+		c.rankcomp = ContestRankCompMaxScoreSum{}
+	default:
+		c.rankcomp = ContestDummyRankComp{}
+	}
 	// Bring up the writer
 	go handleWrites(c.context, c.updateChan, c.c.mongodb.Collection("problemset"), c.id)
 	go handleWrites(c.context, c.playerUpdateChan, c.c.mongodb.Collection("contest_player"), c.id)
@@ -160,8 +177,9 @@ func (c *Contest) unload() {
 	c.lock.Lock()
 	defer c.lock.Unlock()
 	log.WithField("contestId", c.id).Info("Unloading contest")
+	c.ranklist.Unload()
 	for _, player := range c.players {
-		player.unload()
+		c.unloadPlayer(player)
 	}
 	c.players = nil
 	c.loaded = false

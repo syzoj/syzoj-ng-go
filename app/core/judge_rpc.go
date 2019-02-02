@@ -111,31 +111,33 @@ func (srv judgeRpc) SetTaskResult(ctx context.Context, in *judge_api.SetTaskResu
 	item := srv.queueItems[id]
 	delete(srv.queueItems, id)
 	srv.queueLock.Unlock()
-	handler := srv.loadSubmission(item.id)
-	handler.done = true
-	handler.score = float64(in.Result.Score)
-	for subscriber, _ := range handler.subscribers {
-		go subscriber.HandleNewScore(true, float64(in.Result.Score))
-	}
-	handler.lock.Unlock()
-	var result *mongo.UpdateResult
-	if result, err = srv.mongodb.Collection("submission").UpdateOne(ctx,
-		bson.D{{"_id", item.id}, {"judge_queue_status.version", item.version}},
-		bson.D{
-			{"$set", bson.D{
-				{"result", bson.D{
-					{"status", in.Result.Result},
-					{"score", in.Result.Score}},
-				}},
-			},
-			{"$unset", bson.D{{"judge_queue_status", 1}}},
-		}); err != nil {
-		panic(err)
-	}
-	if result.MatchedCount == 0 {
-		// Taken by another judge process
-		log.WithFields(item.getFields()).Warning("Conflict judger detected")
-	}
+	go func() {
+		handler := srv.loadSubmission(item.id)
+		handler.done = true
+		handler.score = float64(in.Result.Score)
+		for subscriber, _ := range handler.subscribers {
+			go subscriber.HandleNewScore(true, float64(in.Result.Score))
+		}
+		handler.lock.Unlock()
+		var result *mongo.UpdateResult
+		if result, err = srv.mongodb.Collection("submission").UpdateOne(ctx,
+			bson.D{{"_id", item.id}, {"judge_queue_status.version", item.version}},
+			bson.D{
+				{"$set", bson.D{
+					{"result", bson.D{
+						{"status", in.Result.Result},
+						{"score", in.Result.Score}},
+					}},
+				},
+				{"$unset", bson.D{{"judge_queue_status", 1}}},
+			}); err != nil {
+			panic(err)
+		}
+		if result.MatchedCount == 0 {
+			// Taken by another judge process
+			log.WithFields(item.getFields()).Warning("Failed to update judge status due to conflict")
+		}
+	}()
 	e = new(empty.Empty)
 	return
 }
