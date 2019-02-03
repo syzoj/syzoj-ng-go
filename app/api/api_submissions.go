@@ -50,7 +50,7 @@ func Handle_Submissions(c *ApiContext) (apiErr ApiError) {
 			query = append(query, bson.E{"user", c.Session.AuthUserUid})
 		}
 	}
-	var cursor mongo.Cursor
+	var cursor *mongo.Cursor
 	if cursor, err = c.Server().mongodb.Collection("submission").Find(c.Context(), query,
 		mongo_options.Find().SetProjection(bson.D{{"_id", 1}, {"problem", 1}, {"result.status", 1}, {"result.score", 1}, {"user", 1}, {"content.language", 1}, {"submit_time", 1}}).SetLimit(50).SetSort(bson.D{{"submit_time", -1}})); err != nil {
 		panic(err)

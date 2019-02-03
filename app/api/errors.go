@@ -75,4 +75,4 @@ var ErrProblemAlreadyPublic = &apiError{200, "Problem already public"}
 
 var ErrCSRF = &apiError{403, "CSRF token didn't match"}
 
-var ErrAlreadyRegistered = &apiError{200, "Already registered in contest"}
+var ErrGeneral = &apiError{200, "Unknown error"}

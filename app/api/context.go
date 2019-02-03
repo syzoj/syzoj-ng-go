@@ -8,6 +8,7 @@ import (
 	"strconv"
 
 	"github.com/gorilla/mux"
+	"github.com/gorilla/websocket"
 	"github.com/valyala/fastjson"
 )
 
@@ -106,4 +107,8 @@ func (c *ApiContext) GetBody() (*fastjson.Value, error) {
 		return nil, err
 	}
 	return fastjson.ParseBytes(buf.Bytes())
+}
+
+func (c *ApiContext) UpgradeWebSocket() (*websocket.Conn, error) {
+	return c.srv.wsUpgrader.Upgrade(c.res, c.req, nil)
 }

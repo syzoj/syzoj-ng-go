@@ -5,6 +5,7 @@ import (
 	"net/http"
 
 	"github.com/gorilla/mux"
+	"github.com/gorilla/websocket"
 	"github.com/mongodb/mongo-go-driver/mongo"
 	"github.com/sirupsen/logrus"
 
@@ -14,10 +15,11 @@ import (
 var log = logrus.StandardLogger()
 
 type ApiServer struct {
-	router  *mux.Router
-	mongodb *mongo.Database
-	c       *core.Core
-	config  Config
+	router     *mux.Router
+	mongodb    *mongo.Database
+	c          *core.Core
+	config     Config
+	wsUpgrader websocket.Upgrader
 }
 type Config struct {
 	DebugToken string `json:"debug_token"`
@@ -48,6 +50,7 @@ func (srv *ApiServer) setupRoutes() {
 	router.Handle("/api/contest-new", srv.wrapHandler(Handle_Contest_New)).Methods("POST")
 	router.Handle("/api/contest/{contest_id:[0-9A-Za-z\\-_]{16}}/register", srv.wrapHandler(Handle_Contest_Register)).Methods("POST")
 	router.Handle("/api/contest/{contest_id:[0-9A-Za-z\\-_]{16}}/index", srv.wrapHandler(Handle_Contest_Index)).Methods("GET")
+	router.Handle("/api/contest/{contest_id:[0-9A-Za-z\\-_]{16}}/status", srv.wrapHandlerNoToken(Handle_Contest_Status)).Methods("GET")
 	router.Handle("/api/submissions", srv.wrapHandler(Handle_Submissions)).Methods("GET")
 	router.Handle("/api/submission/view/{submission_id:[0-9A-Za-z\\-_]{16}}", srv.wrapHandler(Handle_Submission_View)).Methods("GET")
 	router.Handle("/api/articles", srv.wrapHandler(Handle_Articles)).Methods("GET")
@@ -77,6 +80,20 @@ func (srv *ApiServer) wrapHandler(h func(*ApiContext) ApiError) http.Handler {
 		if token != "1" {
 			c.SendError(ErrCSRF)
 			return
+		}
+		apiErr := h(c)
+		if apiErr != nil {
+			c.SendError(apiErr)
+		}
+	})
+}
+
+func (srv *ApiServer) wrapHandlerNoToken(h func(*ApiContext) ApiError) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		c := &ApiContext{
+			res: w,
+			req: r,
+			srv: srv,
 		}
 		apiErr := h(c)
 		if apiErr != nil {

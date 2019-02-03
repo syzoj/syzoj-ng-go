@@ -123,7 +123,7 @@ func (c *Contest) load(contestModel *model.Contest) {
 	// Load all players
 	c.players = make(map[primitive.ObjectID]*ContestPlayer)
 	var (
-		cursor mongo.Cursor
+		cursor *mongo.Cursor
 		err    error
 	)
 	if cursor, err = c.c.mongodb.Collection("contest_player").Find(c.context, bson.D{{"contest", c.id}}); err != nil {

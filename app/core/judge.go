@@ -52,7 +52,7 @@ func (srv *Core) initJudge(ctx context.Context) (err error) {
 	srv.queueSize = 0
 	srv.judgers = make(map[primitive.ObjectID]*judger)
 	srv.submissionHandlers = make(map[primitive.ObjectID]*submissionHandler)
-	var cursor mongo.Cursor
+	var cursor *mongo.Cursor
 	if cursor, err = srv.mongodb.Collection("submission").Find(ctx,
 		bson.D{{"judge_queue_status", bson.D{{"$exists", true}}}},
 		mongo_options.Find().SetProjection(bson.D{{"_id", 1}, {"problem", 1}, {"content.language", 1}, {"content.code", 1}, {"judge_queue_status", 1}})); err != nil {

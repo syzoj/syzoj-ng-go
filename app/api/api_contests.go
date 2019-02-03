@@ -16,7 +16,7 @@ func Handle_Contests(c *ApiContext) (apiErr ApiError) {
 	if err = c.SessionStart(); err != nil {
 		panic(err)
 	}
-	var cursor mongo.Cursor
+	var cursor *mongo.Cursor
 	if cursor, err = c.Server().mongodb.Collection("problemset").Find(c.Context(),
 		bson.D{{"contest", bson.D{{"$exists", true}}}},
 		mongo_options.Find().SetProjection(bson.D{{"_id", 1}, {"problemset_name", 1}, {"contest.start_time", 1}, {"contest.running", 1}}),

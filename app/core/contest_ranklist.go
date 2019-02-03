@@ -15,8 +15,8 @@ type ContestPlayerRankInfoProblem struct {
 	submissions []*ContestPlayerRankInfoSubmission
 }
 type ContestPlayerRankInfoSubmission struct {
-	Done  bool
-	Score float64
+	Done        bool
+	Score       float64
 	PenaltyTime time.Duration
 }
 

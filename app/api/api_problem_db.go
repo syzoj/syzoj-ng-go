@@ -42,7 +42,7 @@ func Handle_ProblemDb(c *ApiContext) (apiErr ApiError) {
 		}
 		query = append(query, bson.E{"owner", c.Session.AuthUserUid})
 	}
-	var cursor mongo.Cursor
+	var cursor *mongo.Cursor
 	if cursor, err = c.Server().mongodb.Collection("problem").Find(c.Context(), query,
 		mongo_options.Find().SetProjection(bson.D{{"_id", "1"}, {"title", 1}, {"create_time", 1}, {"public_stats.submission", 1}}),
 	); err != nil {

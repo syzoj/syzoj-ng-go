@@ -2,8 +2,6 @@ package api
 
 import (
 	"github.com/valyala/fastjson"
-
-	"github.com/syzoj/syzoj-ng-go/app/core"
 )
 
 func Handle_Contest_Register(c *ApiContext) (apiErr ApiError) {
@@ -16,21 +14,14 @@ func Handle_Contest_Register(c *ApiContext) (apiErr ApiError) {
 	if !c.Session.LoggedIn() {
 		return ErrNotLoggedIn
 	}
-	var resp *core.ContestRegister1Resp
-	if resp, err = c.Server().c.Action_Contest_Register(c.Context(), &core.ContestRegister1{
-		UserId:    c.Session.AuthUserUid,
-		ContestId: contestId,
-	}); err != nil {
-		switch err {
-		case core.ErrAlreadyRegistered:
-			return ErrAlreadyRegistered
-		case core.ErrContestNotRunning:
-			return ErrContestNotFound
-		default:
-			return internalServerError(err)
-		}
+	contest := c.Server().c.GetContestW(contestId)
+	if contest == nil {
+		return ErrContestNotFound
 	}
-	_ = resp
+	defer contest.Unlock()
+	if !contest.RegisterPlayer(c.Session.AuthUserUid) {
+		return ErrGeneral
+	}
 	arena := new(fastjson.Arena)
 	c.SendValue(arena.NewNull())
 	return

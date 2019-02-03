@@ -3,9 +3,7 @@ package core
 import (
 	"time"
 
-	"github.com/mongodb/mongo-go-driver/bson"
 	"github.com/mongodb/mongo-go-driver/bson/primitive"
-	"github.com/mongodb/mongo-go-driver/mongo"
 
 	"github.com/syzoj/syzoj-ng-go/app/model"
 )
@@ -22,7 +20,7 @@ type contestPlayerSubscription struct {
 	c            *Contest
 	userId       primitive.ObjectID
 	submissionId primitive.ObjectID
-	penaltyTime time.Duration
+	penaltyTime  time.Duration
 	done         bool
 	score        float64
 }
@@ -44,8 +42,8 @@ func (c *Contest) updatePlayerRankInfo(player *ContestPlayer) {
 		problemInfo := new(ContestPlayerRankInfoProblem)
 		for _, subscription := range problem.subscriptions {
 			submissionInfo := &ContestPlayerRankInfoSubmission{
-				Done:  subscription.done,
-				Score: subscription.score,
+				Done:        subscription.done,
+				Score:       subscription.score,
 				PenaltyTime: subscription.penaltyTime,
 			}
 			problemInfo.submissions = append(problemInfo.submissions, submissionInfo)
@@ -67,7 +65,7 @@ func (c *Contest) loadPlayer(contestPlayerModel *model.ContestPlayer) {
 				c:            c,
 				userId:       player.userId,
 				submissionId: submission.SubmissionId,
-				penaltyTime: submission.PenaltyTime,
+				penaltyTime:  submission.PenaltyTime,
 			}
 			c.c.SubscribeSubmission(subscription.submissionId, subscription)
 			problemEntry.subscriptions = append(problemEntry.subscriptions, subscription)
@@ -83,31 +81,4 @@ func (*Contest) unloadPlayer(p *ContestPlayer) {
 			subscription.c.c.UnsubscribeSubmission(subscription.submissionId, subscription)
 		}
 	}
-}
-
-func (c *Contest) Register(UserId primitive.ObjectID) error {
-	c.lock.Lock()
-	defer c.lock.Unlock()
-	if !c.loaded {
-		return ErrContestNotRunning
-	}
-	_, ok := c.players[UserId]
-	if ok {
-		return ErrAlreadyRegistered
-	}
-	id := primitive.NewObjectID()
-	player := new(ContestPlayer)
-	player.modelId = id
-	player.userId = UserId
-	player.problems = make(map[string]*ContestPlayerProblem)
-	c.players[UserId] = player
-
-	model := mongo.NewInsertOneModel()
-	model.SetDocument(bson.D{
-		{"_id", id},
-		{"contest", c.id},
-		{"user", UserId},
-	})
-	c.playerUpdateChan <- model
-	return nil
 }

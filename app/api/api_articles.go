@@ -17,7 +17,7 @@ func Handle_Articles(c *ApiContext) (apiErr ApiError) {
 	if err = c.SessionStart(); err != nil {
 		return
 	}
-	var cursor mongo.Cursor
+	var cursor *mongo.Cursor
 	if cursor, err = c.Server().mongodb.Collection("article").Find(c.Context(),
 		bson.D{},
 		mongo_options.Find().SetProjection(bson.D{

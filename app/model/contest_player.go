@@ -20,5 +20,5 @@ type ContestPlayerProblemEntry struct {
 
 type ContestPlayerProblemSubmissionEntry struct {
 	SubmissionId primitive.ObjectID `bson:"submission_id"`
-	PenaltyTime time.Duration `bson:"penalty_time"`
+	PenaltyTime  time.Duration      `bson:"penalty_time"`
 }

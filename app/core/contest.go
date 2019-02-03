@@ -25,7 +25,7 @@ type ContestRules struct {
 	RejudgeAfterContest bool
 	RanklistType        string // realtime, defer, ""
 	RanklistVisibility  string
-	RanklistComp string // maxsum, lastsum, acm
+	RanklistComp        string // maxsum, lastsum, acm
 }
 
 var ErrInvalidOptions = errors.New("Invalid contest options")
@@ -66,6 +66,7 @@ func (c *Core) CreateContest(ctx context.Context, id primitive.ObjectID, options
 		{"state", ""},
 		{"ranklist_type", options.Rules.RanklistType},
 		{"ranklist_comp", options.Rules.RanklistComp},
+		{"start_time", options.StartTime},
 	}
 	if result, err = c.mongodb.Collection("problemset").UpdateOne(ctx, bson.D{{"_id", id}}, bson.D{{"$set", bson.D{{"contest", contestD}}}}); err != nil {
 		return
@@ -93,7 +94,7 @@ func (c *Core) initContest(ctx context.Context) (err error) {
 	c.lock.Lock()
 	defer c.lock.Unlock()
 	c.contests = make(map[primitive.ObjectID]*Contest)
-	var cursor mongo.Cursor
+	var cursor *mongo.Cursor
 	if cursor, err = c.mongodb.Collection("problemset").Find(ctx, bson.D{{"contest", bson.D{{"$exists", true}}}}, mongo_options.Find().SetProjection(bson.D{{"_id", 1}, {"contest", 1}})); err != nil {
 		return
 	}

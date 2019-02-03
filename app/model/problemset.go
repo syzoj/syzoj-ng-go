@@ -12,7 +12,7 @@ type Problemset struct {
 	Problems       []ProblemsetEntry  `bson:"problems,omitempty"`
 	ProblemsetName string             `bson:"problemset_name,omitempty"`
 	Contest        Contest            `bson:"contest,omitempty"`
-	Description string `bson:"description,omitempty"`
+	Description    string             `bson:"description,omitempty"`
 }
 
 type ProblemsetEntry struct {
