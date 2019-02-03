@@ -42,24 +42,30 @@ func (c *contestStatusContext) run() {
 	arena := new(fastjson.Arena)
 	for {
 		arena.Reset()
-		time.Sleep(time.Second)
-		contest := c.srv.c.GetContestR(c.contestId)
-		if contest == nil {
+		select {
+		case <-c.srv.ctx.Done():
 			return
+		case <-time.After(time.Second):
 		}
-		defer contest.RUnlock()
+		msg := arena.NewObject()
+		func() {
+			contest := c.srv.c.GetContestR(c.contestId)
+			if contest == nil {
+				return
+			}
+			defer contest.RUnlock()
+			if contest.Running() {
+				msg.Set("running", arena.NewTrue())
+			} else {
+				msg.Set("running", arena.NewFalse())
+			}
+		}()
 
 		var w io.WriteCloser
 		w, err = c.wsConn.NextWriter(websocket.TextMessage)
 		if err != nil {
 			log.Warning("Failed to write to WebSocket: ", err)
 			return
-		}
-		msg := arena.NewObject()
-		if contest.Running() {
-			msg.Set("running", arena.NewTrue())
-		} else {
-			msg.Set("running", arena.NewFalse())
 		}
 		_, err = w.Write(msg.MarshalTo(nil))
 		if err != nil {

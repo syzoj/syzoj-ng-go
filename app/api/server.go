@@ -1,8 +1,10 @@
 package api
 
 import (
+	"context"
 	"crypto/subtle"
 	"net/http"
+	"sync"
 
 	"github.com/gorilla/mux"
 	"github.com/gorilla/websocket"
@@ -20,6 +22,9 @@ type ApiServer struct {
 	c          *core.Core
 	config     Config
 	wsUpgrader websocket.Upgrader
+	wg         sync.WaitGroup
+	ctx        context.Context
+	cancelFunc func()
 }
 type Config struct {
 	DebugToken string `json:"debug_token"`
@@ -32,6 +37,7 @@ func CreateApiServer(mongodb *mongo.Client, c *core.Core, config Config) (*ApiSe
 		c:       c,
 		config:  config,
 	}
+	srv.ctx, srv.cancelFunc = context.WithCancel(context.Background())
 	srv.setupRoutes()
 	return srv, nil
 }
@@ -104,5 +110,12 @@ func (srv *ApiServer) wrapHandlerNoToken(h func(*ApiContext) ApiError) http.Hand
 
 // Implements http.Handler interface. Serves HTTP requests.
 func (srv *ApiServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	srv.wg.Add(1)
+	defer srv.wg.Done()
 	srv.router.ServeHTTP(w, r)
+}
+
+func (srv *ApiServer) Close() {
+	srv.cancelFunc()
+	srv.wg.Wait()
 }

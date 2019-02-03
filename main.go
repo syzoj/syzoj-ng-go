@@ -188,5 +188,7 @@ func cmdRun() {
 	sigChan := make(chan os.Signal, 1)
 	signal.Notify(sigChan, os.Interrupt, syscall.SIGTERM)
 	<-sigChan
-	server.Shutdown(context.Background())
+	log.Info("Shutting down web server")
+	server.Close()
+	apiServer.Close()
 }
