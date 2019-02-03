@@ -1,6 +1,8 @@
 package core
 
 import (
+	"time"
+
 	"github.com/mongodb/mongo-go-driver/bson"
 	"github.com/mongodb/mongo-go-driver/bson/primitive"
 	"github.com/mongodb/mongo-go-driver/mongo"
@@ -20,6 +22,7 @@ type contestPlayerSubscription struct {
 	c            *Contest
 	userId       primitive.ObjectID
 	submissionId primitive.ObjectID
+	penaltyTime time.Duration
 	done         bool
 	score        float64
 }
@@ -43,6 +46,7 @@ func (c *Contest) updatePlayerRankInfo(player *ContestPlayer) {
 			submissionInfo := &ContestPlayerRankInfoSubmission{
 				Done:  subscription.done,
 				Score: subscription.score,
+				PenaltyTime: subscription.penaltyTime,
 			}
 			problemInfo.submissions = append(problemInfo.submissions, submissionInfo)
 		}
@@ -58,13 +62,14 @@ func (c *Contest) loadPlayer(contestPlayerModel *model.ContestPlayer) {
 	player.problems = make(map[string]*ContestPlayerProblem)
 	for i, problemEntryModel := range contestPlayerModel.Problems {
 		problemEntry := new(ContestPlayerProblem)
-		for _, submissionId := range problemEntryModel.Submissions {
+		for _, submission := range problemEntryModel.Submissions {
 			subscription := &contestPlayerSubscription{
 				c:            c,
 				userId:       player.userId,
-				submissionId: submissionId,
+				submissionId: submission.SubmissionId,
+				penaltyTime: submission.PenaltyTime,
 			}
-			c.c.SubscribeSubmission(submissionId, subscription)
+			c.c.SubscribeSubmission(subscription.submissionId, subscription)
 			problemEntry.subscriptions = append(problemEntry.subscriptions, subscription)
 		}
 		player.problems[i] = problemEntry

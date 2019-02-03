@@ -70,6 +70,8 @@ func (c *Contest) load(contestModel *model.Contest) {
 	switch contestModel.RanklistComp {
 	case "maxsum":
 		c.rankcomp = ContestRankCompMaxScoreSum{}
+	case "acm":
+		c.rankcomp = ContestRankCompACM{}
 	default:
 		c.rankcomp = ContestDummyRankComp{}
 	}

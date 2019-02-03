@@ -15,5 +15,10 @@ type ContestPlayer struct {
 }
 
 type ContestPlayerProblemEntry struct {
-	Submissions []primitive.ObjectID `bson:"submissions"`
+	Submissions []*ContestPlayerProblemSubmissionEntry `bson:"submissions"`
+}
+
+type ContestPlayerProblemSubmissionEntry struct {
+	SubmissionId primitive.ObjectID `bson:"submission_id"`
+	PenaltyTime time.Duration `bson:"penalty_time"`
 }
