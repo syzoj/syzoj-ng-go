@@ -41,6 +41,7 @@ func Handle_Contest_New(c *ApiContext) (apiErr ApiError) {
 	options.Rules.SeeResult = optionsVal.GetBool("rules", "see_result")
 	options.Rules.RejudgeAfterContest = optionsVal.GetBool("rules", "rejudge_after_contest")
 	options.Rules.RanklistType = string(optionsVal.GetStringBytes("rules", "ranklist_type"))
+	options.Rules.RanklistComp = string(optionsVal.GetStringBytes("rules", "ranklist_comp"))
 	options.Rules.RanklistVisibility = string(optionsVal.GetStringBytes("rules", "ranklist_visibility"))
 	if err = c.Server().c.CreateContest(c.Context(), problemsetId, &options); err != nil {
 		if err == core.ErrInvalidOptions {

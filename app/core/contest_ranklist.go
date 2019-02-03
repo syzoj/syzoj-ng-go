@@ -50,6 +50,27 @@ func playerMaxScoreSum(p *ContestPlayerRankInfo) float64 {
 	return sum
 }
 
+type ContestRankCompLastSum struct{}
+
+func (ContestRankCompLastSum) Less(c *Contest, p1 *ContestPlayerRankInfo, p2 *ContestPlayerRankInfo) bool {
+	score1 := playerLastSum(p1)
+	score2 := playerLastSum(p2)
+	return score1 < score2
+}
+func playerLastSum(p *ContestPlayerRankInfo) float64 {
+	var sum float64
+	for _, problem := range p.problems {
+		var score float64
+		for _, s := range problem.submissions {
+			if s.Done {
+				score = s.Score
+			}
+		}
+		sum += score
+	}
+	return sum
+}
+
 type ContestRankCompACM struct{}
 
 func (ContestRankCompACM) Less(c *Contest, p1 *ContestPlayerRankInfo, p2 *ContestPlayerRankInfo) bool {

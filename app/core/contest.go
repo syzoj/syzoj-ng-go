@@ -23,8 +23,9 @@ type ContestRules struct {
 	JudgeInContest      bool
 	SeeResult           bool
 	RejudgeAfterContest bool
-	RanklistType        string
+	RanklistType        string // realtime, defer, ""
 	RanklistVisibility  string
+	RanklistComp string // maxsum, lastsum, acm
 }
 
 var ErrInvalidOptions = errors.New("Invalid contest options")
@@ -34,6 +35,19 @@ func (c *Core) CreateContest(ctx context.Context, id primitive.ObjectID, options
 	schedule := bson.A{}
 	if options.Duration <= 0 {
 		log.Debug("CreateContest: Invalid contest options: Duration <= 0")
+		return ErrInvalidOptions
+	}
+	switch options.Rules.RanklistType {
+	case "realtime":
+	case "":
+	default:
+		return ErrInvalidOptions
+	}
+	switch options.Rules.RanklistComp {
+	case "maxsum":
+	case "lastsum":
+	case "acm":
+	default:
 		return ErrInvalidOptions
 	}
 	schedule = append(schedule, bson.D{
@@ -50,6 +64,8 @@ func (c *Core) CreateContest(ctx context.Context, id primitive.ObjectID, options
 		{"running", false},
 		{"schedule", schedule},
 		{"state", ""},
+		{"ranklist_type", options.Rules.RanklistType},
+		{"ranklist_comp", options.Rules.RanklistComp},
 	}
 	if result, err = c.mongodb.Collection("problemset").UpdateOne(ctx, bson.D{{"_id", id}}, bson.D{{"$set", bson.D{{"contest", contestD}}}}); err != nil {
 		return
@@ -135,4 +151,30 @@ func (c *Core) reloadContest(id primitive.ObjectID, contestModel *model.Contest)
 		c.unloadContest(id)
 	}
 	c.loadContest(id, contestModel)
+}
+
+// Call RUnlock() if return value is not nil
+func (c *Core) GetContestR(id primitive.ObjectID) *Contest {
+	c.lock.RLock()
+	contest := c.contests[id]
+	c.lock.RUnlock()
+	contest.lock.RLock()
+	if !contest.loaded {
+		contest.lock.RUnlock()
+		return nil
+	}
+	return contest
+}
+
+// Call Unlock() if return value is not nil
+func (c *Core) GetContestW(id primitive.ObjectID) *Contest {
+	c.lock.RLock()
+	contest := c.contests[id]
+	c.lock.RUnlock()
+	contest.lock.Lock()
+	if !contest.loaded {
+		contest.lock.Unlock()
+		return nil
+	}
+	return contest
 }

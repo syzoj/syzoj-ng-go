@@ -20,7 +20,7 @@ type Contest struct {
 	// only c and id is populated before load()
 	c                *Core
 	id               primitive.ObjectID
-	lock             sync.Mutex
+	lock             sync.RWMutex
 	running          bool
 	loaded           bool
 	schedules        []*contestSchedule
@@ -70,6 +70,8 @@ func (c *Contest) load(contestModel *model.Contest) {
 	switch contestModel.RanklistComp {
 	case "maxsum":
 		c.rankcomp = ContestRankCompMaxScoreSum{}
+	case "lastsum":
+		c.rankcomp = ContestRankCompLastSum{}
 	case "acm":
 		c.rankcomp = ContestRankCompACM{}
 	default:
@@ -87,25 +89,29 @@ func (c *Contest) load(contestModel *model.Contest) {
 		var f func()
 		switch scheduleModel.Type {
 		case "start":
-			f = func() {
-				c.running = true
-				model := mongo.NewUpdateOneModel()
-				model.SetFilter(bson.D{{"_id", c.id}, {"contest.state", c.state}})
-				c.state = newState()
-				model.SetUpdate(bson.D{{"$set", bson.D{{fmt.Sprintf("contest.schedule.%d.done", id), true}, {"contest.running", true}, {"contest.state", c.state}}}})
-				c.updateChan <- model
-				log.WithField("contestId", c.id).Debug("Contest started")
-			}
+			f = func(c *Contest, id int) func() {
+				return func() {
+					c.running = true
+					model := mongo.NewUpdateOneModel()
+					model.SetFilter(bson.D{{"_id", c.id}, {"contest.state", c.state}})
+					c.state = newState()
+					model.SetUpdate(bson.D{{"$set", bson.D{{fmt.Sprintf("contest.schedule.%d.done", id), true}, {"contest.running", true}, {"contest.state", c.state}}}})
+					c.updateChan <- model
+					log.WithField("contestId", c.id).Debug("Contest started")
+				}
+			}(c, id)
 		case "stop":
-			f = func() {
-				c.running = false
-				model := mongo.NewUpdateOneModel()
-				model.SetFilter(bson.D{{"_id", c.id}, {"contest.state", c.state}})
-				c.state = newState()
-				model.SetUpdate(bson.D{{"$set", bson.D{{fmt.Sprintf("contest.schedule.%d.done", id), true}, {"contest.running", false}, {"contest.state", c.state}}}})
-				c.updateChan <- model
-				log.WithField("contestId", c.id).Debug("Contest stopped")
-			}
+			f = func(c *Contest, id int) func() {
+				return func() {
+					c.running = false
+					model := mongo.NewUpdateOneModel()
+					model.SetFilter(bson.D{{"_id", c.id}, {"contest.state", c.state}})
+					c.state = newState()
+					model.SetUpdate(bson.D{{"$set", bson.D{{fmt.Sprintf("contest.schedule.%d.done", id), true}, {"contest.running", false}, {"contest.state", c.state}}}})
+					c.updateChan <- model
+					log.WithField("contestId", c.id).Debug("Contest stopped")
+				}
+			}(c, id)
 		}
 		c.schedules = append(c.schedules, &contestSchedule{
 			t: scheduleModel.StartTime,

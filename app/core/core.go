@@ -13,7 +13,7 @@ var log = logrus.StandardLogger()
 
 type Core struct {
 	mongodb    *mongo.Database
-	lock       sync.Mutex
+	lock       sync.RWMutex
 	context    context.Context
 	cancelFunc func()
 
