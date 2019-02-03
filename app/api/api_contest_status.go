@@ -56,7 +56,11 @@ func (c *contestStatusContext) run() {
 			return
 		}
 		msg := arena.NewObject()
-		msg.Set("running", arena.NewFalse())
+		if contest.Running() {
+			msg.Set("running", arena.NewTrue())
+		} else {
+			msg.Set("running", arena.NewFalse())
+		}
 		_, err = w.Write(msg.MarshalTo(nil))
 		if err != nil {
 			log.Warning("Failed to write to WebSocket: ", err)
