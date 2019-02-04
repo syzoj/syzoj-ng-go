@@ -16,6 +16,7 @@ type Problemset struct {
 }
 
 type ProblemsetEntry struct {
+	Name      string             `bson:"name",omitempty"`
 	ProblemId primitive.ObjectID `bson:"problem_id,omitempty"`
 }
 

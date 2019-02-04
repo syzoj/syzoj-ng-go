@@ -56,6 +56,7 @@ func (srv *ApiServer) setupRoutes() {
 	router.Handle("/api/contest-new", srv.wrapHandler(Handle_Contest_New)).Methods("POST")
 	router.Handle("/api/contest/{contest_id:[0-9A-Za-z\\-_]{16}}/register", srv.wrapHandler(Handle_Contest_Register)).Methods("POST")
 	router.Handle("/api/contest/{contest_id:[0-9A-Za-z\\-_]{16}}/index", srv.wrapHandler(Handle_Contest_Index)).Methods("GET")
+	router.Handle("/api/contest/{contest_id:[0-9A-Za-z\\-_]{16}}/problem/{entry_name}", srv.wrapHandler(Handle_Contest_Problem)).Methods("GET")
 	router.Handle("/api/contest/{contest_id:[0-9A-Za-z\\-_]{16}}/status", srv.wrapHandlerNoToken(Handle_Contest_Status)).Methods("GET")
 	router.Handle("/api/submissions", srv.wrapHandler(Handle_Submissions)).Methods("GET")
 	router.Handle("/api/submission/view/{submission_id:[0-9A-Za-z\\-_]{16}}", srv.wrapHandler(Handle_Submission_View)).Methods("GET")

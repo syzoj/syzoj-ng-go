@@ -22,7 +22,7 @@ func Handle_Contest_Status(c *ApiContext) (apiErr ApiError) {
 	vars := c.Vars()
 	contestId := DecodeObjectID(vars["contest_id"])
 	if err = c.SessionStart(); err != nil {
-		return internalServerError(err)
+		panic(err)
 	}
 	var ct contestStatusContext
 	ct.srv = c.Server()
@@ -30,7 +30,7 @@ func Handle_Contest_Status(c *ApiContext) (apiErr ApiError) {
 	ct.userId = c.Session.AuthUserUid
 	ct.wsConn, err = c.UpgradeWebSocket()
 	if err != nil {
-		return internalServerError(err)
+		panic(err)
 	}
 	ct.run()
 	return
