@@ -30,6 +30,7 @@ type Contest struct {
 	playerUpdateChan chan mongo.WriteModel
 	context          context.Context
 	cancelFunc       func()
+	wg sync.WaitGroup
 
 	players map[primitive.ObjectID]*ContestPlayer
 
@@ -50,95 +51,99 @@ func newState() string {
 }
 
 // Call exactly once when the contest gets loaded into memory.
+// Doesn ot wait for load to complete.
 func (c *Contest) load(contestModel *model.Contest) {
 	c.lock.Lock()
-	defer c.lock.Unlock()
-	log.WithField("contestId", c.id).Info("Loading contest")
-	c.running = contestModel.Running
-	c.state = contestModel.State
-	c.loaded = true
-	c.context, c.cancelFunc = context.WithCancel(context.Background())
-	c.updateChan = make(chan mongo.WriteModel, 100)
-	c.playerUpdateChan = make(chan mongo.WriteModel, 1000)
-	switch contestModel.RanklistType {
-	case "realtime":
-		c.ranklist = &ContestRealTimeRanklist{c: c}
-	default:
-		c.ranklist = ContestDummyRanklist{}
-	}
-	c.ranklist.Load()
-	switch contestModel.RanklistComp {
-	case "maxsum":
-		c.rankcomp = ContestRankCompMaxScoreSum{}
-	case "lastsum":
-		c.rankcomp = ContestRankCompLastSum{}
-	case "acm":
-		c.rankcomp = ContestRankCompACM{}
-	default:
-		c.rankcomp = ContestDummyRankComp{}
-	}
-	// Bring up the writer
-	go handleWrites(c.context, c.updateChan, c.c.mongodb.Collection("problemset"), c.id)
-	go handleWrites(c.context, c.playerUpdateChan, c.c.mongodb.Collection("contest_player"), c.id)
+	go func() {
+		defer c.lock.Unlock()
+		log.WithField("contestId", c.id).Info("Loading contest")
+		c.running = contestModel.Running
+		c.state = contestModel.State
+		c.loaded = true
+		c.context, c.cancelFunc = context.WithCancel(context.Background())
+		c.updateChan = make(chan mongo.WriteModel, 100)
+		c.playerUpdateChan = make(chan mongo.WriteModel, 1000)
+		switch contestModel.RanklistType {
+		case "realtime":
+			c.ranklist = &ContestRealTimeRanklist{c: c}
+		default:
+			c.ranklist = ContestDummyRanklist{}
+		}
+		c.ranklist.Load()
+		switch contestModel.RanklistComp {
+		case "maxsum":
+			c.rankcomp = ContestRankCompMaxScoreSum{}
+		case "lastsum":
+			c.rankcomp = ContestRankCompLastSum{}
+		case "acm":
+			c.rankcomp = ContestRankCompACM{}
+		default:
+			c.rankcomp = ContestDummyRankComp{}
+		}
+		// Bring up the writer
+		c.wg.Add(2)
+		go handleWrites(c.context, c.updateChan, c.c.mongodb.Collection("problemset"), c.id, &c.wg)
+		go handleWrites(c.context, c.playerUpdateChan, c.c.mongodb.Collection("contest_player"), c.id, &c.wg)
 
-	// Load all schedules
-	for id, scheduleModel := range contestModel.Schedule {
-		if scheduleModel.Done {
-			continue
+		// Load all schedules
+		for id, scheduleModel := range contestModel.Schedule {
+			if scheduleModel.Done {
+				continue
+			}
+			var f func()
+			switch scheduleModel.Type {
+			case "start":
+				f = func(c *Contest, id int) func() {
+					return func() {
+						c.running = true
+						model := mongo.NewUpdateOneModel()
+						model.SetFilter(bson.D{{"_id", c.id}, {"contest.state", c.state}})
+						c.state = newState()
+						model.SetUpdate(bson.D{{"$set", bson.D{{fmt.Sprintf("contest.schedule.%d.done", id), true}, {"contest.running", true}, {"contest.state", c.state}}}})
+						c.updateChan <- model
+						log.WithField("contestId", c.id).Debug("Contest started")
+					}
+				}(c, id)
+			case "stop":
+				f = func(c *Contest, id int) func() {
+					return func() {
+						c.running = false
+						model := mongo.NewUpdateOneModel()
+						model.SetFilter(bson.D{{"_id", c.id}, {"contest.state", c.state}})
+						c.state = newState()
+						model.SetUpdate(bson.D{{"$set", bson.D{{fmt.Sprintf("contest.schedule.%d.done", id), true}, {"contest.running", false}, {"contest.state", c.state}}}})
+						c.updateChan <- model
+						log.WithField("contestId", c.id).Debug("Contest stopped")
+					}
+				}(c, id)
+			}
+			c.schedules = append(c.schedules, &contestSchedule{
+				t: scheduleModel.StartTime,
+				f: f,
+			})
 		}
-		var f func()
-		switch scheduleModel.Type {
-		case "start":
-			f = func(c *Contest, id int) func() {
-				return func() {
-					c.running = true
-					model := mongo.NewUpdateOneModel()
-					model.SetFilter(bson.D{{"_id", c.id}, {"contest.state", c.state}})
-					c.state = newState()
-					model.SetUpdate(bson.D{{"$set", bson.D{{fmt.Sprintf("contest.schedule.%d.done", id), true}, {"contest.running", true}, {"contest.state", c.state}}}})
-					c.updateChan <- model
-					log.WithField("contestId", c.id).Debug("Contest started")
-				}
-			}(c, id)
-		case "stop":
-			f = func(c *Contest, id int) func() {
-				return func() {
-					c.running = false
-					model := mongo.NewUpdateOneModel()
-					model.SetFilter(bson.D{{"_id", c.id}, {"contest.state", c.state}})
-					c.state = newState()
-					model.SetUpdate(bson.D{{"$set", bson.D{{fmt.Sprintf("contest.schedule.%d.done", id), true}, {"contest.running", false}, {"contest.state", c.state}}}})
-					c.updateChan <- model
-					log.WithField("contestId", c.id).Debug("Contest stopped")
-				}
-			}(c, id)
-		}
-		c.schedules = append(c.schedules, &contestSchedule{
-			t: scheduleModel.StartTime,
-			f: f,
-		})
-	}
-	c.sortSchedules()
+		c.sortSchedules()
 
-	// Load all players
-	c.players = make(map[primitive.ObjectID]*ContestPlayer)
-	var (
-		cursor *mongo.Cursor
-		err    error
-	)
-	if cursor, err = c.c.mongodb.Collection("contest_player").Find(c.context, bson.D{{"contest", c.id}}); err != nil {
-		log.WithField("contestId", c.id).Warning("Failed to load contest players: ", err)
-	}
-	for cursor.Next(c.context) {
-		var contestPlayerModel *model.ContestPlayer
-		if err = cursor.Decode(&contestPlayerModel); err != nil {
-			log.WithField("contestId", c.id).Warning("Failed to load a contest player: ", err)
-		} else {
-			c.loadPlayer(contestPlayerModel)
+		// Load all players
+		c.players = make(map[primitive.ObjectID]*ContestPlayer)
+		var (
+			cursor *mongo.Cursor
+			err    error
+		)
+		if cursor, err = c.c.mongodb.Collection("contest_player").Find(c.context, bson.D{{"contest", c.id}}); err != nil {
+			log.WithField("contestId", c.id).Warning("Failed to load contest players: ", err)
 		}
-	}
-	log.WithField("contestId", c.id).WithField("playerCount", len(c.players)).Info("Loaded players")
-	go c.startSchedule()
+		for cursor.Next(c.context) {
+			var contestPlayerModel *model.ContestPlayer
+			if err = cursor.Decode(&contestPlayerModel); err != nil {
+				log.WithField("contestId", c.id).Warning("Failed to load a contest player: ", err)
+			} else {
+				c.loadPlayer(contestPlayerModel)
+			}
+		}
+		log.WithField("contestId", c.id).WithField("playerCount", len(c.players)).Info("Loaded players")
+		go c.startSchedule()
+	}()
 }
 
 type scheduleSorter struct {
@@ -181,9 +186,14 @@ func (c *Contest) startSchedule() {
 }
 
 // Call exactly once to unload the contest and save state into disk.
+// Blocks until unloading is done.
 func (c *Contest) unload() {
 	c.lock.Lock()
 	defer c.lock.Unlock()
+	if !c.loaded {
+		log.WithField("contestId", c.id).Error("Double unloading contest")
+		return
+	}
 	log.WithField("contestId", c.id).Info("Unloading contest")
 	c.ranklist.Unload()
 	for _, player := range c.players {
@@ -197,9 +207,11 @@ func (c *Contest) unload() {
 	if c.scheduleTimer != nil {
 		c.scheduleTimer.Stop()
 	}
+	c.wg.Wait()
 }
 
-func handleWrites(ctx context.Context, ch chan mongo.WriteModel, coll *mongo.Collection, contestId primitive.ObjectID) {
+func handleWrites(ctx context.Context, ch chan mongo.WriteModel, coll *mongo.Collection, contestId primitive.ObjectID, wg *sync.WaitGroup) {
+	defer wg.Done()
 	for {
 		var writes []mongo.WriteModel
 		select {

@@ -40,6 +40,8 @@ func NewCore(mongodb *mongo.Client) (srv *Core, err error) {
 		mongodb: mongodb.Database("syzoj"),
 	}
 	srv.context, srv.cancelFunc = context.WithCancel(context.Background())
+	srv.lock.Lock()
+	defer srv.lock.Unlock()
 	if err = srv.initJudge(srv.context); err != nil {
 		return
 	}
@@ -50,8 +52,10 @@ func NewCore(mongodb *mongo.Client) (srv *Core, err error) {
 	return
 }
 
-func (srv *Core) Close() error {
-	srv.cancelFunc()
-	srv.unloadAllContests()
+func (c *Core) Close() error {
+	c.lock.Lock()
+	defer c.lock.Unlock()
+	c.cancelFunc()
+	c.unloadAllContests()
 	return nil
 }

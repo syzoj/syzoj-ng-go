@@ -17,24 +17,20 @@ func Handle_Contest_Problem(c *ApiContext) (apiErr ApiError) {
 	if err = c.SessionStart(); err != nil {
 		panic(err)
 	}
-	log.Info(contestId)
 	var contestModel model.Problemset
 	if err = c.Server().mongodb.Collection("problemset").FindOne(c.Context(), bson.D{
 		{"_id", contestId},
 		{"contest", bson.D{{"$exists", true}}},
 	}, mongo_options.FindOne().SetProjection(bson.D{{"_id", 1}, {"problems", 1}})).Decode(&contestModel); err != nil {
 		if err == mongo.ErrNoDocuments {
-			log.Info("Not found in mongodb")
 			return ErrContestNotFound
 		}
 		panic(err)
 	}
 	contest := c.Server().c.GetContestR(contestId)
 	if contest == nil {
-		log.Info("Not found in mem")
 		return ErrContestNotFound
 	}
-	log.Info("testing")
 	running := contest.Running()
 	contest.RUnlock()
 	if !running {
@@ -50,7 +46,6 @@ func Handle_Contest_Problem(c *ApiContext) (apiErr ApiError) {
 		}
 	}
 	if !found {
-		log.Info("entry not found")
 		return ErrContestNotFound
 	}
 

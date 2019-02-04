@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"time"
+	"sync"
 
 	"github.com/mongodb/mongo-go-driver/bson"
 	"github.com/mongodb/mongo-go-driver/bson/primitive"
@@ -30,6 +31,7 @@ type ContestRules struct {
 
 var ErrInvalidOptions = errors.New("Invalid contest options")
 
+// No locking required
 func (c *Core) CreateContest(ctx context.Context, id primitive.ObjectID, options *ContestOptions) (err error) {
 	var result *mongo.UpdateResult
 	schedule := bson.A{}
@@ -91,8 +93,6 @@ func (c *Core) CreateContest(ctx context.Context, id primitive.ObjectID, options
 }
 
 func (c *Core) initContest(ctx context.Context) (err error) {
-	c.lock.Lock()
-	defer c.lock.Unlock()
 	c.contests = make(map[primitive.ObjectID]*Contest)
 	var cursor *mongo.Cursor
 	if cursor, err = c.mongodb.Collection("problemset").Find(ctx, bson.D{{"contest", bson.D{{"$exists", true}}}}, mongo_options.Find().SetProjection(bson.D{{"_id", 1}, {"contest", 1}})); err != nil {
@@ -123,11 +123,16 @@ func (c *Core) ReloadContest(ctx context.Context, id primitive.ObjectID) (err er
 }
 
 func (c *Core) unloadAllContests() error {
-	c.lock.Lock()
-	defer c.lock.Unlock()
-	for id := range c.contests {
-		c.unloadContest(id)
+	var wg sync.WaitGroup
+	for _, contest := range c.contests {
+		wg.Add(1)
+		go func(contest *Contest) {
+			contest.unload()
+			wg.Done()
+		}(contest)
 	}
+	c.contests = nil
+	wg.Wait()
 	return nil
 }
 
