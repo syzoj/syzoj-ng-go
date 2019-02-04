@@ -52,6 +52,7 @@ func Handle_Contest_Index(c *ApiContext) (apiErr ApiError) {
 			wg.Add(1)
 			go func(i int, id primitive.ObjectID) {
 				defer wg.Done()
+				var err error
 				if err = c.Server().mongodb.Collection("problem").FindOne(c.Context(), bson.D{{"_id", id}}, mongo_options.FindOne().SetProjection(bson.D{{"title", 1}})).Decode(&problemsModel[i]); err != nil {
 					log.Error("Failed to query problem in subquery: ", err)
 					return
