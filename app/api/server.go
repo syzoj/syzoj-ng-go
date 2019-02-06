@@ -17,14 +17,16 @@ import (
 var log = logrus.StandardLogger()
 
 type ApiServer struct {
-	router     *mux.Router
-	mongodb    *mongo.Database
-	c          *core.Core
-	config     Config
-	wsUpgrader websocket.Upgrader
-	wg         sync.WaitGroup
-	ctx        context.Context
-	cancelFunc func()
+	router      *mux.Router
+	mongodb     *mongo.Database
+	c           *core.Core
+	config      Config
+	wsUpgrader  websocket.Upgrader
+	wg          sync.WaitGroup
+	ctx         context.Context
+	wsConn      map[*websocket.Conn]struct{}
+	wsConnMutex sync.Mutex
+	cancelFunc  func()
 }
 type Config struct {
 	DebugToken string `json:"debug_token"`
@@ -36,7 +38,9 @@ func CreateApiServer(mongodb *mongo.Client, c *core.Core, config Config) (*ApiSe
 		mongodb: mongodb.Database("syzoj"),
 		c:       c,
 		config:  config,
+		wsConn:  make(map[*websocket.Conn]struct{}),
 	}
+	srv.wg.Add(1)
 	srv.ctx, srv.cancelFunc = context.WithCancel(context.Background())
 	srv.setupRoutes()
 	return srv, nil
@@ -118,5 +122,12 @@ func (srv *ApiServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 func (srv *ApiServer) Close() {
 	srv.cancelFunc()
+	srv.wsConnMutex.Lock()
+	for conn := range srv.wsConn {
+		conn.Close()
+	}
+	srv.wsConn = nil // Cause errors if someone attempts to write to wsConn
+	srv.wsConnMutex.Unlock()
+	srv.wg.Done()
 	srv.wg.Wait()
 }

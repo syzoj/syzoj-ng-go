@@ -1,8 +1,8 @@
 package util
 
 import (
-	"sync"
 	"runtime"
+	"sync"
 )
 
 type Subscriber interface {
@@ -12,6 +12,7 @@ type Subscriber interface {
 type ChanSubscriber struct {
 	C chan struct{}
 }
+
 func NewChanSubscriber() ChanSubscriber {
 	return ChanSubscriber{C: make(chan struct{}, 1)}
 }
@@ -23,10 +24,10 @@ func (s ChanSubscriber) Notify() {
 }
 
 type Broker struct {
-	mu sync.Mutex
-	ch map[Subscriber]struct{}
+	mu     sync.Mutex
+	ch     map[Subscriber]struct{}
 	closed bool
-	sem chan struct{}
+	sem    chan struct{}
 }
 
 func NewBroker() *Broker {
@@ -76,7 +77,7 @@ func (b *Broker) Broadcast() {
 
 // TODO: Better broadcast strategies
 func (b *Broker) work() {
-	for _ = range b.sem {
+	for range b.sem {
 		b.mu.Lock()
 		if b.closed {
 			return

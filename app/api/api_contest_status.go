@@ -2,11 +2,12 @@ package api
 
 import (
 	"io"
-	"time"
 
 	"github.com/gorilla/websocket"
 	"github.com/mongodb/mongo-go-driver/bson/primitive"
 	"github.com/valyala/fastjson"
+
+	"github.com/syzoj/syzoj-ng-go/util"
 )
 
 type contestStatusContext struct {
@@ -25,13 +26,17 @@ func Handle_Contest_Status(c *ApiContext) (apiErr ApiError) {
 		panic(err)
 	}
 	var ct contestStatusContext
-	ct.srv = c.Server()
+	server := c.Server()
+	ct.srv = server
 	ct.contestId = contestId
 	ct.userId = c.Session.AuthUserUid
 	ct.wsConn, err = c.UpgradeWebSocket()
 	if err != nil {
 		panic(err)
 	}
+	server.wsConnMutex.Lock()
+	server.wsConn[ct.wsConn] = struct{}{}
+	server.wsConnMutex.Unlock()
 	ct.run()
 	return
 }
@@ -40,16 +45,30 @@ func (c *contestStatusContext) run() {
 	var err error
 	defer c.close()
 	arena := new(fastjson.Arena)
+	subscriber := util.NewChanSubscriber()
+	contest := c.srv.c.GetContestR(c.contestId)
+	if contest == nil {
+		return
+	}
+	contest.StatusBroker.Subscribe(subscriber)
+	defer contest.StatusBroker.Unsubscribe(subscriber)
+	player := contest.GetPlayer(c.userId)
+	if player != nil {
+		player.Broker.Subscribe(subscriber)
+		defer player.Broker.Unsubscribe(subscriber)
+	}
+	subscriber.Notify()
+	contest.RUnlock()
 	for {
-		arena.Reset()
 		select {
 		case <-c.srv.ctx.Done():
 			return
-		case <-time.After(time.Second):
+		case <-subscriber.C:
 		}
+		arena.Reset()
 		msg := arena.NewObject()
 		func() {
-			contest := c.srv.c.GetContestR(c.contestId)
+			contest = c.srv.c.GetContestR(c.contestId)
 			if contest == nil {
 				return
 			}
@@ -78,4 +97,9 @@ func (c *contestStatusContext) run() {
 
 func (c *contestStatusContext) close() {
 	c.wsConn.Close()
+	c.srv.wsConnMutex.Lock()
+	if c.srv.wsConn != nil {
+		delete(c.srv.wsConn, c.wsConn)
+	}
+	c.srv.wsConnMutex.Unlock()
 }

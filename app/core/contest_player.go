@@ -13,19 +13,19 @@ type ContestPlayer struct {
 	modelId  primitive.ObjectID
 	userId   primitive.ObjectID
 	problems map[string]*ContestPlayerProblem
-	Broker *util.Broker
+	Broker   *util.Broker
 }
 type ContestPlayerProblem struct {
 	subscriptions []*contestPlayerSubscription
 }
 type contestPlayerSubscription struct {
-	c            *Contest
-	submission *Submission
-	userId       primitive.ObjectID
-	penaltyTime  time.Duration
-	done         bool
-	score        float64
-	loaded bool
+	c           *Contest
+	submission  *Submission
+	userId      primitive.ObjectID
+	penaltyTime time.Duration
+	done        bool
+	score       float64
+	loaded      bool
 }
 
 func (s *contestPlayerSubscription) Notify() {
@@ -43,6 +43,7 @@ func (s *contestPlayerSubscription) Notify() {
 		s.done = done
 		s.score = score
 		p := s.c.players[s.userId]
+		p.Broker.Broadcast() // notify player submission status change
 		s.c.updatePlayerRankInfo(p)
 	}()
 }
@@ -75,10 +76,10 @@ func (c *Contest) loadPlayer(contestPlayerModel *model.ContestPlayer) {
 		for _, submission := range problemEntryModel.Submissions {
 			csubmission := c.c.GetSubmission(submission.SubmissionId)
 			subscription := &contestPlayerSubscription{
-				c:            c,
-				userId:       player.userId,
-				submission: csubmission,
-				penaltyTime:  submission.PenaltyTime,
+				c:           c,
+				userId:      player.userId,
+				submission:  csubmission,
+				penaltyTime: submission.PenaltyTime,
 			}
 			csubmission.Broker.Subscribe(subscription)
 			subscription.Notify()

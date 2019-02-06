@@ -31,7 +31,7 @@ type Contest struct {
 	playerUpdateChan chan mongo.WriteModel
 	context          context.Context
 	cancelFunc       func()
-	wg sync.WaitGroup
+	wg               sync.WaitGroup
 
 	players map[primitive.ObjectID]*ContestPlayer
 
@@ -175,6 +175,7 @@ func (c *Contest) startSchedule() {
 	}
 	c.lock.Lock()
 	defer c.lock.Unlock()
+	c.StatusBroker.Broadcast() // trigger potential deadlocks
 	if !c.loaded {
 		return
 	}

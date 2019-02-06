@@ -30,10 +30,10 @@ type judger struct {
 }
 
 type Submission struct {
-	Lock        sync.RWMutex
+	Lock   sync.RWMutex
 	Broker *util.Broker
-	Done        bool
-	Score       float64
+	Done   bool
+	Score  float64
 }
 
 func (item *queueItem) getFields() logrus.Fields {
