@@ -97,7 +97,7 @@ func (srv *Core) EnqueueSubmission(id primitive.ObjectID) {
 	if err = srv.mongodb.Collection("submission").FindOne(srv.context,
 		bson.D{{"_id", id}, {"judge_queue_status", bson.D{{"$exists", true}}}},
 		mongo_options.FindOne().SetProjection(bson.D{{"_id", 1}, {"problem", 1}, {"content", 1}, {"judge_queue_status", 1}})).Decode(&submission); err != nil {
-		log.WithField("submissionId", id).Error("NotifySubmission: Failed to find submission: " + err.Error())
+		log.WithField("submissionId", id).Error("NotifySubmission: Failed to find submission: ", err)
 		return
 	}
 	srv.enqueueModel(submission)

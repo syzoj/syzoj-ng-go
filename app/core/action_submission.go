@@ -26,7 +26,7 @@ type Submit1Resp struct {
 	SubmissionId primitive.ObjectID
 }
 
-// Submits to the public problemset.
+// Creates a submission and prepares it for judge.
 // Possible errors:
 // * ErrProblemNotExist
 // * MongoDB error or context error

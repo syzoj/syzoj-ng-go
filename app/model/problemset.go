@@ -9,14 +9,14 @@ import (
 
 type Problemset struct {
 	Id             primitive.ObjectID `bson:"_id"`
-	Problems       []ProblemsetEntry  `bson:"problems,omitempty"`
+	Problems       []*ProblemsetEntry `bson:"problems,omitempty"`
 	ProblemsetName string             `bson:"problemset_name,omitempty"`
 	Contest        Contest            `bson:"contest,omitempty"`
 	Description    string             `bson:"description,omitempty"`
 }
 
 type ProblemsetEntry struct {
-	Name      string             `bson:"name",omitempty"`
+	Name      string             `bson:"name,omitempty"`
 	ProblemId primitive.ObjectID `bson:"problem_id,omitempty"`
 }
 

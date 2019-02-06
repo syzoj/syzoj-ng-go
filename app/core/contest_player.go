@@ -16,6 +16,7 @@ type ContestPlayer struct {
 	Broker   *util.Broker
 }
 type ContestPlayerProblem struct {
+	id            int
 	subscriptions []*contestPlayerSubscription
 }
 type contestPlayerSubscription struct {

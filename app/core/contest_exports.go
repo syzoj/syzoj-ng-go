@@ -1,6 +1,8 @@
 package core
 
 import (
+	"time"
+
 	"github.com/mongodb/mongo-go-driver/bson"
 	"github.com/mongodb/mongo-go-driver/bson/primitive"
 	"github.com/mongodb/mongo-go-driver/mongo"
@@ -43,4 +45,45 @@ func (c *Contest) RegisterPlayer(userId primitive.ObjectID) bool {
 	})
 	c.playerUpdateChan <- model
 	return true
+}
+
+// Possible errors:
+// * ErrGeneral
+// * ErrTooManySubmissions
+func (c *Contest) PlayerSubmission(player *ContestPlayer, name string, submissionId primitive.ObjectID) error {
+	if !checkName(name) {
+		log.Debug("Contest.PlayerSubmission: Invalid problem name")
+		return ErrGeneral
+	}
+	if _, ok := player.problems[name]; !ok {
+		problem := new(ContestPlayerProblem)
+		player.problems[name] = problem
+		model := mongo.NewUpdateOneModel()
+		model.SetFilter(bson.D{{"_id", player.modelId}})
+		model.SetUpdate(bson.D{{"$set", bson.D{{"problems." + name, bson.D{{"submissions", bson.A{}}}}}}})
+		c.playerUpdateChan <- model
+	}
+	problemEntry := player.problems[name]
+	// TODO: Make this configurable
+	if len(problemEntry.subscriptions) >= 3 {
+		return ErrTooManySubmissions
+	}
+	submission := c.c.GetSubmission(submissionId)
+	subscription := &contestPlayerSubscription{
+		c:           c,
+		userId:      player.userId,
+		submission:  submission,
+		penaltyTime: time.Now().Sub(c.startTime),
+	}
+	submission.Broker.Subscribe(subscription)
+	subscription.Notify()
+	problemEntry.subscriptions = append(problemEntry.subscriptions, subscription)
+	model := mongo.NewUpdateOneModel()
+	model.SetFilter(bson.D{{"_id", player.modelId}})
+	model.SetUpdate(bson.D{{"$push", bson.D{{"problems." + name + ".submissions", bson.D{
+		{"submission_id", submissionId},
+		{"penalty_time", subscription.penaltyTime},
+	}}}}})
+	c.playerUpdateChan <- model
+	return nil
 }

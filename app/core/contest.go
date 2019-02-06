@@ -87,7 +87,7 @@ func (c *Core) CreateContest(ctx context.Context, id primitive.ObjectID, options
 			log.WithField("contestId", id).Warning("Called CreateContest() on existing contest")
 			c.unloadContest(id)
 		}
-		c.loadContest(contestModel.Id, &contestModel.Contest)
+		c.loadContest(contestModel.Id, &contestModel)
 	}()
 	return
 }
@@ -95,7 +95,7 @@ func (c *Core) CreateContest(ctx context.Context, id primitive.ObjectID, options
 func (c *Core) initContest(ctx context.Context) (err error) {
 	c.contests = make(map[primitive.ObjectID]*Contest)
 	var cursor *mongo.Cursor
-	if cursor, err = c.mongodb.Collection("problemset").Find(ctx, bson.D{{"contest", bson.D{{"$exists", true}}}}, mongo_options.Find().SetProjection(bson.D{{"_id", 1}, {"contest", 1}})); err != nil {
+	if cursor, err = c.mongodb.Collection("problemset").Find(ctx, bson.D{{"contest", bson.D{{"$exists", true}}}}, mongo_options.Find().SetProjection(bson.D{{"_id", 1}, {"contest", 1}, {"problems", 1}})); err != nil {
 		return
 	}
 	for cursor.Next(ctx) {
@@ -103,7 +103,7 @@ func (c *Core) initContest(ctx context.Context) (err error) {
 		if err = cursor.Decode(&contestModel); err != nil {
 			return
 		}
-		c.loadContest(contestModel.Id, &contestModel.Contest)
+		c.loadContest(contestModel.Id, &contestModel)
 	}
 	if err = cursor.Err(); err != nil {
 		return
@@ -118,7 +118,7 @@ func (c *Core) ReloadContest(ctx context.Context, id primitive.ObjectID) (err er
 	if err = c.mongodb.Collection("problemset").FindOne(ctx, bson.D{{"contest", bson.D{{"$exists", true}}}, {"_id", id}}).Decode(&contestModel); err != nil {
 		return
 	}
-	c.reloadContest(id, &contestModel.Contest)
+	c.reloadContest(id, &contestModel)
 	return
 }
 
@@ -146,13 +146,13 @@ func (c *Core) unloadContest(id primitive.ObjectID) {
 	delete(c.contests, id)
 }
 
-func (c *Core) loadContest(id primitive.ObjectID, contestModel *model.Contest) {
+func (c *Core) loadContest(id primitive.ObjectID, contestModel *model.Problemset) {
 	contest := &Contest{c: c, id: id}
 	c.contests[id] = contest
 	contest.load(contestModel)
 }
 
-func (c *Core) reloadContest(id primitive.ObjectID, contestModel *model.Contest) {
+func (c *Core) reloadContest(id primitive.ObjectID, contestModel *model.Problemset) {
 	if _, ok := c.contests[id]; ok {
 		c.unloadContest(id)
 	}

@@ -58,6 +58,7 @@ var ErrProblemNotFound = &apiError{404, "Problem not found"}
 var ErrContestNotFound = &apiError{404, "Contest not found"}
 var ErrSubmissionNotFound = &apiError{404, "Submission not found"}
 var ErrQueueFull = &apiError{503, "Submission queue full"}
+var ErrTooManySubmissions = &apiError{503, "Too many submissions"}
 
 var ErrAlreadyLoggedIn = &apiError{200, "Already logged in"}
 var ErrNotLoggedIn = &apiError{401, "Authentication required"}

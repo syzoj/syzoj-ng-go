@@ -33,6 +33,11 @@ type Contest struct {
 	cancelFunc       func()
 	wg               sync.WaitGroup
 
+	startTime time.Time
+	// immutable data
+	Problems       []*model.ProblemsetEntry
+	NameToProblems map[string]int
+
 	players map[primitive.ObjectID]*ContestPlayer
 
 	// ranklist is NOT covcered by lock; it has its own synchronization mechanism
@@ -54,27 +59,33 @@ func newState() string {
 }
 
 // Call exactly once when the contest gets loaded into memory.
-func (c *Contest) load(contestModel *model.Contest) {
+func (c *Contest) load(contestModel *model.Problemset) {
 	c.lock.Lock()
 	c.StatusBroker = util.NewBroker()
 	go func() {
 		defer c.lock.Unlock()
 		log.WithField("contestId", c.id).Info("Loading contest")
-		c.running = contestModel.Running
-		c.state = contestModel.State
+		c.running = contestModel.Contest.Running
+		c.state = contestModel.Contest.State
+		c.startTime = contestModel.Contest.StartTime
+		c.Problems = contestModel.Problems
+		c.NameToProblems = make(map[string]int)
+		for i, problem := range c.Problems {
+			c.NameToProblems[problem.Name] = i
+		}
 		c.loaded = true
 		c.wg.Add(1)
 		c.context, c.cancelFunc = context.WithCancel(context.Background())
 		c.updateChan = make(chan mongo.WriteModel, 100)
 		c.playerUpdateChan = make(chan mongo.WriteModel, 1000)
-		switch contestModel.RanklistType {
+		switch contestModel.Contest.RanklistType {
 		case "realtime":
 			c.ranklist = &ContestRealTimeRanklist{c: c}
 		default:
 			c.ranklist = ContestDummyRanklist{}
 		}
 		c.ranklist.Load()
-		switch contestModel.RanklistComp {
+		switch contestModel.Contest.RanklistComp {
 		case "maxsum":
 			c.rankcomp = ContestRankCompMaxScoreSum{}
 		case "lastsum":
@@ -90,7 +101,7 @@ func (c *Contest) load(contestModel *model.Contest) {
 		go handleWrites(c.context, c.playerUpdateChan, c.c.mongodb.Collection("contest_player"), c.id, &c.wg)
 
 		// Load all schedules
-		for id, scheduleModel := range contestModel.Schedule {
+		for id, scheduleModel := range contestModel.Contest.Schedule {
 			if scheduleModel.Done {
 				continue
 			}
