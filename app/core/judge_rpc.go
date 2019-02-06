@@ -112,13 +112,12 @@ func (srv judgeRpc) SetTaskResult(ctx context.Context, in *judge_api.SetTaskResu
 	delete(srv.queueItems, id)
 	srv.queueLock.Unlock()
 	go func() {
-		handler := srv.loadSubmission(item.id)
-		handler.done = true
-		handler.score = float64(in.Result.Score)
-		for subscriber := range handler.subscribers {
-			go subscriber.HandleNewScore(true, float64(in.Result.Score))
-		}
-		handler.lock.Unlock()
+		submission := srv.GetSubmission(item.id)
+		submission.Lock.Lock()
+		submission.Done = true
+		submission.Score = float64(in.Result.Score)
+		submission.Lock.Unlock()
+		submission.Broker.Broadcast()
 		var result *mongo.UpdateResult
 		if result, err = srv.mongodb.Collection("submission").UpdateOne(ctx,
 			bson.D{{"_id", item.id}, {"judge_queue_status.version", item.version}},

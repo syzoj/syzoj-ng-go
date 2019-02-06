@@ -14,6 +14,7 @@ import (
 	"github.com/mongodb/mongo-go-driver/mongo"
 
 	"github.com/syzoj/syzoj-ng-go/app/model"
+	"github.com/syzoj/syzoj-ng-go/util"
 )
 
 type Contest struct {
@@ -37,6 +38,8 @@ type Contest struct {
 	// ranklist is NOT covcered by lock; it has its own synchronization mechanism
 	ranklist ContestRanklist
 	rankcomp ContestRankComp
+	// broker is not covered by lock as well
+	StatusBroker *util.Broker
 }
 
 type contestSchedule struct {
@@ -51,15 +54,16 @@ func newState() string {
 }
 
 // Call exactly once when the contest gets loaded into memory.
-// Doesn ot wait for load to complete.
 func (c *Contest) load(contestModel *model.Contest) {
 	c.lock.Lock()
+	c.StatusBroker = util.NewBroker()
 	go func() {
 		defer c.lock.Unlock()
 		log.WithField("contestId", c.id).Info("Loading contest")
 		c.running = contestModel.Running
 		c.state = contestModel.State
 		c.loaded = true
+		c.wg.Add(1)
 		c.context, c.cancelFunc = context.WithCancel(context.Background())
 		c.updateChan = make(chan mongo.WriteModel, 100)
 		c.playerUpdateChan = make(chan mongo.WriteModel, 1000)
@@ -134,8 +138,8 @@ func (c *Contest) load(contestModel *model.Contest) {
 			log.WithField("contestId", c.id).Warning("Failed to load contest players: ", err)
 		}
 		for cursor.Next(c.context) {
-			var contestPlayerModel *model.ContestPlayer
-			if err = cursor.Decode(&contestPlayerModel); err != nil {
+			var contestPlayerModel = new(model.ContestPlayer)
+			if err = cursor.Decode(contestPlayerModel); err != nil {
 				log.WithField("contestId", c.id).Warning("Failed to load a contest player: ", err)
 			} else {
 				c.loadPlayer(contestPlayerModel)
@@ -194,6 +198,7 @@ func (c *Contest) unload() {
 		log.WithField("contestId", c.id).Error("Double unloading contest")
 		return
 	}
+	c.StatusBroker.Close()
 	log.WithField("contestId", c.id).Info("Unloading contest")
 	c.ranklist.Unload()
 	for _, player := range c.players {
@@ -207,6 +212,7 @@ func (c *Contest) unload() {
 	if c.scheduleTimer != nil {
 		c.scheduleTimer.Stop()
 	}
+	c.wg.Done()
 	c.wg.Wait()
 }
 

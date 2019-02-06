@@ -6,34 +6,45 @@ import (
 	"github.com/mongodb/mongo-go-driver/bson/primitive"
 
 	"github.com/syzoj/syzoj-ng-go/app/model"
+	"github.com/syzoj/syzoj-ng-go/util"
 )
 
 type ContestPlayer struct {
 	modelId  primitive.ObjectID
 	userId   primitive.ObjectID
 	problems map[string]*ContestPlayerProblem
+	Broker *util.Broker
 }
 type ContestPlayerProblem struct {
 	subscriptions []*contestPlayerSubscription
 }
 type contestPlayerSubscription struct {
 	c            *Contest
+	submission *Submission
 	userId       primitive.ObjectID
-	submissionId primitive.ObjectID
 	penaltyTime  time.Duration
 	done         bool
 	score        float64
+	loaded bool
 }
 
-func (s *contestPlayerSubscription) HandleNewScore(done bool, score float64) {
-	s.c.lock.Lock()
-	defer s.c.lock.Unlock()
-	log.WithField("contestId", s.c.id).WithField("done", done).WithField("score", score).Info("Received submission score")
-	s.done = done
-	s.score = score
+func (s *contestPlayerSubscription) Notify() {
+	go func() {
+		s.submission.Lock.RLock()
+		done, score := s.submission.Done, s.submission.Score
+		s.submission.Lock.RUnlock()
 
-	p := s.c.players[s.userId]
-	s.c.updatePlayerRankInfo(p)
+		s.c.lock.Lock()
+		defer s.c.lock.Unlock()
+		if !s.c.loaded {
+			return
+		}
+		log.WithField("contestId", s.c.id).WithField("done", done).WithField("score", score).Info("Received submission score")
+		s.done = done
+		s.score = score
+		p := s.c.players[s.userId]
+		s.c.updatePlayerRankInfo(p)
+	}()
 }
 func (c *Contest) updatePlayerRankInfo(player *ContestPlayer) {
 	rankInfo := new(ContestPlayerRankInfo)
@@ -55,19 +66,22 @@ func (c *Contest) updatePlayerRankInfo(player *ContestPlayer) {
 
 func (c *Contest) loadPlayer(contestPlayerModel *model.ContestPlayer) {
 	player := new(ContestPlayer)
+	player.Broker = util.NewBroker()
 	player.modelId = contestPlayerModel.Id
 	player.userId = contestPlayerModel.User
 	player.problems = make(map[string]*ContestPlayerProblem)
 	for i, problemEntryModel := range contestPlayerModel.Problems {
 		problemEntry := new(ContestPlayerProblem)
 		for _, submission := range problemEntryModel.Submissions {
+			csubmission := c.c.GetSubmission(submission.SubmissionId)
 			subscription := &contestPlayerSubscription{
 				c:            c,
 				userId:       player.userId,
-				submissionId: submission.SubmissionId,
+				submission: csubmission,
 				penaltyTime:  submission.PenaltyTime,
 			}
-			c.c.SubscribeSubmission(subscription.submissionId, subscription)
+			csubmission.Broker.Subscribe(subscription)
+			subscription.Notify()
 			problemEntry.subscriptions = append(problemEntry.subscriptions, subscription)
 		}
 		player.problems[i] = problemEntry
@@ -76,9 +90,10 @@ func (c *Contest) loadPlayer(contestPlayerModel *model.ContestPlayer) {
 }
 
 func (*Contest) unloadPlayer(p *ContestPlayer) {
+	p.Broker.Close()
 	for _, problemEntry := range p.problems {
 		for _, subscription := range problemEntry.subscriptions {
-			subscription.c.c.UnsubscribeSubmission(subscription.submissionId, subscription)
+			subscription.submission.Broker.Unsubscribe(subscription)
 		}
 	}
 }

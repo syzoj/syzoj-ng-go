@@ -11,6 +11,7 @@ import (
 	"github.com/sirupsen/logrus"
 
 	"github.com/syzoj/syzoj-ng-go/app/model"
+	"github.com/syzoj/syzoj-ng-go/util"
 )
 
 type queueItem struct {
@@ -28,15 +29,11 @@ type judger struct {
 	judgingTask []int
 }
 
-type submissionHandler struct {
-	lock        sync.Mutex
-	subscribers map[SubmissionSubscriber]struct{}
-	done        bool
-	score       float64
-}
-
-type SubmissionSubscriber interface {
-	HandleNewScore(done bool, score float64)
+type Submission struct {
+	Lock        sync.RWMutex
+	Broker *util.Broker
+	Done        bool
+	Score       float64
 }
 
 func (item *queueItem) getFields() logrus.Fields {
@@ -51,7 +48,7 @@ func (srv *Core) initJudge(ctx context.Context) (err error) {
 	srv.queueItems = make(map[int]*queueItem)
 	srv.queueSize = 0
 	srv.judgers = make(map[primitive.ObjectID]*judger)
-	srv.submissionHandlers = make(map[primitive.ObjectID]*submissionHandler)
+	srv.submissions = make(map[primitive.ObjectID]*Submission)
 	var cursor *mongo.Cursor
 	if cursor, err = srv.mongodb.Collection("submission").Find(ctx,
 		bson.D{{"judge_queue_status", bson.D{{"$exists", true}}}},
@@ -119,16 +116,16 @@ func (c *Core) getJudger(id primitive.ObjectID) *judger {
 	return j
 }
 
-func (c *Core) loadSubmission(submissionId primitive.ObjectID) *submissionHandler {
-	c.submissionHandlersLock.Lock()
-	handler, ok := c.submissionHandlers[submissionId]
+func (c *Core) GetSubmission(submissionId primitive.ObjectID) *Submission {
+	c.submissionsLock.Lock()
+	submission, ok := c.submissions[submissionId]
 	if !ok {
-		handler = new(submissionHandler)
-		handler.subscribers = make(map[SubmissionSubscriber]struct{})
-		c.submissionHandlers[submissionId] = handler
-		handler.lock.Lock()
+		submission = new(Submission)
+		submission.Broker = util.NewBroker()
+		c.submissions[submissionId] = submission
+		submission.Lock.Lock()
 	}
-	c.submissionHandlersLock.Unlock()
+	c.submissionsLock.Unlock()
 	if !ok {
 		var submissionModel model.Submission
 		var err error
@@ -136,30 +133,12 @@ func (c *Core) loadSubmission(submissionId primitive.ObjectID) *submissionHandle
 			log.WithField("submissionId", submissionId).Error("Failed to load submission: ", err)
 		}
 		if submissionModel.Result.Status == "Done" {
-			handler.done = true
-			handler.score = submissionModel.Result.Score
+			submission.Done = true
+			submission.Score = submissionModel.Result.Score
 		} else {
-			handler.done = false
+			submission.Done = false
 		}
-	} else {
-		handler.lock.Lock()
+		submission.Lock.Unlock()
 	}
-	return handler
-}
-
-// subscriber must be comparable
-func (c *Core) SubscribeSubmission(submissionId primitive.ObjectID, subscriber SubmissionSubscriber) {
-	handler := c.loadSubmission(submissionId)
-	defer handler.lock.Unlock()
-	handler.subscribers[subscriber] = struct{}{}
-	go subscriber.HandleNewScore(handler.done, handler.score)
-}
-
-func (c *Core) UnsubscribeSubmission(submissionId primitive.ObjectID, subscriber SubmissionSubscriber) {
-	handler := c.loadSubmission(submissionId)
-	defer handler.lock.Unlock()
-	delete(handler.subscribers, subscriber)
-	if len(handler.subscribers) == 0 {
-		log.WithField("submissionId", submissionId).Debug("TODO: Submission has no subscriber, remove from memory")
-	}
+	return submission
 }
