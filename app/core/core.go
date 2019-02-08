@@ -46,7 +46,7 @@ func NewCore(mongodb *mongo.Client) (srv *Core, err error) {
 	if err = srv.initJudge(srv.context); err != nil {
 		return
 	}
-	if err = srv.initContest(srv.context); err != nil {
+	if err = srv.initContestLocked(srv.context); err != nil {
 		return
 	}
 	srv.initOracle()
@@ -57,6 +57,6 @@ func (c *Core) Close() error {
 	c.lock.Lock()
 	defer c.lock.Unlock()
 	c.cancelFunc()
-	c.unloadAllContests()
+	c.unloadAllContestsLocked()
 	return nil
 }

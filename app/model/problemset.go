@@ -13,6 +13,7 @@ type Problemset struct {
 	ProblemsetName string             `bson:"problemset_name,omitempty"`
 	Contest        Contest            `bson:"contest,omitempty"`
 	Description    string             `bson:"description,omitempty"`
+	Owner          primitive.ObjectID `bson:"owner,omitempty"`
 }
 
 type ProblemsetEntry struct {

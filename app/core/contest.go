@@ -76,23 +76,32 @@ func (c *Core) CreateContest(ctx context.Context, id primitive.ObjectID, options
 	if result.MatchedCount == 0 {
 		return errors.New("Problemset not found")
 	}
-	go func() {
-		var contestModel model.Problemset
-		if err = c.mongodb.Collection("problemset").FindOne(c.context, bson.D{{"_id", id}}, mongo_options.FindOne().SetProjection(bson.D{{"_id", 1}, {"contest", 1}})).Decode(&contestModel); err != nil {
-			return
-		}
-		c.lock.Lock()
-		defer c.lock.Unlock()
-		if _, found := c.contests[id]; found {
-			log.WithField("contestId", id).Warning("Called CreateContest() on existing contest")
-			c.unloadContest(id)
-		}
-		c.loadContest(contestModel.Id, &contestModel)
-	}()
+	if err = c.LoadContest(id); err != nil {
+		return
+	}
 	return
 }
 
-func (c *Core) initContest(ctx context.Context) (err error) {
+// Loads a contest into memory. Blocks until the contest is in memory.
+// This is currently slow and blocks other operations.
+func (c *Core) LoadContest(id primitive.ObjectID) (err error) {
+	var contestModel model.Problemset
+	if err = c.mongodb.Collection("problemset").FindOne(c.context, bson.D{{"_id", id}}, mongo_options.FindOne().SetProjection(bson.D{{"_id", 1}, {"contest", 1}})).Decode(&contestModel); err != nil {
+		return
+	}
+	c.lock.Lock()
+	defer c.lock.Unlock()
+	if _, found := c.contests[id]; found {
+		log.WithField("contestId", id).Warning("LoadContest: contest already loaded")
+		return errors.New("Contest already loaded")
+	}
+	contest := &Contest{c: c, id: id}
+	c.contests[id] = contest
+	contest.load(&contestModel)
+	return
+}
+
+func (c *Core) initContestLocked(ctx context.Context) (err error) {
 	c.contests = make(map[primitive.ObjectID]*Contest)
 	var cursor *mongo.Cursor
 	if cursor, err = c.mongodb.Collection("problemset").Find(ctx, bson.D{{"contest", bson.D{{"$exists", true}}}}, mongo_options.Find().SetProjection(bson.D{{"_id", 1}, {"contest", 1}, {"problems", 1}})); err != nil {
@@ -103,7 +112,9 @@ func (c *Core) initContest(ctx context.Context) (err error) {
 		if err = cursor.Decode(&contestModel); err != nil {
 			return
 		}
-		c.loadContest(contestModel.Id, &contestModel)
+		contest := &Contest{c: c, id: contestModel.Id}
+		c.contests[contestModel.Id] = contest
+		contest.load(&contestModel)
 	}
 	if err = cursor.Err(); err != nil {
 		return
@@ -111,52 +122,33 @@ func (c *Core) initContest(ctx context.Context) (err error) {
 	return
 }
 
-func (c *Core) ReloadContest(ctx context.Context, id primitive.ObjectID) (err error) {
-	c.lock.Lock()
-	defer c.lock.Unlock()
-	var contestModel model.Problemset
-	if err = c.mongodb.Collection("problemset").FindOne(ctx, bson.D{{"contest", bson.D{{"$exists", true}}}, {"_id", id}}).Decode(&contestModel); err != nil {
-		return
-	}
-	c.reloadContest(id, &contestModel)
-	return
-}
-
-func (c *Core) unloadAllContests() error {
+func (c *Core) unloadAllContestsLocked() error {
 	var wg sync.WaitGroup
-	for _, contest := range c.contests {
+	for id, contest := range c.contests {
 		wg.Add(1)
 		go func(contest *Contest) {
 			contest.unload()
 			wg.Done()
 		}(contest)
+		delete(c.contests, id)
 	}
-	c.contests = nil
 	wg.Wait()
 	return nil
 }
 
-func (c *Core) unloadContest(id primitive.ObjectID) {
+// Unloads a contest from memory. Waits until the contest is ready to be reloaded.
+// This is currently slow and blocks other operations.
+func (c *Core) UnloadContest(id primitive.ObjectID) error {
+	c.lock.Lock()
+	defer c.lock.Unlock()
 	contest := c.contests[id]
 	if contest == nil {
-		log.WithField("contestId", id).Warning("unloadContest: contest doesn't exist")
-		return
+		log.WithField("contestId", id).Warning("UnloadContest: contest not loaded")
+		return errors.New("Contest is not loaded")
 	}
-	contest.unload()
 	delete(c.contests, id)
-}
-
-func (c *Core) loadContest(id primitive.ObjectID, contestModel *model.Problemset) {
-	contest := &Contest{c: c, id: id}
-	c.contests[id] = contest
-	contest.load(contestModel)
-}
-
-func (c *Core) reloadContest(id primitive.ObjectID, contestModel *model.Problemset) {
-	if _, ok := c.contests[id]; ok {
-		c.unloadContest(id)
-	}
-	c.loadContest(id, contestModel)
+	contest.unload()
+	return nil
 }
 
 // Call RUnlock() if return value is not nil
@@ -164,10 +156,13 @@ func (c *Core) GetContestR(id primitive.ObjectID) *Contest {
 	c.lock.RLock()
 	contest := c.contests[id]
 	c.lock.RUnlock()
+	if contest == nil {
+		return nil
+	}
 	contest.lock.RLock()
 	if !contest.loaded {
 		contest.lock.RUnlock()
-		return nil
+		panic("Core: contest unloaded without removing from map")
 	}
 	return contest
 }
@@ -177,10 +172,13 @@ func (c *Core) GetContestW(id primitive.ObjectID) *Contest {
 	c.lock.RLock()
 	contest := c.contests[id]
 	c.lock.RUnlock()
+	if contest == nil {
+		return nil
+	}
 	contest.lock.Lock()
 	if !contest.loaded {
 		contest.lock.Unlock()
-		return nil
+		panic("Core: contest unloaded without removing from map")
 	}
 	return contest
 }

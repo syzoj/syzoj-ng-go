@@ -23,7 +23,7 @@ func Handle_Contest_New(c *ApiContext) (apiErr ApiError) {
 	problemsetId := primitive.NewObjectID()
 	title := string(body.GetStringBytes("title"))
 	description := string(body.GetStringBytes("description"))
-	if _, err = c.Server().mongodb.Collection("problemset").InsertOne(c.Context(), bson.D{{"_id", problemsetId}, {"problemset_name", title}, {"description", description}}); err != nil {
+	if _, err = c.Server().mongodb.Collection("problemset").InsertOne(c.Context(), bson.D{{"_id", problemsetId}, {"problemset_name", title}, {"description", description}, {"owner", c.Session.AuthUserUid}}); err != nil {
 		panic(err)
 	}
 	var options core.ContestOptions
@@ -31,7 +31,6 @@ func Handle_Contest_New(c *ApiContext) (apiErr ApiError) {
 	if optionsVal == nil {
 		return badRequestError(errors.New("Invalid options"))
 	}
-	log.Info(string(optionsVal.GetStringBytes("start_time")))
 	if options.StartTime, err = time.Parse(time.RFC3339, string(optionsVal.GetStringBytes("start_time"))); err != nil {
 		return badRequestError(errors.New("Invalid start time: " + err.Error()))
 	}

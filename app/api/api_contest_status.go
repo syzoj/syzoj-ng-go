@@ -67,10 +67,11 @@ func (c *contestStatusContext) run() {
 		}
 		arena.Reset()
 		msg := arena.NewObject()
+		var ended bool
 		func() {
 			contest = c.srv.c.GetContestR(c.contestId)
 			if contest == nil {
-				return
+				return // Disconnect because contest is unloaded
 			}
 			defer contest.RUnlock()
 			if contest.Running() {
@@ -92,6 +93,9 @@ func (c *contestStatusContext) run() {
 			return
 		}
 		err = w.Close()
+		if ended {
+			break
+		}
 	}
 }
 

@@ -84,7 +84,6 @@ func (c *Contest) load(contestModel *model.Problemset) {
 		default:
 			c.ranklist = ContestDummyRanklist{}
 		}
-		c.ranklist.Load()
 		switch contestModel.Contest.RanklistComp {
 		case "maxsum":
 			c.rankcomp = ContestRankCompMaxScoreSum{}
@@ -95,6 +94,7 @@ func (c *Contest) load(contestModel *model.Problemset) {
 		default:
 			c.rankcomp = ContestDummyRankComp{}
 		}
+		c.ranklist.Load()
 		// Bring up the writer
 		c.wg.Add(2)
 		go handleWrites(c.context, c.updateChan, c.c.mongodb.Collection("problemset"), c.id, &c.wg)
@@ -201,6 +201,8 @@ func (c *Contest) startSchedule() {
 	c.scheduleTimer = time.AfterFunc(d, c.startSchedule)
 }
 
+// This must only be called from UnloadContest so that the
+// corresponding entry in map is also deleted.
 // Call exactly once to unload the contest and save state into disk.
 // Blocks until unloading is done.
 func (c *Contest) unload() {
@@ -210,6 +212,8 @@ func (c *Contest) unload() {
 		log.WithField("contestId", c.id).Error("Double unloading contest")
 		return
 	}
+	log.Info("Status broker broadcast")
+	c.StatusBroker.Broadcast()
 	c.StatusBroker.Close()
 	log.WithField("contestId", c.id).Info("Unloading contest")
 	c.ranklist.Unload()

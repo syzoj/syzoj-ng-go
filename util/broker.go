@@ -42,7 +42,6 @@ func NewBroker() *Broker {
 func (b *Broker) Close() {
 	b.mu.Lock()
 	defer b.mu.Unlock()
-	b.ch = nil
 	b.closed = true
 	select {
 	case b.sem <- struct{}{}:
@@ -79,11 +78,11 @@ func (b *Broker) Broadcast() {
 func (b *Broker) work() {
 	for range b.sem {
 		b.mu.Lock()
-		if b.closed {
-			return
-		}
 		for ch := range b.ch {
 			ch.Notify()
+		}
+		if b.closed {
+			b.ch = nil
 		}
 		b.mu.Unlock()
 		runtime.Gosched()
