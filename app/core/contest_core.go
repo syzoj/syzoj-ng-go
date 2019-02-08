@@ -212,7 +212,6 @@ func (c *Contest) unload() {
 		log.WithField("contestId", c.id).Error("Double unloading contest")
 		return
 	}
-	log.Info("Status broker broadcast")
 	c.StatusBroker.Broadcast()
 	c.StatusBroker.Close()
 	log.WithField("contestId", c.id).Info("Unloading contest")

@@ -18,16 +18,19 @@ func Handle_Contest_Problem(c *ApiContext) (apiErr ApiError) {
 	if err = c.SessionStart(); err != nil {
 		panic(err)
 	}
+
 	contest := c.Server().c.GetContestR(contestId)
 	if contest == nil {
 		return ErrContestNotFound
 	}
 	running := contest.Running()
 	if !running {
+		contest.RUnlock()
 		return ErrPermissionDenied
 	}
 	entryId, found := contest.NameToProblems[entryName]
 	if !found {
+		contest.RUnlock()
 		return ErrContestNotFound
 	}
 	problemsetEntry := contest.Problems[entryId]
@@ -111,14 +114,17 @@ func Handle_Contest_Problem_Submit(c *ApiContext) ApiError {
 	}
 	running = contest.Running()
 	if !running {
+		contest.Unlock()
 		return ErrPermissionDenied
 	}
 	player = contest.GetPlayer(c.Session.AuthUserUid)
 	if player == nil {
+		contest.Unlock()
 		return ErrPermissionDenied
 	}
 	err = contest.PlayerSubmission(player, entryName, resp.SubmissionId)
 	contest.Unlock()
+
 	switch err {
 	case core.ErrGeneral:
 		return internalServerError(err)

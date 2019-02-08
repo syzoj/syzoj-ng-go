@@ -86,7 +86,7 @@ func (c *Core) CreateContest(ctx context.Context, id primitive.ObjectID, options
 // This is currently slow and blocks other operations.
 func (c *Core) LoadContest(id primitive.ObjectID) (err error) {
 	var contestModel model.Problemset
-	if err = c.mongodb.Collection("problemset").FindOne(c.context, bson.D{{"_id", id}}, mongo_options.FindOne().SetProjection(bson.D{{"_id", 1}, {"contest", 1}})).Decode(&contestModel); err != nil {
+	if err = c.mongodb.Collection("problemset").FindOne(c.context, bson.D{{"_id", id}}, mongo_options.FindOne().SetProjection(bson.D{{"_id", 1}, {"contest", 1}, {"problems", 1}})).Decode(&contestModel); err != nil {
 		return
 	}
 	c.lock.Lock()
