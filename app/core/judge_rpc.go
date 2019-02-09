@@ -85,14 +85,14 @@ func (srv judgeRpc) SetTaskProgress(s judge_api.Judge_SetTaskProgressServer) (er
 	return
 }
 
-func (srv judgeRpc) SetTaskResult(ctx context.Context, in *judge_api.SetTaskResultMessage) (e *empty.Empty, err error) {
+func (c judgeRpc) SetTaskResult(ctx context.Context, in *judge_api.SetTaskResultMessage) (e *empty.Empty, err error) {
 	var judgerId primitive.ObjectID
 	var ok bool
 	if judgerId, ok = DecodeObjectIDOK(in.JudgerId); !ok {
 		err = errors.New("Invalid judger id")
 		return
 	}
-	judger := srv.getJudger(judgerId)
+	judger := c.getJudger(judgerId)
 	id := int(in.TaskTag)
 	judger.listLock.Lock()
 	var found bool
@@ -107,20 +107,19 @@ func (srv judgeRpc) SetTaskResult(ctx context.Context, in *judge_api.SetTaskResu
 		err = errors.New("Invalid taskTag")
 		return
 	}
-	srv.queueLock.Lock()
-	item := srv.queueItems[id]
-	delete(srv.queueItems, id)
-	srv.queueLock.Unlock()
+	c.queueLock.Lock()
+	item := c.queueItems[id]
+	delete(c.queueItems, id)
+	c.queueLock.Unlock()
 	go func() {
-		submission := srv.GetSubmission(item.id)
+		submission := c.GetSubmission(item.id)
 		submission.Lock.Lock()
 		submission.Done = true
 		submission.Score = float64(in.Result.Score)
 		submission.Lock.Unlock()
-		submission.Broker.Broadcast()
 		var result *mongo.UpdateResult
-		if result, err = srv.mongodb.Collection("submission").UpdateOne(ctx,
-			bson.D{{"_id", item.id}, {"judge_queue_status.version", item.version}},
+		if result, err = c.mongodb.Collection("submission").UpdateOne(c.context,
+			bson.D{{"_id", item.id}},
 			bson.D{
 				{"$set", bson.D{
 					{"result", bson.D{
@@ -130,11 +129,12 @@ func (srv judgeRpc) SetTaskResult(ctx context.Context, in *judge_api.SetTaskResu
 				},
 				{"$unset", bson.D{{"judge_queue_status", 1}}},
 			}); err != nil {
-			panic(err)
+			log.WithField("submissionId", item.id).Error("Failed to update judge queue status: ", err)
+			return
 		}
+		submission.Broker.Broadcast()
 		if result.MatchedCount == 0 {
-			// Taken by another judge process
-			log.WithFields(item.getFields()).Warning("Failed to update judge status due to conflict")
+			log.WithFields(item.getFields()).Warning("Failed to update judge status")
 		}
 	}()
 	e = new(empty.Empty)

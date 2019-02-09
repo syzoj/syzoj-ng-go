@@ -19,7 +19,6 @@ type queueItem struct {
 	problemId primitive.ObjectID
 	language  string
 	code      string
-	version   string
 }
 
 type judger struct {
@@ -31,6 +30,7 @@ type judger struct {
 
 type Submission struct {
 	Lock   sync.RWMutex
+	Id primitive.ObjectID
 	Broker *util.Broker
 	Done   bool
 	Score  float64
@@ -51,7 +51,7 @@ func (srv *Core) initJudge(ctx context.Context) (err error) {
 	srv.submissions = make(map[primitive.ObjectID]*Submission)
 	var cursor *mongo.Cursor
 	if cursor, err = srv.mongodb.Collection("submission").Find(ctx,
-		bson.D{{"judge_queue_status", bson.D{{"$exists", true}}}},
+		bson.D{{"judge_queue_status.in_queue", true}},
 		mongo_options.Find().SetProjection(bson.D{{"_id", 1}, {"problem", 1}, {"content.language", 1}, {"content.code", 1}, {"judge_queue_status", 1}})); err != nil {
 		return
 	}
@@ -61,23 +61,18 @@ func (srv *Core) initJudge(ctx context.Context) (err error) {
 		if err = cursor.Decode(&submission); err != nil {
 			panic(err)
 		}
-		srv.enqueueModel(submission)
+		item := &queueItem{
+			id:        submission.Id,
+			problemId: submission.Problem,
+			language:  submission.Content.Language,
+			code:      submission.Content.Code,
+		}
+		srv.enqueue(item)
 	}
 	if err = cursor.Err(); err != nil {
 		return
 	}
 	return
-}
-
-func (srv *Core) enqueueModel(model *model.Submission) {
-	item := &queueItem{
-		id:        model.Id,
-		problemId: model.Problem,
-		language:  model.Content.Language,
-		code:      model.Content.Code,
-		version:   model.JudgeQueueStatus.Version,
-	}
-	srv.enqueue(item)
 }
 
 func (srv *Core) enqueue(item *queueItem) {
@@ -91,16 +86,28 @@ func (srv *Core) enqueue(item *queueItem) {
 }
 
 // Puts a submission into queue.
-func (srv *Core) EnqueueSubmission(id primitive.ObjectID) {
+func (c *Core) EnqueueSubmission(id primitive.ObjectID) {
 	var err error
 	submission := new(model.Submission)
-	if err = srv.mongodb.Collection("submission").FindOne(srv.context,
-		bson.D{{"_id", id}, {"judge_queue_status", bson.D{{"$exists", true}}}},
+	if err = c.mongodb.Collection("submission").FindOne(c.context,
+		bson.D{{"_id", id}},
 		mongo_options.FindOne().SetProjection(bson.D{{"_id", 1}, {"problem", 1}, {"content", 1}, {"judge_queue_status", 1}})).Decode(&submission); err != nil {
-		log.WithField("submissionId", id).Error("NotifySubmission: Failed to find submission: ", err)
+		log.WithField("submissionId", id).Error("EnqueueSubmission: Failed to find submission: ", err)
 		return
 	}
-	srv.enqueueModel(submission)
+	if _, err = c.mongodb.Collection("submission").UpdateOne(c.context,
+		bson.D{{"_id", id}},
+		bson.D{{"$set", bson.D{{"judge_queue_status", bson.D{{"in_queue", true}}}}}}); err != nil {
+		log.WithField("submissionId", id).Error("Failed to set judge queue status: ", err)
+		return
+	}
+	item := &queueItem{
+		id:        submission.Id,
+		problemId: submission.Problem,
+		language:  submission.Content.Language,
+		code:      submission.Content.Code,
+	}
+	c.enqueue(item)
 }
 
 func (c *Core) getJudger(id primitive.ObjectID) *judger {
@@ -121,6 +128,7 @@ func (c *Core) GetSubmission(submissionId primitive.ObjectID) *Submission {
 	submission, ok := c.submissions[submissionId]
 	if !ok {
 		submission = new(Submission)
+		submission.Id = submissionId
 		submission.Broker = util.NewBroker()
 		c.submissions[submissionId] = submission
 		submission.Lock.Lock()

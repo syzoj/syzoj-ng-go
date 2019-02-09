@@ -14,8 +14,12 @@ var log = logrus.StandardLogger()
 type Core struct {
 	mongodb    *mongo.Database
 	lock       sync.RWMutex
+	// context is the reliability context, aborting it would result in data loss
 	context    context.Context
+	// context2 is thoe cancel signal context, aborting it should only cause minimal damages
+	context2    context.Context
 	cancelFunc func()
+	cancelFunc2 func()
 
 	queue      chan int
 	queueSize  int
@@ -41,6 +45,7 @@ func NewCore(mongodb *mongo.Client) (srv *Core, err error) {
 		mongodb: mongodb.Database("syzoj"),
 	}
 	srv.context, srv.cancelFunc = context.WithCancel(context.Background())
+	srv.context2, srv.cancelFunc2 = context.WithCancel(context.Background())
 	srv.lock.Lock()
 	defer srv.lock.Unlock()
 	if err = srv.initJudge(srv.context); err != nil {
@@ -56,7 +61,7 @@ func NewCore(mongodb *mongo.Client) (srv *Core, err error) {
 func (c *Core) Close() error {
 	c.lock.Lock()
 	defer c.lock.Unlock()
-	c.cancelFunc()
+	c.cancelFunc2()
 	c.unloadAllContestsLocked()
 	return nil
 }

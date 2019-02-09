@@ -32,5 +32,5 @@ type SubmissionResult struct {
 }
 
 type JudgeQueueStatus struct {
-	Version string `bson:"version"`
+	InQueue bool `bson:"in_queue"`
 }

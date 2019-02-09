@@ -2,8 +2,6 @@ package core
 
 import (
 	"context"
-	"encoding/hex"
-	"math/rand"
 	"time"
 
 	"github.com/mongodb/mongo-go-driver/bson"
@@ -50,9 +48,7 @@ func (c *Core) Action_Submit(ctx context.Context, req *Submit1) (*Submit1Resp, e
 		{"public", req.Public},
 	}
 	if req.Enqueue {
-		var versionBytes [16]byte
-		rand.Read(versionBytes[:])
-		document = append(document, bson.E{"judge_queue_status", bson.D{{"version", hex.EncodeToString(versionBytes[:])}}})
+		document = append(document, bson.E{"judge_queue_status", bson.D{{"in_queue", true}}})
 	}
 	if _, err = c.mongodb.Collection("submission").InsertOne(ctx, document); err != nil {
 		return nil, err

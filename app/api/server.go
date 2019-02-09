@@ -70,6 +70,7 @@ func (srv *ApiServer) setupRoutes() {
 	router.Handle("/api/articles", srv.wrapHandler(Handle_Articles)).Methods("GET")
 	router.Handle("/api/article/view/{article_id:[0-9A-Za-z\\-_]{16}}", srv.wrapHandler(Handle_Article_View)).Methods("GET")
 	debugRouter := mux.NewRouter()
+	debugRouter.Handle("/api/debug/submission/{submission_id:[0-9A-Za-z\\-_]{16}}/enqueue", srv.wrapHandlerNoToken(Handle_Debug_Submission_Enqueue)).Methods("POST")
 	if srv.config.DebugToken != "" {
 		router.PathPrefix("/api/debug/").HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			token := r.Header.Get("X-Debug-Token")
