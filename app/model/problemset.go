@@ -23,15 +23,15 @@ type ProblemsetEntry struct {
 
 type Contest struct {
 	// StartTime and EndTime are for DISPLAY only, the real schedule is in Schedule
-	StartTime    time.Time         `bson:"start_time,omitempty"`
-	EndTime      time.Time         `bson:"end_time,omitempty"`
-	Running      bool              `bson:"running,omitempty"`
-	State        string            `bson:"state,omitempty"`
-	Schedule     []ContestSchedule `bson:"schedule,omitempty"`
-	RanklistType string            `bson:"ranklist_type",omitempty"`
-	RanklistComp string            `bson:"ranklist_comp",omitempty"`
-	JudgeInContest bool `bson:"judge_in_contest"`
-	SubmissionPerProblem int32 `bson:"submission_per_problem"`
+	StartTime            time.Time         `bson:"start_time,omitempty"`
+	EndTime              time.Time         `bson:"end_time,omitempty"`
+	Running              bool              `bson:"running,omitempty"`
+	State                string            `bson:"state,omitempty"`
+	Schedule             []ContestSchedule `bson:"schedule,omitempty"`
+	RanklistType         string            `bson:"ranklist_type",omitempty"`
+	RanklistComp         string            `bson:"ranklist_comp",omitempty"`
+	JudgeInContest       bool              `bson:"judge_in_contest"`
+	SubmissionPerProblem int32             `bson:"submission_per_problem"`
 }
 
 type ContestSchedule struct {

@@ -30,7 +30,7 @@ type judger struct {
 
 type Submission struct {
 	Lock   sync.RWMutex
-	Id primitive.ObjectID
+	Id     primitive.ObjectID
 	Broker *util.Broker
 	Done   bool
 	Score  float64

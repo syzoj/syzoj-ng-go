@@ -20,6 +20,10 @@ func (c *Contest) Running() bool {
 	return c.running
 }
 
+func (c *Contest) GetRankComp() ContestRankComp {
+	return c.rankcomp
+}
+
 func (c *Contest) GetPlayer(userId primitive.ObjectID) *ContestPlayer {
 	return c.players[userId]
 }
@@ -64,19 +68,19 @@ func (c *Contest) PlayerSubmission(player *ContestPlayer, name string, submissio
 		c.playerUpdateChan <- model
 	}
 	problemEntry := player.problems[name]
-	if len(problemEntry.subscriptions) >= c.submissionPerProblem {
+	if len(problemEntry.submissions) >= c.submissionPerProblem {
 		return ErrTooManySubmissions
 	}
 	submission := c.c.GetSubmission(submissionId)
-	subscription := &contestPlayerSubscription{
+	playerSubmission := &ContestPlayerSubmission{
 		c:           c,
 		userId:      player.userId,
 		submission:  submission,
 		penaltyTime: time.Now().Sub(c.startTime),
 	}
-	submission.Broker.Subscribe(subscription)
-	subscription.Notify()
-	problemEntry.subscriptions = append(problemEntry.subscriptions, subscription)
+	submission.Broker.Subscribe(playerSubmission)
+	problemEntry.submissions = append(problemEntry.submissions, playerSubmission)
+	playerSubmission.Notify()
 	if c.judgeInContest {
 		go c.c.EnqueueSubmission(submissionId)
 	}
@@ -84,8 +88,16 @@ func (c *Contest) PlayerSubmission(player *ContestPlayer, name string, submissio
 	model.SetFilter(bson.D{{"_id", player.modelId}})
 	model.SetUpdate(bson.D{{"$push", bson.D{{"problems." + name + ".submissions", bson.D{
 		{"submission_id", submissionId},
-		{"penalty_time", subscription.penaltyTime},
+		{"penalty_time", playerSubmission.penaltyTime},
 	}}}}})
 	c.playerUpdateChan <- model
 	return nil
+}
+
+func (p *ContestPlayer) GetProblems() map[string]*ContestPlayerProblem {
+	return p.problems
+}
+
+func (p *ContestPlayerProblem) GetSubmissions() []*ContestPlayerSubmission {
+	return p.submissions
 }

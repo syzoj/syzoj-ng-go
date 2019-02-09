@@ -2,11 +2,13 @@ package api
 
 import (
 	"io"
+	"sort"
 
 	"github.com/gorilla/websocket"
 	"github.com/mongodb/mongo-go-driver/bson/primitive"
 	"github.com/valyala/fastjson"
 
+	"github.com/syzoj/syzoj-ng-go/app/core"
 	"github.com/syzoj/syzoj-ng-go/util"
 )
 
@@ -78,6 +80,39 @@ func (c *contestStatusContext) run() {
 				msg.Set("running", arena.NewTrue())
 			} else {
 				msg.Set("running", arena.NewFalse())
+			}
+			player := contest.GetPlayer(c.userId)
+			if player != nil {
+				msg.Set("is_player", arena.NewTrue())
+				var i int
+				var names []string
+				problems := player.GetProblems()
+				for name := range problems {
+					names = append(names, name)
+				}
+				sort.Strings(names)
+				problemsArray := arena.NewArray()
+				for _, name := range names {
+					problem := problems[name]
+					problemValue := arena.NewObject()
+					problemValue.Set("name", arena.NewString(name))
+					switch contest.GetRankComp().(type) {
+					case core.ContestRankCompMaxScoreSum, core.ContestRankCompACM:
+						var score float64
+						for _, submission := range problem.GetSubmissions() {
+							rankInfo := submission.GetRankInfo()
+							if rankInfo.Score > score {
+								score = rankInfo.Score
+							}
+						}
+						problemValue.Set("max_score", arena.NewNumberFloat64(score))
+						problemsArray.SetArrayItem(i, problemValue)
+						i++
+					}
+				}
+				msg.Set("problems", problemsArray)
+			} else {
+				msg.Set("is_player", arena.NewFalse())
 			}
 		}()
 

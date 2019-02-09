@@ -33,8 +33,8 @@ type Contest struct {
 	cancelFunc       func()
 	wg               sync.WaitGroup
 
-	startTime time.Time
-	judgeInContest bool
+	startTime            time.Time
+	judgeInContest       bool
 	submissionPerProblem int
 	// immutable data
 	Problems       []*model.ProblemsetEntry

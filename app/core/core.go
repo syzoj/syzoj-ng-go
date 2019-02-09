@@ -12,13 +12,13 @@ import (
 var log = logrus.StandardLogger()
 
 type Core struct {
-	mongodb    *mongo.Database
-	lock       sync.RWMutex
+	mongodb *mongo.Database
+	lock    sync.RWMutex
 	// context is the reliability context, aborting it would result in data loss
-	context    context.Context
+	context context.Context
 	// context2 is thoe cancel signal context, aborting it should only cause minimal damages
 	context2    context.Context
-	cancelFunc func()
+	cancelFunc  func()
 	cancelFunc2 func()
 
 	queue      chan int
