@@ -40,7 +40,7 @@ func (s *ContestPlayerSubmission) Notify() {
 		if !s.c.loaded {
 			return
 		}
-		log.WithField("contestId", s.c.id).WithField("done", done).WithField("score", score).Info("Received submission score")
+		log.WithField("contestId", s.c.id).WithField("done", done).WithField("score", score).Debug("Received submission score")
 		s.done = done
 		s.score = score
 		p := s.c.players[s.userId]

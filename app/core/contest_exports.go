@@ -101,3 +101,7 @@ func (p *ContestPlayer) GetProblems() map[string]*ContestPlayerProblem {
 func (p *ContestPlayerProblem) GetSubmissions() []*ContestPlayerSubmission {
 	return p.submissions
 }
+
+func (s *ContestPlayerSubmission) GetSubmissionId() primitive.ObjectID {
+	return s.submission.Id
+}

@@ -28,6 +28,11 @@ func Handle_Contest_Problem(c *ApiContext) (apiErr ApiError) {
 		contest.RUnlock()
 		return ErrPermissionDenied
 	}
+	player := contest.GetPlayer(c.Session.AuthUserUid)
+	if player == nil {
+		contest.RUnlock()
+		return ErrPermissionDenied
+	}
 	entryId, found := contest.NameToProblems[entryName]
 	if !found {
 		contest.RUnlock()

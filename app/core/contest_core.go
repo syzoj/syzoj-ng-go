@@ -160,7 +160,7 @@ func (c *Contest) load(contestModel *model.Problemset) {
 				c.loadPlayer(contestPlayerModel)
 			}
 		}
-		log.WithField("contestId", c.id).WithField("playerCount", len(c.players)).Info("Loaded players")
+		log.WithField("contestId", c.id).WithField("playerCount", len(c.players)).Debug("Loaded players")
 		go c.startSchedule()
 	}()
 }

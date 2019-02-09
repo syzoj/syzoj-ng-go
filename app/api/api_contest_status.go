@@ -99,13 +99,22 @@ func (c *contestStatusContext) run() {
 					switch contest.GetRankComp().(type) {
 					case core.ContestRankCompMaxScoreSum, core.ContestRankCompACM:
 						var score float64
+						var submissionId primitive.ObjectID
+						var found bool
 						for _, submission := range problem.GetSubmissions() {
 							rankInfo := submission.GetRankInfo()
-							if rankInfo.Score > score {
+							if rankInfo.Score >= score {
+								found = true
 								score = rankInfo.Score
+								submissionId = submission.GetSubmissionId()
 							}
 						}
-						problemValue.Set("max_score", arena.NewNumberFloat64(score))
+						if found {
+							maxScoreValue := arena.NewObject()
+							maxScoreValue.Set("score", arena.NewNumberFloat64(score))
+							maxScoreValue.Set("submission_id", arena.NewString(EncodeObjectID(submissionId)))
+							problemValue.Set("max_score", maxScoreValue)
+						}
 						problemsArray.SetArrayItem(i, problemValue)
 						i++
 					}
@@ -119,12 +128,10 @@ func (c *contestStatusContext) run() {
 		var w io.WriteCloser
 		w, err = c.wsConn.NextWriter(websocket.TextMessage)
 		if err != nil {
-			log.Warning("Failed to write to WebSocket: ", err)
 			return
 		}
 		_, err = w.Write(msg.MarshalTo(nil))
 		if err != nil {
-			log.Warning("Failed to write to WebSocket: ", err)
 			return
 		}
 		err = w.Close()
