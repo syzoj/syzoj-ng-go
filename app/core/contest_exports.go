@@ -64,8 +64,7 @@ func (c *Contest) PlayerSubmission(player *ContestPlayer, name string, submissio
 		c.playerUpdateChan <- model
 	}
 	problemEntry := player.problems[name]
-	// TODO: Make this configurable
-	if len(problemEntry.subscriptions) >= 3 {
+	if len(problemEntry.subscriptions) >= c.submissionPerProblem {
 		return ErrTooManySubmissions
 	}
 	submission := c.c.GetSubmission(submissionId)
@@ -78,6 +77,9 @@ func (c *Contest) PlayerSubmission(player *ContestPlayer, name string, submissio
 	submission.Broker.Subscribe(subscription)
 	subscription.Notify()
 	problemEntry.subscriptions = append(problemEntry.subscriptions, subscription)
+	if c.judgeInContest {
+		go c.c.EnqueueSubmission(submissionId)
+	}
 	model := mongo.NewUpdateOneModel()
 	model.SetFilter(bson.D{{"_id", player.modelId}})
 	model.SetUpdate(bson.D{{"$push", bson.D{{"problems." + name + ".submissions", bson.D{

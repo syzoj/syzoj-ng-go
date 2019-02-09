@@ -34,6 +34,8 @@ type Contest struct {
 	wg               sync.WaitGroup
 
 	startTime time.Time
+	judgeInContest bool
+	submissionPerProblem int
 	// immutable data
 	Problems       []*model.ProblemsetEntry
 	NameToProblems map[string]int
@@ -68,6 +70,8 @@ func (c *Contest) load(contestModel *model.Problemset) {
 		c.running = contestModel.Contest.Running
 		c.state = contestModel.Contest.State
 		c.startTime = contestModel.Contest.StartTime
+		c.judgeInContest = contestModel.Contest.JudgeInContest
+		c.submissionPerProblem = int(contestModel.Contest.SubmissionPerProblem)
 		c.Problems = contestModel.Problems
 		c.NameToProblems = make(map[string]int)
 		for i, problem := range c.Problems {

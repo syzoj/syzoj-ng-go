@@ -30,6 +30,8 @@ type Contest struct {
 	Schedule     []ContestSchedule `bson:"schedule,omitempty"`
 	RanklistType string            `bson:"ranklist_type",omitempty"`
 	RanklistComp string            `bson:"ranklist_comp",omitempty"`
+	JudgeInContest bool `bson:"judge_in_contest"`
+	SubmissionPerProblem int32 `bson:"submission_per_problem"`
 }
 
 type ContestSchedule struct {

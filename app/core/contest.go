@@ -69,6 +69,8 @@ func (c *Core) CreateContest(ctx context.Context, id primitive.ObjectID, options
 		{"ranklist_type", options.Rules.RanklistType},
 		{"ranklist_comp", options.Rules.RanklistComp},
 		{"start_time", options.StartTime},
+		{"judge_in_contest", options.Rules.JudgeInContest},
+		{"submission_per_problem", 32}, // TODO: make this configurable
 	}
 	if result, err = c.mongodb.Collection("problemset").UpdateOne(ctx, bson.D{{"_id", id}}, bson.D{{"$set", bson.D{{"contest", contestD}}}}); err != nil {
 		return
