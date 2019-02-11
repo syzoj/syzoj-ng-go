@@ -45,6 +45,10 @@ func Handle_Contest_Index(c *ApiContext) (apiErr ApiError) {
 	contestObj := arena.NewObject()
 	if running {
 		contestObj.Set("running", arena.NewTrue())
+	} else {
+		contestObj.Set("running", arena.NewFalse())
+	}
+	if running && c.Session.LoggedIn() && contest.GetPlayer(c.Session.AuthUserUid) != nil {
 		problems := arena.NewArray()
 		var wg sync.WaitGroup
 		problemsModel := make([]model.Problem, len(contestModel.Problems))
