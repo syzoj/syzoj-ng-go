@@ -16,8 +16,8 @@ func Handle_Contest_Load(c *ApiContext) ApiError {
 	if err = c.SessionStart(); err != nil {
 		panic(err)
 	}
-	var contestModel model.Problemset
-	if err = c.Server().mongodb.Collection("problemset").FindOne(c.Context(), bson.D{{"_id", contestId}}, mongo_options.FindOne().SetProjection(bson.D{{"owner", 1}})).Decode(&contestModel); err != nil {
+	var contestModel model.Contest
+	if err = c.Server().mongodb.Collection("contest").FindOne(c.Context(), bson.D{{"_id", contestId}}, mongo_options.FindOne().SetProjection(bson.D{{"owner", 1}})).Decode(&contestModel); err != nil {
 		if err == mongo.ErrNoDocuments {
 			return ErrContestNotFound
 		}
@@ -41,8 +41,8 @@ func Handle_Contest_Unload(c *ApiContext) ApiError {
 	if err = c.SessionStart(); err != nil {
 		panic(err)
 	}
-	var contestModel model.Problemset
-	if err = c.Server().mongodb.Collection("problemset").FindOne(c.Context(), bson.D{{"_id", contestId}}, mongo_options.FindOne().SetProjection(bson.D{{"owner", 1}})).Decode(&contestModel); err != nil {
+	var contestModel model.Contest
+	if err = c.Server().mongodb.Collection("contest").FindOne(c.Context(), bson.D{{"_id", contestId}}, mongo_options.FindOne().SetProjection(bson.D{{"owner", 1}})).Decode(&contestModel); err != nil {
 		if err == mongo.ErrNoDocuments {
 			return ErrContestNotFound
 		}

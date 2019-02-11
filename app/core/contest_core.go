@@ -26,7 +26,6 @@ type Contest struct {
 	loaded           bool
 	schedules        []*contestSchedule
 	scheduleTimer    *time.Timer
-	state            string
 	updateChan       chan mongo.WriteModel
 	playerUpdateChan chan mongo.WriteModel
 	context          context.Context
@@ -37,7 +36,7 @@ type Contest struct {
 	judgeInContest       bool
 	submissionPerProblem int
 	// immutable data
-	Problems       []*model.ProblemsetEntry
+	Problems       []*model.ProblemEntry
 	NameToProblems map[string]int
 
 	players map[primitive.ObjectID]*ContestPlayer
@@ -61,17 +60,16 @@ func newState() string {
 }
 
 // Call exactly once when the contest gets loaded into memory.
-func (c *Contest) load(contestModel *model.Problemset) {
+func (c *Contest) load(contestModel *model.Contest) {
 	c.lock.Lock()
 	c.StatusBroker = util.NewBroker()
 	go func() {
 		defer c.lock.Unlock()
 		log.WithField("contestId", c.id).Info("Loading contest")
-		c.running = contestModel.Contest.Running
-		c.state = contestModel.Contest.State
-		c.startTime = contestModel.Contest.StartTime
-		c.judgeInContest = contestModel.Contest.JudgeInContest
-		c.submissionPerProblem = int(contestModel.Contest.SubmissionPerProblem)
+		c.running = contestModel.Running
+		c.startTime = contestModel.StartTime
+		c.judgeInContest = contestModel.JudgeInContest
+		c.submissionPerProblem = int(contestModel.SubmissionPerProblem)
 		c.Problems = contestModel.Problems
 		c.NameToProblems = make(map[string]int)
 		for i, problem := range c.Problems {
@@ -82,13 +80,13 @@ func (c *Contest) load(contestModel *model.Problemset) {
 		c.context, c.cancelFunc = context.WithCancel(context.Background())
 		c.updateChan = make(chan mongo.WriteModel, 100)
 		c.playerUpdateChan = make(chan mongo.WriteModel, 1000)
-		switch contestModel.Contest.RanklistType {
+		switch contestModel.RanklistType {
 		case "realtime":
 			c.ranklist = &ContestRealTimeRanklist{c: c}
 		default:
 			c.ranklist = ContestDummyRanklist{}
 		}
-		switch contestModel.Contest.RanklistComp {
+		switch contestModel.RanklistComp {
 		case "maxsum":
 			c.rankcomp = ContestRankCompMaxScoreSum{}
 		case "lastsum":
@@ -101,11 +99,11 @@ func (c *Contest) load(contestModel *model.Problemset) {
 		c.ranklist.Load()
 		// Bring up the writer
 		c.wg.Add(2)
-		go handleWrites(c.context, c.updateChan, c.c.mongodb.Collection("problemset"), c.id, &c.wg)
+		go handleWrites(c.context, c.updateChan, c.c.mongodb.Collection("contest"), c.id, &c.wg)
 		go handleWrites(c.context, c.playerUpdateChan, c.c.mongodb.Collection("contest_player"), c.id, &c.wg)
 
 		// Load all schedules
-		for id, scheduleModel := range contestModel.Contest.Schedule {
+		for id, scheduleModel := range contestModel.Schedule {
 			if scheduleModel.Done {
 				continue
 			}
@@ -116,9 +114,8 @@ func (c *Contest) load(contestModel *model.Problemset) {
 					return func() {
 						c.running = true
 						model := mongo.NewUpdateOneModel()
-						model.SetFilter(bson.D{{"_id", c.id}, {"contest.state", c.state}})
-						c.state = newState()
-						model.SetUpdate(bson.D{{"$set", bson.D{{fmt.Sprintf("contest.schedule.%d.done", id), true}, {"contest.running", true}, {"contest.state", c.state}}}})
+						model.SetFilter(bson.D{{"_id", c.id}})
+						model.SetUpdate(bson.D{{"$set", bson.D{{fmt.Sprintf("schedule.%d.done", id), true}, {"running", true}}}})
 						c.updateChan <- model
 						log.WithField("contestId", c.id).Debug("Contest started")
 					}
@@ -128,9 +125,8 @@ func (c *Contest) load(contestModel *model.Problemset) {
 					return func() {
 						c.running = false
 						model := mongo.NewUpdateOneModel()
-						model.SetFilter(bson.D{{"_id", c.id}, {"contest.state", c.state}})
-						c.state = newState()
-						model.SetUpdate(bson.D{{"$set", bson.D{{fmt.Sprintf("contest.schedule.%d.done", id), true}, {"contest.running", false}, {"contest.state", c.state}}}})
+						model.SetFilter(bson.D{{"_id", c.id}})
+						model.SetUpdate(bson.D{{"$set", bson.D{{fmt.Sprintf("schedule.%d.done", id), true}, {"running", false}}}})
 						c.updateChan <- model
 						log.WithField("contestId", c.id).Debug("Contest stopped")
 					}

@@ -9,7 +9,6 @@ import (
 	"github.com/mongodb/mongo-go-driver/bson"
 	"github.com/mongodb/mongo-go-driver/bson/primitive"
 	"github.com/mongodb/mongo-go-driver/mongo"
-	mongo_options "github.com/mongodb/mongo-go-driver/mongo/options"
 
 	"github.com/syzoj/syzoj-ng-go/app/model"
 )
@@ -72,7 +71,7 @@ func (c *Core) CreateContest(ctx context.Context, id primitive.ObjectID, options
 		{"judge_in_contest", options.Rules.JudgeInContest},
 		{"submission_per_problem", 32}, // TODO: make this configurable
 	}
-	if result, err = c.mongodb.Collection("problemset").UpdateOne(ctx, bson.D{{"_id", id}}, bson.D{{"$set", bson.D{{"contest", contestD}}}}); err != nil {
+	if result, err = c.mongodb.Collection("contest").UpdateOne(ctx, bson.D{{"_id", id}}, bson.D{{"$set", contestD}}); err != nil {
 		return
 	}
 	if result.MatchedCount == 0 {
@@ -87,8 +86,8 @@ func (c *Core) CreateContest(ctx context.Context, id primitive.ObjectID, options
 // Loads a contest into memory. Blocks until the contest is in memory.
 // This is currently slow and blocks other operations.
 func (c *Core) LoadContest(id primitive.ObjectID) (err error) {
-	var contestModel model.Problemset
-	if err = c.mongodb.Collection("problemset").FindOne(c.context, bson.D{{"_id", id}}, mongo_options.FindOne().SetProjection(bson.D{{"_id", 1}, {"contest", 1}, {"problems", 1}})).Decode(&contestModel); err != nil {
+	var contestModel model.Contest
+	if err = c.mongodb.Collection("contest").FindOne(c.context, bson.D{{"_id", id}}).Decode(&contestModel); err != nil {
 		return
 	}
 	c.lock.Lock()
@@ -106,11 +105,11 @@ func (c *Core) LoadContest(id primitive.ObjectID) (err error) {
 func (c *Core) initContestLocked(ctx context.Context) (err error) {
 	c.contests = make(map[primitive.ObjectID]*Contest)
 	var cursor *mongo.Cursor
-	if cursor, err = c.mongodb.Collection("problemset").Find(ctx, bson.D{{"contest", bson.D{{"$exists", true}}}}, mongo_options.Find().SetProjection(bson.D{{"_id", 1}, {"contest", 1}, {"problems", 1}})); err != nil {
+	if cursor, err = c.mongodb.Collection("contest").Find(ctx, bson.D{}); err != nil {
 		return
 	}
 	for cursor.Next(ctx) {
-		var contestModel model.Problemset
+		var contestModel model.Contest
 		if err = cursor.Decode(&contestModel); err != nil {
 			return
 		}

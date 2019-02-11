@@ -20,11 +20,10 @@ func Handle_Contest_Index(c *ApiContext) (apiErr ApiError) {
 	if err = c.SessionStart(); err != nil {
 		panic(err)
 	}
-	var contestModel model.Problemset
-	if err = c.Server().mongodb.Collection("problemset").FindOne(c.Context(), bson.D{
+	var contestModel model.Contest
+	if err = c.Server().mongodb.Collection("contest").FindOne(c.Context(), bson.D{
 		{"_id", contestId},
-		{"contest", bson.D{{"$exists", true}}},
-	}, mongo_options.FindOne().SetProjection(bson.D{{"_id", 1}, {"problemset_name", 1}, {"description", 1}, {"problems", 1}})).Decode(&contestModel); err != nil {
+	}, mongo_options.FindOne().SetProjection(bson.D{{"_id", 1}, {"name", 1}, {"description", 1}, {"problems", 1}})).Decode(&contestModel); err != nil {
 		if err == mongo.ErrNoDocuments {
 			return ErrContestNotFound
 		}
@@ -40,7 +39,7 @@ func Handle_Contest_Index(c *ApiContext) (apiErr ApiError) {
 
 	arena := new(fastjson.Arena)
 	result := arena.NewObject()
-	result.Set("name", arena.NewString(contestModel.ProblemsetName))
+	result.Set("name", arena.NewString(contestModel.Name))
 	result.Set("description", arena.NewString(contestModel.Description))
 	contestObj := arena.NewObject()
 	if running {
