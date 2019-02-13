@@ -51,6 +51,7 @@ func (srv *ApiServer) setupRoutes() {
 	router.Handle("/api/register", srv.wrapHandler(Handle_Register)).Methods("POST")
 	router.Handle("/api/login", srv.wrapHandler(Handle_Login)).Methods("POST")
 	router.Handle("/api/nav/logout", srv.wrapHandler(Handle_Nav_Logout)).Methods("POST")
+	router.Handle("/api/p/{short_name}", srv.wrapHandler(Handle_P)).Methods("GET")
 	router.Handle("/api/problem-db", srv.wrapHandler(Handle_ProblemDb)).Methods("GET")
 	router.Handle("/api/problem-db/new", srv.wrapHandler(Handle_ProblemDb_New)).Methods("POST")
 	router.Handle("/api/problem-db/view/{problem_id:[0-9A-Za-z\\-_]{16}}", srv.wrapHandler(Handle_ProblemDb_View)).Methods("GET")

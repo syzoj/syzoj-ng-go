@@ -12,6 +12,7 @@ type Problem struct {
 	Statement  string               `bson:"statement,omitempty"`
 	Owner      []primitive.ObjectID `bson:"owner"`
 	CreateTime time.Time            `bson:"create_time"`
+	ShortName  string               `bson:"short_name"`
 
 	// Couple with the public problemset
 	PublicStats ProblemStats `bson:"public_stats"`
