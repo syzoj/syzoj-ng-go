@@ -9,6 +9,7 @@ import (
 	"github.com/mongodb/mongo-go-driver/bson"
 	"github.com/mongodb/mongo-go-driver/bson/primitive"
 	"github.com/mongodb/mongo-go-driver/mongo"
+	"github.com/sirupsen/logrus"
 
 	"github.com/syzoj/syzoj-ng-go/app/model"
 	"github.com/syzoj/syzoj-ng-go/util"
@@ -37,11 +38,19 @@ type Contest struct {
 
 	players map[primitive.ObjectID]*ContestPlayer
 
-	// ranklist is NOT covcered by lock; it has its own synchronization mechanism
-	ranklist ContestRanklist
-	rankcomp ContestRankComp
+	// ranklist_e is protected by lock
+	ranklist_e []ContestRanklistEvent
+	// ranklist_m is protected by ranklist_s, dedicated to ranklist sorter
+	ranklist_m map[primitive.ObjectID]*ContestPlayerRankInfo
+	// A snapshot of the ranklist
+	ranklist_w []ContestRanklistEntry
+
+	ranklist           string
+	rankcomp           ContestRankComp
+	ranklistVisibility string // "player" means player only, "all" means anyone, otherwise admin only
 	// broker is not covered by lock as well
 	StatusBroker *util.Broker
+	log          *logrus.Logger
 }
 
 type contestSchedule struct {
@@ -75,12 +84,8 @@ func (c *Contest) serializeState() interface{} {
 		schedules = append(schedules, scheduleD)
 	}
 	state = append(state, bson.E{"schedule", schedules})
-	switch c.ranklist.(type) {
-	case *ContestRealTimeRanklist:
-		state = append(state, bson.E{"ranklist_type", "realtime"})
-	case ContestDummyRanklist:
-	default:
-	}
+	state = append(state, bson.E{"ranklist_type", c.ranklist})
+	state = append(state, bson.E{"ranklist_visibility", c.ranklistVisibility})
 	switch c.rankcomp.(type) {
 	case ContestRankCompMaxScoreSum:
 		state = append(state, bson.E{"ranklist_comp", "maxsum"})
@@ -114,9 +119,8 @@ func (c *Contest) loadState(state *model.ContestState) {
 	}
 	switch state.RanklistType {
 	case "realtime":
-		c.ranklist = &ContestRealTimeRanklist{c: c}
+		c.ranklist = "realtime"
 	default:
-		c.ranklist = ContestDummyRanklist{}
 	}
 	switch state.RanklistComp {
 	case "maxsum":
@@ -128,7 +132,13 @@ func (c *Contest) loadState(state *model.ContestState) {
 	default:
 		c.rankcomp = ContestDummyRankComp{}
 	}
-	c.ranklist.Load()
+	switch state.RanklistVisibility {
+	case "player":
+		c.ranklistVisibility = "player"
+	case "all":
+		c.ranklistVisibility = "all"
+	default:
+	}
 }
 
 func (c *Contest) saveState() {
@@ -143,10 +153,10 @@ func (c *Contest) runSchedule(s *contestSchedule) {
 	case "start":
 		c.running = true
 		c.startTime = time.Now()
-		log.WithField("contestId", c.id).Debug("Contest started")
+		c.log.Info("Contest started")
 	case "stop":
 		c.running = false
-		log.WithField("contestId", c.id).Debug("Contest stopped")
+		c.log.Info("Contest stopped")
 	}
 }
 
@@ -154,9 +164,10 @@ func (c *Contest) runSchedule(s *contestSchedule) {
 func (c *Contest) load(contestModel *model.Contest) {
 	c.lock.Lock()
 	c.StatusBroker = util.NewBroker()
+	c.initLogger()
 	go func() {
 		defer c.lock.Unlock()
-		log.WithField("contestId", c.id).Info("Loading contest")
+		c.log.Info("Loading contest")
 		c.context, c.cancelFunc = context.WithCancel(context.Background())
 		c.updateChan = make(chan mongo.WriteModel, 100)
 		c.playerUpdateChan = make(chan mongo.WriteModel, 1000)
@@ -178,17 +189,19 @@ func (c *Contest) load(contestModel *model.Contest) {
 			err    error
 		)
 		if cursor, err = c.c.mongodb.Collection("contest_player").Find(c.context, bson.D{{"contest", c.id}}); err != nil {
-			log.WithField("contestId", c.id).Warning("Failed to load contest players: ", err)
+			c.log.Warning("Failed to load contest players: ", err)
 		}
 		for cursor.Next(c.context) {
 			var contestPlayerModel = new(model.ContestPlayer)
 			if err = cursor.Decode(contestPlayerModel); err != nil {
-				log.WithField("contestId", c.id).Warning("Failed to load a contest player: ", err)
+				c.log.Warning("Failed to load a contest player: ", err)
 			} else {
 				c.loadPlayer(contestPlayerModel)
 			}
 		}
-		log.WithField("contestId", c.id).WithField("playerCount", len(c.players)).Debug("Loaded players")
+		c.log.WithField("playerCount", len(c.players)).Debug("Loaded players")
+
+		c.loadRanklist()
 	}()
 }
 
@@ -250,13 +263,12 @@ func (c *Contest) unload() {
 	c.lock.Lock()
 	defer c.lock.Unlock()
 	if !c.loaded {
-		log.WithField("contestId", c.id).Error("Double unloading contest")
+		c.log.Error("Double unloading contest")
 		return
 	}
 	c.StatusBroker.Broadcast()
 	c.StatusBroker.Close()
-	log.WithField("contestId", c.id).Info("Unloading contest")
-	c.ranklist.Unload()
+	c.log.Info("Unloading contest")
 	for _, player := range c.players {
 		c.unloadPlayer(player)
 	}

@@ -2,71 +2,88 @@ package core
 
 import (
 	"sort"
-	"sync"
 	"time"
 
 	"github.com/mongodb/mongo-go-driver/bson/primitive"
 )
 
 type ContestPlayerRankInfo struct {
-	problems map[string]*ContestPlayerRankInfoProblem
+	Problems map[string]*ContestPlayerRankInfoProblem
 }
 type ContestPlayerRankInfoProblem struct {
-	submissions []*ContestPlayerRankInfoSubmission
+	Submissions []*ContestPlayerRankInfoSubmission
 }
 type ContestPlayerRankInfoSubmission struct {
 	Done        bool
 	Score       float64
 	PenaltyTime time.Duration
 }
+type ContestRanklistEntry struct {
+	UserId primitive.ObjectID
+	Info   *ContestPlayerRankInfo
+}
+type ContestRanklistEvent struct {
+	userId primitive.ObjectID
+	info   *ContestPlayerRankInfo
+}
 
 type ContestRankComp interface {
 	Less(*Contest, *ContestPlayerRankInfo, *ContestPlayerRankInfo) bool
+	GetProblemScore(*ContestPlayerRankInfoProblem) float64
 }
 type ContestDummyRankComp struct{}
 
 func (ContestDummyRankComp) Less(c *Contest, p1 *ContestPlayerRankInfo, p2 *ContestPlayerRankInfo) bool {
 	return false
 }
+func (ContestDummyRankComp) GetProblemScore(*ContestPlayerRankInfoProblem) float64 {
+	return 0
+}
 
 type ContestRankCompMaxScoreSum struct{}
 
-func (ContestRankCompMaxScoreSum) Less(c *Contest, p1 *ContestPlayerRankInfo, p2 *ContestPlayerRankInfo) bool {
-	score1 := playerMaxScoreSum(p1)
-	score2 := playerMaxScoreSum(p2)
+func (s ContestRankCompMaxScoreSum) Less(c *Contest, p1 *ContestPlayerRankInfo, p2 *ContestPlayerRankInfo) bool {
+	score1 := s.playerMaxScoreSum(p1)
+	score2 := s.playerMaxScoreSum(p2)
 	return score1 < score2
 }
-func playerMaxScoreSum(p *ContestPlayerRankInfo) float64 {
-	var sum float64
-	for _, problem := range p.problems {
-		var maxScore float64
-		for _, s := range problem.submissions {
-			if s.Done && s.Score > maxScore {
-				maxScore = s.Score
-			}
+func (s ContestRankCompMaxScoreSum) GetProblemScore(problem *ContestPlayerRankInfoProblem) float64 {
+	var maxScore float64
+	for _, s := range problem.Submissions {
+		if s.Done && s.Score > maxScore {
+			maxScore = s.Score
 		}
-		sum += maxScore
+	}
+	return maxScore
+}
+func (s ContestRankCompMaxScoreSum) playerMaxScoreSum(p *ContestPlayerRankInfo) float64 {
+	var sum float64
+	for _, problem := range p.Problems {
+		sum += s.GetProblemScore(problem)
 	}
 	return sum
 }
 
 type ContestRankCompLastSum struct{}
 
-func (ContestRankCompLastSum) Less(c *Contest, p1 *ContestPlayerRankInfo, p2 *ContestPlayerRankInfo) bool {
-	score1 := playerLastSum(p1)
-	score2 := playerLastSum(p2)
+func (s ContestRankCompLastSum) Less(c *Contest, p1 *ContestPlayerRankInfo, p2 *ContestPlayerRankInfo) bool {
+	score1 := s.playerLastSum(p1)
+	score2 := s.playerLastSum(p2)
 	return score1 < score2
 }
-func playerLastSum(p *ContestPlayerRankInfo) float64 {
-	var sum float64
-	for _, problem := range p.problems {
-		var score float64
-		for _, s := range problem.submissions {
-			if s.Done {
-				score = s.Score
-			}
+func (s ContestRankCompLastSum) GetProblemScore(problem *ContestPlayerRankInfoProblem) float64 {
+	var score float64
+	for _, s := range problem.Submissions {
+		if s.Done {
+			score = s.Score
 		}
-		sum += score
+	}
+	return score
+}
+func (s ContestRankCompLastSum) playerLastSum(p *ContestPlayerRankInfo) float64 {
+	var sum float64
+	for _, problem := range p.Problems {
+		sum += s.GetProblemScore(problem)
 	}
 	return sum
 }
@@ -78,13 +95,16 @@ func (ContestRankCompACM) Less(c *Contest, p1 *ContestPlayerRankInfo, p2 *Contes
 	sum2, penalty2 := playerSumAndPenalty(p2)
 	return (sum1 < sum2) || (sum1 == sum2 && penalty1 < penalty2)
 }
+func (ContestRankCompACM) GetProblemScore(*ContestPlayerRankInfoProblem) float64 {
+	return 0
+}
 func playerSumAndPenalty(p *ContestPlayerRankInfo) (float64, time.Duration) {
 	var sum float64
 	var penalty time.Duration
-	for _, problem := range p.problems {
+	for _, problem := range p.Problems {
 		var maxScore float64
 		var minPenalty time.Duration
-		for _, s := range problem.submissions {
+		for _, s := range problem.Submissions {
 			if s.Done && s.Score > maxScore {
 				maxScore = s.Score
 				minPenalty = s.PenaltyTime
@@ -101,70 +121,68 @@ func playerSumAndPenalty(p *ContestPlayerRankInfo) (float64, time.Duration) {
 	return sum, penalty
 }
 
-type ContestRanklist interface {
-	Load()
-	UpdatePlayer(primitive.ObjectID, *ContestPlayerRankInfo)
-	Unload()
-}
-
-type ContestDummyRanklist struct{}
-
-func (ContestDummyRanklist) Load()                                                   {}
-func (ContestDummyRanklist) UpdatePlayer(primitive.ObjectID, *ContestPlayerRankInfo) {}
-func (ContestDummyRanklist) Unload()                                                 {}
-
-type ContestRealTimeRanklist struct {
-	c      *Contest
-	lock   sync.Mutex
-	events []contestRealTimeRanklistEvent
-
-	sorterSemasphore chan struct{}
-	rankMutex        sync.RWMutex
-	players          map[primitive.ObjectID]*ContestPlayerRankInfo
-	lastEvent        int
-	ranklist         []primitive.ObjectID
-}
-type contestRealTimeRanklistEvent struct {
-	user primitive.ObjectID
-	info *ContestPlayerRankInfo
-}
-
-func (r *ContestRealTimeRanklist) Load() {
-	r.sorterSemasphore = make(chan struct{}, 1)
-	r.players = make(map[primitive.ObjectID]*ContestPlayerRankInfo)
-}
-func (r *ContestRealTimeRanklist) UpdatePlayer(userId primitive.ObjectID, info *ContestPlayerRankInfo) {
-	r.lock.Lock()
-	defer r.lock.Unlock()
-	r.events = append(r.events, contestRealTimeRanklistEvent{
-		user: userId,
-		info: info,
-	})
-	go r.sort(len(r.events), r.events)
-}
-func (r *ContestRealTimeRanklist) sort(l int, events []contestRealTimeRanklistEvent) {
-	select {
-	case r.sorterSemasphore <- struct{}{}:
-	default:
-		break
+func (c *Contest) loadRanklist() {
+	c.ranklist_m = make(map[primitive.ObjectID]*ContestPlayerRankInfo)
+	if c.ranklist == "realtime" {
+		go c.sortRanklist()
+	} else {
+		go c.clearRanklist()
 	}
-	defer func() {
-		<-r.sorterSemasphore
-	}()
-
-	func() {
-		r.rankMutex.Lock()
-		defer r.rankMutex.Unlock()
-		for i := r.lastEvent; i < l; i++ {
-			event := events[i]
-			r.players[event.user] = event.info
-		}
-		r.lastEvent = l
-		r.ranklist = sortPlayers(r.c, r.c.rankcomp, r.players)
-	}()
-	time.Sleep(time.Millisecond * 100)
 }
-func (r *ContestRealTimeRanklist) Unload() {
+
+func (c *Contest) UpdatePlayer(userId primitive.ObjectID, info *ContestPlayerRankInfo) {
+	c.ranklist_e = append(c.ranklist_e, ContestRanklistEvent{userId: userId, info: info})
+}
+
+func (c *Contest) clearRanklist() {
+	c.lock.Lock()
+	defer c.lock.Unlock()
+	if !c.loaded {
+		return
+	}
+	c.ranklist_e = nil
+	time.AfterFunc(time.Second, c.clearRanklist)
+}
+
+func (c *Contest) sortRanklist() {
+	c.lock.Lock()
+	if !c.loaded {
+		c.lock.Unlock()
+		return
+	}
+	ev := c.ranklist_e
+	c.ranklist_e = nil
+	c.lock.Unlock()
+	if len(ev) != 0 {
+		c.log.WithField("count", len(ev)).Debug("Applying ranklist updates")
+		for _, e := range ev {
+			c.ranklist_m[e.userId] = e.info
+		}
+		var players []primitive.ObjectID
+		for p, _ := range c.ranklist_m {
+			players = append(players, p)
+		}
+		sorter := ranklistSorter{
+			c:          c,
+			comp:       c.rankcomp,
+			players:    players,
+			playerInfo: c.ranklist_m,
+		}
+		sort.Sort(sorter)
+		var snapshot []ContestRanklistEntry
+		for _, p := range players {
+			snapshot = append(snapshot, ContestRanklistEntry{
+				UserId: p,
+				Info:   c.ranklist_m[p],
+			})
+		}
+		c.log.Debug("Updating ranklist snapshot")
+		log.Info(snapshot)
+		c.lock.Lock()
+		c.ranklist_w = snapshot
+		c.lock.Unlock()
+	}
+	time.AfterFunc(time.Second, c.sortRanklist)
 }
 
 type ranklistSorter struct {

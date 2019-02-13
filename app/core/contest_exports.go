@@ -24,6 +24,14 @@ func (c *Contest) GetRankComp() ContestRankComp {
 	return c.rankcomp
 }
 
+func (c *Contest) GetRanklistVisibility() string {
+	return c.ranklistVisibility
+}
+
+func (c *Contest) GetRanklist() []ContestRanklistEntry {
+	return c.ranklist_w
+}
+
 func (c *Contest) GetPlayer(userId primitive.ObjectID) *ContestPlayer {
 	return c.players[userId]
 }
@@ -58,7 +66,7 @@ func (c *Contest) GetProblemByName(name string) *ContestProblemEntry {
 func (c *Contest) RegisterPlayer(userId primitive.ObjectID) bool {
 	_, ok := c.players[userId]
 	if ok {
-		log.WithField("userId", userId).Debug("RegisterPlayer failed: player already registered")
+		c.log.WithField("userId", userId).Debug("RegisterPlayer failed: player already registered")
 		return false
 	}
 	id := primitive.NewObjectID()
@@ -107,6 +115,7 @@ func (c *Contest) PlayerSubmission(player *ContestPlayer, name string, submissio
 	}
 	submission.Broker.Subscribe(playerSubmission)
 	problemEntry.submissions = append(problemEntry.submissions, playerSubmission)
+	c.log.WithField("playerId", player.userId).WithField("problem", name).WithField("submissionId", submissionId).Info("Player submission")
 	playerSubmission.Notify()
 	if c.judgeInContest {
 		go c.c.EnqueueSubmission(submissionId)

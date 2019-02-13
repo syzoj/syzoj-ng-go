@@ -40,7 +40,7 @@ func (s *ContestPlayerSubmission) Notify() {
 		if !s.c.loaded {
 			return
 		}
-		log.WithField("contestId", s.c.id).WithField("done", done).WithField("score", score).Debug("Received submission score")
+		s.c.log.WithField("done", done).WithField("score", score).Debug("Received submission score")
 		s.done = done
 		s.score = score
 		p := s.c.players[s.userId]
@@ -57,16 +57,16 @@ func (s *ContestPlayerSubmission) GetRankInfo() *ContestPlayerRankInfoSubmission
 }
 func (c *Contest) updatePlayerRankInfo(player *ContestPlayer) {
 	rankInfo := new(ContestPlayerRankInfo)
-	rankInfo.problems = make(map[string]*ContestPlayerRankInfoProblem)
+	rankInfo.Problems = make(map[string]*ContestPlayerRankInfoProblem)
 	for key, problem := range player.problems {
 		problemInfo := new(ContestPlayerRankInfoProblem)
 		for _, submission := range problem.submissions {
 			submissionInfo := submission.GetRankInfo()
-			problemInfo.submissions = append(problemInfo.submissions, submissionInfo)
+			problemInfo.Submissions = append(problemInfo.Submissions, submissionInfo)
 		}
-		rankInfo.problems[key] = problemInfo
+		rankInfo.Problems[key] = problemInfo
 	}
-	c.ranklist.UpdatePlayer(player.userId, rankInfo)
+	c.UpdatePlayer(player.userId, rankInfo)
 }
 
 func (c *Contest) loadPlayer(contestPlayerModel *model.ContestPlayer) {
@@ -92,6 +92,7 @@ func (c *Contest) loadPlayer(contestPlayerModel *model.ContestPlayer) {
 		player.problems[i] = problemEntry
 	}
 	c.players[player.userId] = player
+	c.updatePlayerRankInfo(player)
 }
 
 func (*Contest) unloadPlayer(p *ContestPlayer) {

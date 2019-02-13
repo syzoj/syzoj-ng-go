@@ -22,6 +22,7 @@ type ContestState struct {
 	Schedule             []*ContestSchedule `bson:"schedule,omitempty"`
 	RanklistType         string             `bson:"ranklist_type,omitempty"`
 	RanklistComp         string             `bson:"ranklist_comp,omitempty"`
+	RanklistVisibility   string             `bson:"ranklist_visibility,omitempty"`
 	JudgeInContest       bool               `bson:"judge_in_contest,omitempty"`
 	SubmissionPerProblem int32              `bson:"submission_per_problem,omitempty"`
 }
