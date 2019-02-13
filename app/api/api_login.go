@@ -1,6 +1,9 @@
 package api
 
 import (
+	"crypto/md5"
+	"crypto/subtle"
+
 	"github.com/mongodb/mongo-go-driver/bson"
 	"github.com/mongodb/mongo-go-driver/mongo"
 	mongo_options "github.com/mongodb/mongo-go-driver/mongo/options"
@@ -42,11 +45,18 @@ func Handle_Login(c *ApiContext) (apiErr ApiError) {
 		}
 		panic(err)
 	}
-	if user.Auth.Method != 1 {
+	switch user.Auth.Method {
+	case 1:
+		if err = bcrypt.CompareHashAndPassword(user.Auth.Password, []byte(password)); err != nil {
+			return ErrPasswordIncorrect
+		}
+	case 2:
+		sum := md5.Sum([]byte(password + "syzoj2_xxx"))
+		if subtle.ConstantTimeCompare(sum[:], user.Auth.Password) != 1 {
+			return ErrPasswordIncorrect
+		}
+	default:
 		return ErrCannotLogin
-	}
-	if err = bcrypt.CompareHashAndPassword(user.Auth.Password, []byte(password)); err != nil {
-		return ErrPasswordIncorrect
 	}
 	if _, err = c.Server().mongodb.Collection("session").UpdateOne(c.Context(),
 		bson.D{{"_id", c.Session.SessUid}},

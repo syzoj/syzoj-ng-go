@@ -28,15 +28,21 @@ func Handle_Register(c *ApiContext) (apiErr ApiError) {
 	}
 	userName := string(body.GetStringBytes("username"))
 	password := string(body.GetStringBytes("password"))
+	email := string(body.GetStringBytes("email"))
 	_, err = c.Server().c.Action_Register(c.Context(), &core.Register1{
 		UserName: userName,
 		Password: password,
+		Email:    email,
 	})
 	switch err {
 	case core.ErrInvalidUserName:
 		return ErrInvalidUserName
 	case core.ErrDuplicateUserName:
 		return ErrDuplicateUserName
+	case core.ErrInvalidEmail:
+		return ErrInvalidEmail
+	case core.ErrDuplicateEmail:
+		return ErrDuplicateEmail
 	case nil:
 		c.SendValue(new(fastjson.Arena).NewNull())
 		return

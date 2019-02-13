@@ -58,3 +58,31 @@ func Handle_Contest_Unload(c *ApiContext) ApiError {
 	c.SendValue(arena.NewNull())
 	return nil
 }
+
+func Handle_Contest_JudgeAll(c *ApiContext) ApiError {
+	var err error
+	vars := c.Vars()
+	contestId := DecodeObjectID(vars["contest_id"])
+	if err = c.SessionStart(); err != nil {
+		panic(err)
+	}
+	var contestModel model.Contest
+	if err = c.Server().mongodb.Collection("contest").FindOne(c.Context(), bson.D{{"_id", contestId}}, mongo_options.FindOne().SetProjection(bson.D{{"owner", 1}})).Decode(&contestModel); err != nil {
+		if err == mongo.ErrNoDocuments {
+			return ErrContestNotFound
+		}
+		panic(err)
+	}
+	if contestModel.Owner != c.Session.AuthUserUid {
+		return ErrPermissionDenied
+	}
+	contest := c.Server().c.GetContestW(contestId)
+	if contest == nil {
+		return ErrContestNotLoaded
+	}
+	contest.JudgeAll()
+	contest.Unlock()
+	arena := new(fastjson.Arena)
+	c.SendValue(arena.NewNull())
+	return nil
+}

@@ -69,6 +69,7 @@ func (c *Contest) updatePlayerRankInfo(player *ContestPlayer) {
 	c.UpdatePlayer(player.userId, rankInfo)
 }
 
+// The logic is duplicated in RegisterPlayer
 func (c *Contest) loadPlayer(contestPlayerModel *model.ContestPlayer) {
 	player := new(ContestPlayer)
 	player.Broker = util.NewBroker()

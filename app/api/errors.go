@@ -68,6 +68,8 @@ var ErrPermissionDenied = &apiError{403, "Permission denied"}
 var ErrUserNotFound = &apiError{200, "User not found"}
 var ErrInvalidUserName = &apiError{400, "Invalid user name"}
 var ErrDuplicateUserName = &apiError{200, "Duplicate user name"}
+var ErrInvalidEmail = &apiError{400, "Invalid email"}
+var ErrDuplicateEmail = &apiError{200, "Duplicate email"}
 var ErrPasswordIncorrect = &apiError{200, "Password incorrect"}
 var ErrCannotLogin = &apiError{403, "Cannot login"}
 

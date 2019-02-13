@@ -6,6 +6,8 @@ import (
 	"github.com/mongodb/mongo-go-driver/bson"
 	"github.com/mongodb/mongo-go-driver/bson/primitive"
 	"github.com/mongodb/mongo-go-driver/mongo"
+
+	"github.com/syzoj/syzoj-ng-go/util"
 )
 
 func (c *Contest) Unlock() {
@@ -63,6 +65,7 @@ func (c *Contest) GetProblemByName(name string) *ContestProblemEntry {
 	}
 }
 
+// The logic is duplicated in loadPlayer
 func (c *Contest) RegisterPlayer(userId primitive.ObjectID) bool {
 	_, ok := c.players[userId]
 	if ok {
@@ -71,6 +74,7 @@ func (c *Contest) RegisterPlayer(userId primitive.ObjectID) bool {
 	}
 	id := primitive.NewObjectID()
 	player := new(ContestPlayer)
+	player.Broker = util.NewBroker()
 	player.modelId = id
 	player.userId = userId
 	player.problems = make(map[string]*ContestPlayerProblem)
@@ -128,6 +132,16 @@ func (c *Contest) PlayerSubmission(player *ContestPlayer, name string, submissio
 	}}}}})
 	c.playerUpdateChan <- model
 	return nil
+}
+
+func (c *Contest) JudgeAll() {
+	for _, player := range c.players {
+		for _, problem := range player.problems {
+			for _, submission := range problem.submissions {
+				c.c.EnqueueSubmission(submission.submission.Id)
+			}
+		}
+	}
 }
 
 func (p *ContestPlayer) GetProblems() map[string]*ContestPlayerProblem {

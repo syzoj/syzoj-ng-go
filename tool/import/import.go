@@ -3,9 +3,11 @@ package tool_import
 import (
 	"context"
 	"database/sql"
+	"encoding/hex"
 	"regexp"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/mongodb/mongo-go-driver/bson"
 	"github.com/mongodb/mongo-go-driver/bson/primitive"
@@ -18,6 +20,7 @@ var log = logrus.StandardLogger()
 type importer struct {
 	mongodb  *mongo.Database
 	problems chan *problem
+	users    chan *user
 	db       *sql.DB
 }
 type problem struct {
@@ -35,6 +38,7 @@ func ImportMySQL(mongodb *mongo.Client, mysql *sql.DB) {
 	i := &importer{
 		mongodb:  mongodb.Database("syzoj"),
 		problems: make(chan *problem),
+		users:    make(chan *user),
 		db:       mysql,
 	}
 	i.work()
@@ -44,6 +48,9 @@ func (i *importer) work() {
 	log.Info("Importing problems")
 	go i.getProblems()
 	i.writeProblems()
+	log.Info("Importing users")
+	go i.readUsers()
+	i.writeUsers()
 }
 
 func (i *importer) getProblems() {
@@ -100,7 +107,61 @@ func (i *importer) writeProblems() {
 		if _, err = i.mongodb.Collection("problem").InsertOne(context.Background(),
 			bson.D{{"_id", problemId}, {"title", p.Title}, {"statement", contents}},
 		); err != nil {
-			log.WithField("id", p.Id).Info("Error insering problem: ", err.Error())
+			log.WithField("id", p.Id).Info("Error inserting problem: ", err.Error())
+			err = nil
+		}
+	}
+}
+
+type user struct {
+	UserName     string
+	Password     string
+	Email        string
+	RegisterTime sql.NullInt64
+}
+
+func (i *importer) readUsers() {
+	var err error
+	var rows *sql.Rows
+	if rows, err = i.db.Query("SELECT username, password, email, register_time FROM user"); err != nil {
+		log.Fatal("Error importing users from MySQL: ", err.Error())
+	}
+	for rows.Next() {
+		u := new(user)
+		err = rows.Scan(&u.UserName, &u.Password, &u.Email, &u.RegisterTime)
+		if err != nil {
+			log.Error("Error reading user: ", err)
+			err = nil
+		}
+		i.users <- u
+	}
+	close(i.users)
+}
+
+func (i *importer) writeUsers() {
+	var err error
+	for user := range i.users {
+		var passmd5 []byte
+		passmd5, err = hex.DecodeString(user.Password)
+		if err != nil {
+			log.WithField("username", user.UserName).Error("Error parsing password")
+			err = nil
+			continue
+		}
+		doc := bson.D{
+			{"_id", primitive.NewObjectID()},
+			{"username", user.UserName},
+			{"email", user.Email},
+			{"auth", bson.D{
+				{"method", int64(2)},
+				{"password", passmd5},
+			}},
+		}
+		if user.RegisterTime.Valid {
+			doc = append(doc, bson.E{"register_time", time.Unix(user.RegisterTime.Int64, 0)})
+		}
+		if _, err = i.mongodb.Collection("user").InsertOne(context.Background(), doc); err != nil {
+			log.Error("Error inserting user: ", err)
 			err = nil
 		}
 	}

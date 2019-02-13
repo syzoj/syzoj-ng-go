@@ -177,7 +177,6 @@ func (c *Contest) sortRanklist() {
 			})
 		}
 		c.log.Debug("Updating ranklist snapshot")
-		log.Info(snapshot)
 		c.lock.Lock()
 		c.ranklist_w = snapshot
 		c.lock.Unlock()

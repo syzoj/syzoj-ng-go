@@ -1,6 +1,7 @@
 package core
 
 type KeyUserName string
+type KeyEmail string
 
 type OracleLock struct {
 	locked int32
