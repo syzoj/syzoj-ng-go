@@ -23,7 +23,7 @@ func Handle_Contest_Index(c *ApiContext) (apiErr ApiError) {
 	var contestModel model.Contest
 	if err = c.Server().mongodb.Collection("contest").FindOne(c.Context(), bson.D{
 		{"_id", contestId},
-	}, mongo_options.FindOne().SetProjection(bson.D{{"_id", 1}, {"name", 1}, {"description", 1}, {"problems", 1}})).Decode(&contestModel); err != nil {
+	}, mongo_options.FindOne().SetProjection(bson.D{{"_id", 1}, {"name", 1}, {"description", 1}})).Decode(&contestModel); err != nil {
 		if err == mongo.ErrNoDocuments {
 			return ErrContestNotFound
 		}
@@ -35,6 +35,7 @@ func Handle_Contest_Index(c *ApiContext) (apiErr ApiError) {
 		return ErrContestNotFound
 	}
 	running := contest.Running()
+	contestProblems := contest.GetProblems()
 	contest.RUnlock()
 
 	arena := new(fastjson.Arena)
@@ -50,8 +51,8 @@ func Handle_Contest_Index(c *ApiContext) (apiErr ApiError) {
 	if running && c.Session.LoggedIn() && contest.GetPlayer(c.Session.AuthUserUid) != nil {
 		problems := arena.NewArray()
 		var wg sync.WaitGroup
-		problemsModel := make([]model.Problem, len(contestModel.Problems))
-		for i, problemEntry := range contestModel.Problems {
+		problemsModel := make([]model.Problem, len(contestProblems))
+		for i, problemEntry := range contestProblems {
 			wg.Add(1)
 			go func(i int, id primitive.ObjectID) {
 				defer wg.Done()
@@ -63,10 +64,10 @@ func Handle_Contest_Index(c *ApiContext) (apiErr ApiError) {
 			}(i, problemEntry.ProblemId)
 		}
 		wg.Wait()
-		for i := range contestModel.Problems {
+		for i := range contestProblems {
 			problem := arena.NewObject()
 			problem.Set("problem_id", arena.NewString(EncodeObjectID(problemsModel[i].Id)))
-			problem.Set("entry_name", arena.NewString(contestModel.Problems[i].Name))
+			problem.Set("entry_name", arena.NewString(contestProblems[i].Name))
 			problem.Set("title", arena.NewString(problemsModel[i].Title))
 			problems.SetArrayItem(i, problem)
 		}

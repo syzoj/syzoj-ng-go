@@ -37,12 +37,11 @@ func Handle_Contest_Problem(c *ApiContext) (apiErr ApiError) {
 		contest.RUnlock()
 		return ErrPermissionDenied
 	}
-	entryId, found := contest.NameToProblems[entryName]
-	if !found {
+	problemsetEntry := contest.GetProblemByName(entryName)
+	if problemsetEntry == nil {
 		contest.RUnlock()
-		return ErrContestNotFound
+		return ErrGeneral
 	}
-	problemsetEntry := contest.Problems[entryId]
 	contest.RUnlock()
 
 	var problemModel model.Problem
@@ -91,12 +90,11 @@ func Handle_Contest_Problem_Submit(c *ApiContext) ApiError {
 		contest.RUnlock()
 		return ErrPermissionDenied
 	}
-	entryId, found := contest.NameToProblems[entryName]
-	if !found {
+	problemsetEntry := contest.GetProblemByName(entryName)
+	if problemsetEntry == nil {
 		contest.RUnlock()
-		return ErrContestNotFound
+		return ErrGeneral
 	}
-	problemsetEntry := contest.Problems[entryId]
 	contest.RUnlock()
 
 	var resp *core.Submit1Resp

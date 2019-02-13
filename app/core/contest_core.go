@@ -2,9 +2,7 @@ package core
 
 import (
 	"context"
-	"encoding/hex"
 	"fmt"
-	"math/rand"
 	"sort"
 	"sync"
 	"time"
@@ -32,12 +30,11 @@ type Contest struct {
 	cancelFunc       func()
 	wg               sync.WaitGroup
 
-	startTime            time.Time
+	startTime            time.Time // for calculating penalty time
 	judgeInContest       bool
 	submissionPerProblem int
-	// immutable data
-	Problems       []*model.ProblemEntry
-	NameToProblems map[string]int
+	problems             []*model.ProblemEntry
+	nameToProblems       map[string]int
 
 	players map[primitive.ObjectID]*ContestPlayer
 
@@ -53,12 +50,6 @@ type contestSchedule struct {
 	f func()
 }
 
-func newState() string {
-	var state [16]byte
-	rand.Read(state[:])
-	return hex.EncodeToString(state[:])
-}
-
 // Call exactly once when the contest gets loaded into memory.
 func (c *Contest) load(contestModel *model.Contest) {
 	c.lock.Lock()
@@ -66,27 +57,27 @@ func (c *Contest) load(contestModel *model.Contest) {
 	go func() {
 		defer c.lock.Unlock()
 		log.WithField("contestId", c.id).Info("Loading contest")
-		c.running = contestModel.Running
-		c.startTime = contestModel.StartTime
-		c.judgeInContest = contestModel.JudgeInContest
-		c.submissionPerProblem = int(contestModel.SubmissionPerProblem)
-		c.Problems = contestModel.Problems
-		c.NameToProblems = make(map[string]int)
-		for i, problem := range c.Problems {
-			c.NameToProblems[problem.Name] = i
+		c.running = contestModel.State.Running
+		c.startTime = contestModel.State.StartTime
+		c.judgeInContest = contestModel.State.JudgeInContest
+		c.submissionPerProblem = int(contestModel.State.SubmissionPerProblem)
+		c.problems = contestModel.State.Problems
+		c.nameToProblems = make(map[string]int)
+		for i, problem := range c.problems {
+			c.nameToProblems[problem.Name] = i
 		}
 		c.loaded = true
 		c.wg.Add(1)
 		c.context, c.cancelFunc = context.WithCancel(context.Background())
 		c.updateChan = make(chan mongo.WriteModel, 100)
 		c.playerUpdateChan = make(chan mongo.WriteModel, 1000)
-		switch contestModel.RanklistType {
+		switch contestModel.State.RanklistType {
 		case "realtime":
 			c.ranklist = &ContestRealTimeRanklist{c: c}
 		default:
 			c.ranklist = ContestDummyRanklist{}
 		}
-		switch contestModel.RanklistComp {
+		switch contestModel.State.RanklistComp {
 		case "maxsum":
 			c.rankcomp = ContestRankCompMaxScoreSum{}
 		case "lastsum":
@@ -103,7 +94,7 @@ func (c *Contest) load(contestModel *model.Contest) {
 		go handleWrites(c.context, c.playerUpdateChan, c.c.mongodb.Collection("contest_player"), c.id, &c.wg)
 
 		// Load all schedules
-		for id, scheduleModel := range contestModel.Schedule {
+		for id, scheduleModel := range contestModel.State.Schedule {
 			if scheduleModel.Done {
 				continue
 			}
@@ -113,9 +104,10 @@ func (c *Contest) load(contestModel *model.Contest) {
 				f = func(c *Contest, id int) func() {
 					return func() {
 						c.running = true
+						c.startTime = time.Now()
 						model := mongo.NewUpdateOneModel()
 						model.SetFilter(bson.D{{"_id", c.id}})
-						model.SetUpdate(bson.D{{"$set", bson.D{{fmt.Sprintf("schedule.%d.done", id), true}, {"running", true}}}})
+						model.SetUpdate(bson.D{{"$set", bson.D{{fmt.Sprintf("schedule.%d.done", id), true}, {"state.running", true}, {"state.start_time", c.startTime}}}})
 						c.updateChan <- model
 						log.WithField("contestId", c.id).Debug("Contest started")
 					}
@@ -126,7 +118,7 @@ func (c *Contest) load(contestModel *model.Contest) {
 						c.running = false
 						model := mongo.NewUpdateOneModel()
 						model.SetFilter(bson.D{{"_id", c.id}})
-						model.SetUpdate(bson.D{{"$set", bson.D{{fmt.Sprintf("schedule.%d.done", id), true}, {"running", false}}}})
+						model.SetUpdate(bson.D{{"$set", bson.D{{fmt.Sprintf("schedule.%d.done", id), true}, {"state.running", false}}}})
 						c.updateChan <- model
 						log.WithField("contestId", c.id).Debug("Contest stopped")
 					}

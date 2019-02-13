@@ -8,15 +8,19 @@ import (
 )
 
 type Contest struct {
-	Id                   primitive.ObjectID `bson:"_id"`
-	Problems             []*ProblemEntry    `bson:"problems,omitempty"`
-	Name                 string             `bson:"name,omitempty"`
-	Description          string             `bson:"description,omitempty"`
-	Owner                primitive.ObjectID `bson:"owner,omitempty"`
-	StartTime            time.Time          `bson:"start_time,omitempty"`
-	EndTime              time.Time          `bson:"end_time,omitempty"`
+	Id          primitive.ObjectID `bson:"_id"`
+	Name        string             `bson:"name,omitempty"`
+	Description string             `bson:"description,omitempty"`
+	Owner       primitive.ObjectID `bson:"owner,omitempty"`
+	State       ContestState       `bson:"state,omitempty"`
+}
+
+// Volatile contest states.
+type ContestState struct {
 	Running              bool               `bson:"running,omitempty"`
-	Schedule             []ContestSchedule  `bson:"schedule,omitempty"`
+	StartTime            time.Time          `bson:"start_time,omitempty"`
+	Problems             []*ProblemEntry    `bson:"problems,omitempty"`
+	Schedule             []*ContestSchedule `bson:"schedule,omitempty"`
 	RanklistType         string             `bson:"ranklist_type",omitempty"`
 	RanklistComp         string             `bson:"ranklist_comp",omitempty"`
 	JudgeInContest       bool               `bson:"judge_in_contest"`
@@ -31,6 +35,6 @@ type ProblemEntry struct {
 type ContestSchedule struct {
 	Type      string    `bson:"type"`
 	Done      bool      `bson:"done"`
-	Operation bson.Raw  `bson:"operation"`
+	Data      bson.Raw  `bson:"data"`
 	StartTime time.Time `bson:"start_time"`
 }

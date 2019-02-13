@@ -64,14 +64,13 @@ func (c *Core) CreateContest(ctx context.Context, id primitive.ObjectID, options
 	contestD := bson.D{
 		{"running", false},
 		{"schedule", schedule},
-		{"state", ""},
 		{"ranklist_type", options.Rules.RanklistType},
 		{"ranklist_comp", options.Rules.RanklistComp},
 		{"start_time", options.StartTime},
 		{"judge_in_contest", options.Rules.JudgeInContest},
 		{"submission_per_problem", 32}, // TODO: make this configurable
 	}
-	if result, err = c.mongodb.Collection("contest").UpdateOne(ctx, bson.D{{"_id", id}}, bson.D{{"$set", contestD}}); err != nil {
+	if result, err = c.mongodb.Collection("contest").UpdateOne(ctx, bson.D{{"_id", id}}, bson.D{{"$set", bson.D{{"state", contestD}}}}); err != nil {
 		return
 	}
 	if result.MatchedCount == 0 {

@@ -1,8 +1,6 @@
 package api
 
 import (
-	"strconv"
-
 	"github.com/mongodb/mongo-go-driver/bson"
 	"github.com/mongodb/mongo-go-driver/mongo"
 	"github.com/valyala/fastjson"
@@ -34,12 +32,11 @@ func Handle_Contests(c *ApiContext) (apiErr ApiError) {
 		value := arena.NewObject()
 		value.Set("id", arena.NewString(EncodeObjectID(contestModel.Id)))
 		value.Set("title", arena.NewString(contestModel.Name))
-		if contestModel.Running {
+		if contestModel.State.Running {
 			value.Set("running", arena.NewTrue())
 		} else {
 			value.Set("running", arena.NewFalse())
 		}
-		value.Set("start_time", arena.NewNumberString(strconv.FormatInt(contestModel.StartTime.Unix(), 10)))
 		contests.SetArrayItem(i, value)
 		i++
 	}

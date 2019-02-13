@@ -23,7 +23,7 @@ func Handle_Contest_New(c *ApiContext) (apiErr ApiError) {
 	problemsetId := primitive.NewObjectID()
 	title := string(body.GetStringBytes("title"))
 	description := string(body.GetStringBytes("description"))
-	if _, err = c.Server().mongodb.Collection("problemset").InsertOne(c.Context(), bson.D{{"_id", problemsetId}, {"problemset_name", title}, {"description", description}, {"owner", c.Session.AuthUserUid}}); err != nil {
+	if _, err = c.Server().mongodb.Collection("contest").InsertOne(c.Context(), bson.D{{"_id", problemsetId}, {"name", title}, {"description", description}, {"owner", c.Session.AuthUserUid}}); err != nil {
 		panic(err)
 	}
 	var options core.ContestOptions
