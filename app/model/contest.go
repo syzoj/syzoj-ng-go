@@ -3,7 +3,6 @@ package model
 import (
 	"time"
 
-	"github.com/mongodb/mongo-go-driver/bson"
 	"github.com/mongodb/mongo-go-driver/bson/primitive"
 )
 
@@ -21,10 +20,10 @@ type ContestState struct {
 	StartTime            time.Time          `bson:"start_time,omitempty"`
 	Problems             []*ProblemEntry    `bson:"problems,omitempty"`
 	Schedule             []*ContestSchedule `bson:"schedule,omitempty"`
-	RanklistType         string             `bson:"ranklist_type",omitempty"`
-	RanklistComp         string             `bson:"ranklist_comp",omitempty"`
-	JudgeInContest       bool               `bson:"judge_in_contest"`
-	SubmissionPerProblem int32              `bson:"submission_per_problem"`
+	RanklistType         string             `bson:"ranklist_type,omitempty"`
+	RanklistComp         string             `bson:"ranklist_comp,omitempty"`
+	JudgeInContest       bool               `bson:"judge_in_contest,omitempty"`
+	SubmissionPerProblem int32              `bson:"submission_per_problem,omitempty"`
 }
 
 type ProblemEntry struct {
@@ -35,6 +34,5 @@ type ProblemEntry struct {
 type ContestSchedule struct {
 	Type      string    `bson:"type"`
 	Done      bool      `bson:"done"`
-	Data      bson.Raw  `bson:"data"`
 	StartTime time.Time `bson:"start_time"`
 }

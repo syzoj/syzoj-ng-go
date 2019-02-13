@@ -16,7 +16,7 @@ func Handle_Contest_Register(c *ApiContext) (apiErr ApiError) {
 	}
 	contest := c.Server().c.GetContestW(contestId)
 	if contest == nil {
-		return ErrContestNotFound
+		return ErrContestNotLoaded
 	}
 	defer contest.Unlock()
 	if !contest.RegisterPlayer(c.Session.AuthUserUid) {

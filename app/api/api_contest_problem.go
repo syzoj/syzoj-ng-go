@@ -21,7 +21,7 @@ func Handle_Contest_Problem(c *ApiContext) (apiErr ApiError) {
 
 	contest := c.Server().c.GetContestR(contestId)
 	if contest == nil {
-		return ErrContestNotFound
+		return ErrContestNotLoaded
 	}
 	running := contest.Running()
 	if !running {
@@ -78,7 +78,7 @@ func Handle_Contest_Problem_Submit(c *ApiContext) ApiError {
 
 	contest := c.Server().c.GetContestR(contestId)
 	if contest == nil {
-		return ErrContestNotFound
+		return ErrContestNotLoaded
 	}
 	running := contest.Running()
 	if !running {

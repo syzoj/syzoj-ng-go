@@ -2,7 +2,6 @@ package core
 
 import (
 	"context"
-	"fmt"
 	"sort"
 	"sync"
 	"time"
@@ -20,7 +19,6 @@ type Contest struct {
 	c                *Core
 	id               primitive.ObjectID
 	lock             sync.RWMutex
-	running          bool
 	loaded           bool
 	schedules        []*contestSchedule
 	scheduleTimer    *time.Timer
@@ -30,6 +28,7 @@ type Contest struct {
 	cancelFunc       func()
 	wg               sync.WaitGroup
 
+	running              bool
 	startTime            time.Time // for calculating penalty time
 	judgeInContest       bool
 	submissionPerProblem int
@@ -46,8 +45,109 @@ type Contest struct {
 }
 
 type contestSchedule struct {
-	t time.Time
-	f func()
+	typ  string
+	done bool
+	t    time.Time
+}
+
+func (c *Contest) serializeState() interface{} {
+	state := bson.D{}
+	state = append(state, bson.E{"running", c.running})
+	state = append(state, bson.E{"start_time", c.startTime})
+	state = append(state, bson.E{"judge_in_contest", c.judgeInContest})
+	state = append(state, bson.E{"submission_per_problem", c.submissionPerProblem})
+	problems := bson.A{}
+	for _, problem := range c.problems {
+		problemEntry := bson.D{
+			{"name", problem.Name},
+			{"problem_id", problem.ProblemId},
+		}
+		problems = append(problems, problemEntry)
+	}
+	state = append(state, bson.E{"problems", problems})
+	schedules := bson.A{}
+	for _, schedule := range c.schedules {
+		scheduleD := bson.D{
+			{"type", schedule.typ},
+			{"done", schedule.done},
+			{"start_time", schedule.t},
+		}
+		schedules = append(schedules, scheduleD)
+	}
+	state = append(state, bson.E{"schedule", schedules})
+	switch c.ranklist.(type) {
+	case *ContestRealTimeRanklist:
+		state = append(state, bson.E{"ranklist_type", "realtime"})
+	case ContestDummyRanklist:
+	default:
+	}
+	switch c.rankcomp.(type) {
+	case ContestRankCompMaxScoreSum:
+		state = append(state, bson.E{"ranklist_comp", "maxsum"})
+	case ContestRankCompLastSum:
+		state = append(state, bson.E{"ranklist_comp", "lastsum"})
+	case ContestRankCompACM:
+		state = append(state, bson.E{"ranklist_comp", "acm"})
+	case ContestDummyRankComp:
+	default:
+	}
+	return state
+}
+
+func (c *Contest) loadState(state *model.ContestState) {
+	c.running = state.Running
+	c.startTime = state.StartTime
+	c.judgeInContest = state.JudgeInContest
+	c.submissionPerProblem = int(state.SubmissionPerProblem)
+	c.problems = state.Problems
+	c.nameToProblems = make(map[string]int)
+	for i, problem := range c.problems {
+		c.nameToProblems[problem.Name] = i
+	}
+	for _, scheduleModel := range state.Schedule {
+		schedule := &contestSchedule{
+			typ:  scheduleModel.Type,
+			done: scheduleModel.Done,
+			t:    scheduleModel.StartTime,
+		}
+		c.schedules = append(c.schedules, schedule)
+	}
+	switch state.RanklistType {
+	case "realtime":
+		c.ranklist = &ContestRealTimeRanklist{c: c}
+	default:
+		c.ranklist = ContestDummyRanklist{}
+	}
+	switch state.RanklistComp {
+	case "maxsum":
+		c.rankcomp = ContestRankCompMaxScoreSum{}
+	case "lastsum":
+		c.rankcomp = ContestRankCompLastSum{}
+	case "acm":
+		c.rankcomp = ContestRankCompACM{}
+	default:
+		c.rankcomp = ContestDummyRankComp{}
+	}
+	c.ranklist.Load()
+}
+
+func (c *Contest) saveState() {
+	model := mongo.NewUpdateOneModel()
+	model.SetFilter(bson.D{{"_id", c.id}})
+	model.SetUpdate(bson.D{{"$set", bson.D{{"state", c.serializeState()}}}})
+	c.updateChan <- model
+}
+
+func (c *Contest) runSchedule(s *contestSchedule) {
+	switch s.typ {
+	case "start":
+		c.running = true
+		c.startTime = time.Now()
+		log.WithField("contestId", c.id).Debug("Contest started")
+	case "stop":
+		c.running = false
+		log.WithField("contestId", c.id).Debug("Contest stopped")
+	}
 }
 
 // Call exactly once when the contest gets loaded into memory.
@@ -57,79 +157,19 @@ func (c *Contest) load(contestModel *model.Contest) {
 	go func() {
 		defer c.lock.Unlock()
 		log.WithField("contestId", c.id).Info("Loading contest")
-		c.running = contestModel.State.Running
-		c.startTime = contestModel.State.StartTime
-		c.judgeInContest = contestModel.State.JudgeInContest
-		c.submissionPerProblem = int(contestModel.State.SubmissionPerProblem)
-		c.problems = contestModel.State.Problems
-		c.nameToProblems = make(map[string]int)
-		for i, problem := range c.problems {
-			c.nameToProblems[problem.Name] = i
-		}
-		c.loaded = true
-		c.wg.Add(1)
 		c.context, c.cancelFunc = context.WithCancel(context.Background())
 		c.updateChan = make(chan mongo.WriteModel, 100)
 		c.playerUpdateChan = make(chan mongo.WriteModel, 1000)
-		switch contestModel.State.RanklistType {
-		case "realtime":
-			c.ranklist = &ContestRealTimeRanklist{c: c}
-		default:
-			c.ranklist = ContestDummyRanklist{}
-		}
-		switch contestModel.State.RanklistComp {
-		case "maxsum":
-			c.rankcomp = ContestRankCompMaxScoreSum{}
-		case "lastsum":
-			c.rankcomp = ContestRankCompLastSum{}
-		case "acm":
-			c.rankcomp = ContestRankCompACM{}
-		default:
-			c.rankcomp = ContestDummyRankComp{}
-		}
-		c.ranklist.Load()
 		// Bring up the writer
 		c.wg.Add(2)
 		go handleWrites(c.context, c.updateChan, c.c.mongodb.Collection("contest"), c.id, &c.wg)
 		go handleWrites(c.context, c.playerUpdateChan, c.c.mongodb.Collection("contest_player"), c.id, &c.wg)
 
-		// Load all schedules
-		for id, scheduleModel := range contestModel.State.Schedule {
-			if scheduleModel.Done {
-				continue
-			}
-			var f func()
-			switch scheduleModel.Type {
-			case "start":
-				f = func(c *Contest, id int) func() {
-					return func() {
-						c.running = true
-						c.startTime = time.Now()
-						model := mongo.NewUpdateOneModel()
-						model.SetFilter(bson.D{{"_id", c.id}})
-						model.SetUpdate(bson.D{{"$set", bson.D{{fmt.Sprintf("schedule.%d.done", id), true}, {"state.running", true}, {"state.start_time", c.startTime}}}})
-						c.updateChan <- model
-						log.WithField("contestId", c.id).Debug("Contest started")
-					}
-				}(c, id)
-			case "stop":
-				f = func(c *Contest, id int) func() {
-					return func() {
-						c.running = false
-						model := mongo.NewUpdateOneModel()
-						model.SetFilter(bson.D{{"_id", c.id}})
-						model.SetUpdate(bson.D{{"$set", bson.D{{fmt.Sprintf("schedule.%d.done", id), true}, {"state.running", false}}}})
-						c.updateChan <- model
-						log.WithField("contestId", c.id).Debug("Contest stopped")
-					}
-				}(c, id)
-			}
-			c.schedules = append(c.schedules, &contestSchedule{
-				t: scheduleModel.StartTime,
-				f: f,
-			})
-		}
+		c.loaded = true
+		c.wg.Add(1)
+		c.loadState(&contestModel.State)
 		c.sortSchedules()
+		go c.startSchedule()
 
 		// Load all players
 		c.players = make(map[primitive.ObjectID]*ContestPlayer)
@@ -149,7 +189,6 @@ func (c *Contest) load(contestModel *model.Contest) {
 			}
 		}
 		log.WithField("contestId", c.id).WithField("playerCount", len(c.players)).Debug("Loaded players")
-		go c.startSchedule()
 	}()
 }
 
@@ -173,24 +212,34 @@ func (c *Contest) sortSchedules() {
 }
 
 func (c *Contest) startSchedule() {
-	if len(c.schedules) == 0 {
-		return
-	}
 	c.lock.Lock()
 	defer c.lock.Unlock()
 	c.StatusBroker.Broadcast() // trigger potential deadlocks
 	if !c.loaded {
 		return
 	}
-	for len(c.schedules) > 0 && time.Now().After(c.schedules[0].t) {
-		c.schedules[0].f()
-		c.schedules = c.schedules[1:]
+	curTime := time.Now()
+	var d time.Duration
+	var found bool
+	for _, schedule := range c.schedules {
+		if !schedule.done {
+			if curTime.After(schedule.t) {
+				c.runSchedule(schedule)
+				schedule.done = true
+			} else {
+				if !found || d > schedule.t.Sub(curTime) {
+					found = true
+					d = schedule.t.Sub(curTime)
+				}
+			}
+		}
 	}
-	if len(c.schedules) == 0 {
-		return
+	if found {
+		c.scheduleTimer = time.AfterFunc(d, c.startSchedule)
+	} else {
+		c.scheduleTimer = nil
 	}
-	d := c.schedules[0].t.Sub(time.Now())
-	c.scheduleTimer = time.AfterFunc(d, c.startSchedule)
+	c.saveState()
 }
 
 // This must only be called from UnloadContest so that the
@@ -247,7 +296,6 @@ func handleWrites(ctx context.Context, ch chan mongo.WriteModel, coll *mongo.Col
 			}
 			if _, err := coll.BulkWrite(ctx, writes); err != nil {
 				log.WithField("contestId", contestId).WithField("writeCount", len(writes)).Error("Failed to write to contest model: ", err)
-				return
 			} else {
 				log.WithField("contestId", contestId).WithField("writeCount", len(writes)).Debug("Applied updates")
 			}

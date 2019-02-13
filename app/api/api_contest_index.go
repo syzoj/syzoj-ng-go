@@ -9,6 +9,7 @@ import (
 	mongo_options "github.com/mongodb/mongo-go-driver/mongo/options"
 	"github.com/valyala/fastjson"
 
+	"github.com/syzoj/syzoj-ng-go/app/core"
 	"github.com/syzoj/syzoj-ng-go/app/model"
 )
 
@@ -32,10 +33,18 @@ func Handle_Contest_Index(c *ApiContext) (apiErr ApiError) {
 
 	contest := c.Server().c.GetContestR(contestId)
 	if contest == nil {
-		return ErrContestNotFound
+		return ErrContestNotLoaded
 	}
 	running := contest.Running()
+	var player *core.ContestPlayer
+	if c.Session.LoggedIn() {
+		player = contest.GetPlayer(c.Session.AuthUserUid)
+	}
+	var problemsVisible bool
 	contestProblems := contest.GetProblems()
+	if running && player != nil {
+		problemsVisible = true
+	}
 	contest.RUnlock()
 
 	arena := new(fastjson.Arena)
@@ -48,7 +57,7 @@ func Handle_Contest_Index(c *ApiContext) (apiErr ApiError) {
 	} else {
 		contestObj.Set("running", arena.NewFalse())
 	}
-	if running && c.Session.LoggedIn() && contest.GetPlayer(c.Session.AuthUserUid) != nil {
+	if problemsVisible {
 		problems := arena.NewArray()
 		var wg sync.WaitGroup
 		problemsModel := make([]model.Problem, len(contestProblems))

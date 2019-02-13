@@ -6,8 +6,6 @@ import (
 	"github.com/mongodb/mongo-go-driver/bson"
 	"github.com/mongodb/mongo-go-driver/bson/primitive"
 	"github.com/mongodb/mongo-go-driver/mongo"
-
-	"github.com/syzoj/syzoj-ng-go/app/model"
 )
 
 func (c *Contest) Unlock() {
@@ -30,16 +28,31 @@ func (c *Contest) GetPlayer(userId primitive.ObjectID) *ContestPlayer {
 	return c.players[userId]
 }
 
-func (c *Contest) GetProblems() []*model.ProblemEntry {
-	return c.problems
+type ContestProblemEntry struct {
+	ProblemId primitive.ObjectID
+	Name      string
 }
 
-func (c *Contest) GetProblemByName(name string) *model.ProblemEntry {
+func (c *Contest) GetProblems() []*ContestProblemEntry {
+	entries := make([]*ContestProblemEntry, len(c.problems))
+	for i, p := range c.problems {
+		entries[i] = new(ContestProblemEntry)
+		entries[i].ProblemId = p.ProblemId
+		entries[i].Name = p.Name
+	}
+	return entries
+}
+
+func (c *Contest) GetProblemByName(name string) *ContestProblemEntry {
 	entryId, found := c.nameToProblems[name]
 	if !found {
 		return nil
 	}
-	return c.problems[entryId]
+	entry := c.problems[entryId]
+	return &ContestProblemEntry{
+		ProblemId: entry.ProblemId,
+		Name:      entry.Name,
+	}
 }
 
 func (c *Contest) RegisterPlayer(userId primitive.ObjectID) bool {

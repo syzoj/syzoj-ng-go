@@ -56,6 +56,7 @@ var ErrNotFound = &apiError{404, "Not found"}
 
 var ErrProblemNotFound = &apiError{404, "Problem not found"}
 var ErrContestNotFound = &apiError{404, "Contest not found"}
+var ErrContestNotLoaded = &apiError{404, "Contest not loaded"}
 var ErrSubmissionNotFound = &apiError{404, "Submission not found"}
 var ErrQueueFull = &apiError{503, "Submission queue full"}
 var ErrTooManySubmissions = &apiError{503, "Too many submissions"}
