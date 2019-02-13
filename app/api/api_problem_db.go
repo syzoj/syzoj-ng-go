@@ -1,6 +1,7 @@
 package api
 
 import (
+	"regexp"
 	"strconv"
 
 	"github.com/mongodb/mongo-go-driver/bson"
@@ -15,6 +16,9 @@ import (
 //
 // Query parameters:
 //     my: if exists, show only problems by myself (requires login)
+//     search: if exists, a substring to match in problem title
+//     limit: An integer, the max number of problems to return, max 100
+//     skip: An integer, how many documents to skip, default 0
 //
 // Response: A `problems` array with each object corresponding to a problem in the results.
 //
@@ -36,16 +40,37 @@ func Handle_ProblemDb(c *ApiContext) (apiErr ApiError) {
 		return internalServerError(err)
 	}
 	query := bson.D{}
-	if c.FormValue("my") != "" {
+	form := c.Form()
+	if len(form["my"]) != 0 {
 		if !c.Session.LoggedIn() {
 			return ErrNotLoggedIn
 		}
 		query = append(query, bson.E{"owner", c.Session.AuthUserUid})
 	}
+	if len(form["search"]) != 0 {
+		query = append(query, bson.E{"title", bson.D{{"$regex", regexp.QuoteMeta(form["search"][0])}}})
+	}
 	var cursor *mongo.Cursor
-	if cursor, err = c.Server().mongodb.Collection("problem").Find(c.Context(), query,
-		mongo_options.Find().SetProjection(bson.D{{"_id", "1"}, {"title", 1}, {"create_time", 1}, {"public_stats.submission", 1}}),
-	); err != nil {
+	options := mongo_options.Find()
+	options.SetProjection(bson.D{{"_id", "1"}, {"title", 1}, {"create_time", 1}, {"public_stats.submission", 1}})
+	if len(form["skip"]) != 0 {
+		skip, err := strconv.ParseInt(form["skip"][0], 10, 64)
+		if err == nil {
+			options.SetSkip(skip)
+		}
+	}
+	var limit int64
+	if len(form["limit"]) != 0 {
+		l, err := strconv.ParseInt(form["limit"][0], 10, 64)
+		if err == nil {
+			limit = l
+		}
+	}
+	if limit > 100 {
+		limit = 100
+	}
+	options.SetLimit(limit)
+	if cursor, err = c.Server().mongodb.Collection("problem").Find(c.Context(), query, options); err != nil {
 		panic(err)
 	}
 	defer cursor.Close(c.Context())
@@ -66,9 +91,6 @@ func Handle_ProblemDb(c *ApiContext) (apiErr ApiError) {
 		value.Set("submit_count", arena.NewNumberInt(int(problem.PublicStats.Submission)))
 		problems.SetArrayItem(item, value)
 		item += 1
-		if item >= 100 {
-			break
-		}
 	}
 	if err = cursor.Err(); err != nil {
 		panic(err)

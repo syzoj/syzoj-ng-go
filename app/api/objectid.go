@@ -17,3 +17,16 @@ func DecodeObjectID(id string) (res primitive.ObjectID) {
 	}
 	return
 }
+
+func DecodeObjectIDOK(id string) (res primitive.ObjectID, ok bool) {
+	if len(id) != 16 {
+		return primitive.ObjectID{}, false
+	}
+	n, err := base64.URLEncoding.Decode(res[:], []byte(id))
+	if err != nil || n != 12 {
+		ok = false
+	} else {
+		ok = true
+	}
+	return
+}

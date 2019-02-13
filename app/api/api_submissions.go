@@ -4,6 +4,7 @@ import (
 	"strconv"
 
 	"github.com/mongodb/mongo-go-driver/bson"
+	"github.com/mongodb/mongo-go-driver/bson/primitive"
 	"github.com/mongodb/mongo-go-driver/mongo"
 	mongo_options "github.com/mongodb/mongo-go-driver/mongo/options"
 	"github.com/valyala/fastjson"
@@ -16,7 +17,6 @@ import (
 // Query parameters:
 //     my: If exists, show ony submissions by myself (requires login)
 //     problem: If exists, filter by problem id (multiple problems allowed)
-//     keyword: A string to match in problem title
 //
 // Response: A `submissions` array with each object corresponding to a submission in the results.
 //
@@ -45,9 +45,22 @@ func Handle_Submissions(c *ApiContext) (apiErr ApiError) {
 	}
 
 	query := bson.D{{"public", true}}
-	if c.FormValue("my") != "" {
+	form := c.Form()
+	if len(form["my"]) != 0 {
 		if c.Session.LoggedIn() {
 			query = append(query, bson.E{"user", c.Session.AuthUserUid})
+		}
+	}
+	if len(form["problem"]) != 0 {
+		var ids []primitive.ObjectID
+		for _, problemIdStr := range form["problem"] {
+			id, ok := DecodeObjectIDOK(problemIdStr)
+			if ok {
+				ids = append(ids, id)
+			}
+		}
+		if len(ids) != 0 {
+			query = append(query, bson.E{"problem", bson.D{{"$in", ids}}})
 		}
 	}
 	var cursor *mongo.Cursor

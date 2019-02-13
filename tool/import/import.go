@@ -105,7 +105,7 @@ func (i *importer) writeProblems() {
 		}
 		contents := strings.Join(content, "\n\n")
 		if _, err = i.mongodb.Collection("problem").InsertOne(context.Background(),
-			bson.D{{"_id", problemId}, {"title", p.Title}, {"statement", contents}},
+			bson.D{{"_id", problemId}, {"title", p.Title}, {"statement", contents}, {"short_name", p.Id}},
 		); err != nil {
 			log.WithField("id", p.Id).Info("Error inserting problem: ", err.Error())
 			err = nil

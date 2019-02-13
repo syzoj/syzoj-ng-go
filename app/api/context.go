@@ -5,6 +5,7 @@ import (
 	"context"
 	"io"
 	"net/http"
+	"net/url"
 	"strconv"
 
 	"github.com/gorilla/mux"
@@ -29,6 +30,11 @@ func (c *ApiContext) Server() *ApiServer {
 
 func (c *ApiContext) FormValue(name string) string {
 	return c.req.FormValue(name)
+}
+
+func (c *ApiContext) Form() url.Values {
+	c.req.ParseForm()
+	return c.req.Form
 }
 
 func (c *ApiContext) GetCookie(name string) string {
