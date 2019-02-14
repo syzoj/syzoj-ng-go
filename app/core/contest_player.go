@@ -24,6 +24,7 @@ type ContestPlayerSubmission struct {
 	submission  *Submission
 	userId      primitive.ObjectID
 	penaltyTime time.Duration
+	submitTime  time.Time
 	done        bool
 	score       float64
 	loaded      bool
@@ -85,6 +86,7 @@ func (c *Contest) loadPlayer(contestPlayerModel *model.ContestPlayer) {
 				userId:      player.userId,
 				submission:  csubmission,
 				penaltyTime: submissionModel.PenaltyTime,
+				submitTime:  submissionModel.SubmitTime,
 			}
 			csubmission.Broker.Subscribe(submission)
 			submission.Notify()

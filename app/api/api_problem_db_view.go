@@ -36,15 +36,6 @@ func Handle_ProblemDb_View(c *ApiContext) (apiErr ApiError) {
 		}
 		panic(err)
 	}
-	arena := new(fastjson.Arena)
-	result := arena.NewObject()
-	result.Set("title", arena.NewString(problem.Title))
-	result.Set("statement", arena.NewString(problem.Statement))
-	if c.Session.LoggedIn() {
-		result.Set("can_submit", arena.NewTrue())
-	} else {
-		result.Set("can_submit", arena.NewFalse())
-	}
 	var isOwner bool
 	if c.Session.LoggedIn() {
 		for _, v := range problem.Owner {
@@ -53,6 +44,18 @@ func Handle_ProblemDb_View(c *ApiContext) (apiErr ApiError) {
 				break
 			}
 		}
+	}
+	if !isOwner && !problem.Public {
+		return ErrPermissionDenied
+	}
+	arena := new(fastjson.Arena)
+	result := arena.NewObject()
+	result.Set("title", arena.NewString(problem.Title))
+	result.Set("statement", arena.NewString(problem.Statement))
+	if c.Session.LoggedIn() {
+		result.Set("can_submit", arena.NewTrue())
+	} else {
+		result.Set("can_submit", arena.NewFalse())
 	}
 	if isOwner {
 		result.Set("is_owner", arena.NewTrue())
@@ -96,13 +99,13 @@ func Handle_ProblemDb_View_Edit(c *ApiContext) (apiErr ApiError) {
 		}
 		panic(err)
 	}
-	var allowed bool
+	var isOwner bool
 	for _, owner := range problemModel.Owner {
 		if owner == c.Session.AuthUserUid {
-			allowed = true
+			isOwner = true
 		}
 	}
-	if !allowed {
+	if !isOwner {
 		return ErrPermissionDenied
 	}
 	if _, err = c.Server().mongodb.Collection("problem").UpdateOne(c.Context(), bson.D{{"_id", problemId}}, bson.D{{"$set", bson.D{{"statement", statement}}}}); err != nil {
@@ -140,6 +143,9 @@ func Handle_ProblemDb_View_Submit(c *ApiContext) (apiErr ApiError) {
 			return ErrProblemNotFound
 		}
 		panic(err)
+	}
+	if !problemModel.Public {
+		return ErrPermissionDenied
 	}
 	if err = c.SessionStart(); err != nil {
 		panic(err)

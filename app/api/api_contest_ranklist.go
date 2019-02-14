@@ -1,9 +1,15 @@
 package api
 
 import (
+	"sync"
+
+	"github.com/mongodb/mongo-go-driver/bson"
+	"github.com/mongodb/mongo-go-driver/bson/primitive"
+	mongo_options "github.com/mongodb/mongo-go-driver/mongo/options"
 	"github.com/valyala/fastjson"
 
 	"github.com/syzoj/syzoj-ng-go/app/core"
+	"github.com/syzoj/syzoj-ng-go/app/model"
 )
 
 func Handle_Contest_Ranklist(c *ApiContext) ApiError {
@@ -52,6 +58,7 @@ func Handle_Contest_Ranklist(c *ApiContext) ApiError {
 	}
 	result.Set("rankcomp", arena.NewString(rankcompn))
 	ranklist := arena.NewArray()
+	var wg sync.WaitGroup
 	for i, entry := range snapshot {
 		entryVal := arena.NewObject()
 		entryVal.Set("user_id", arena.NewString(EncodeObjectID(entry.UserId)))
@@ -65,9 +72,22 @@ func Handle_Contest_Ranklist(c *ApiContext) ApiError {
 			j++
 		}
 		entryVal.Set("problems", problemsVal)
+		wg.Add(1)
+		go func(userId primitive.ObjectID) {
+			defer wg.Done()
+			var userModel model.User
+			var arena fastjson.Arena
+			if err := c.Server().mongodb.Collection("user").FindOne(c.Context(), bson.D{{"_id", userId}}, mongo_options.FindOne().SetProjection(bson.D{{"username", 1}})).Decode(&userModel); err != nil {
+				log.WithField("userId", userId).Error("Failed to read username: ", err)
+				entryVal.Set("username", arena.NewString("<ERROR>"))
+			} else {
+				entryVal.Set("username", arena.NewString(userModel.UserName))
+			}
+		}(entry.UserId)
 		ranklist.SetArrayItem(i, entryVal)
 	}
 	result.Set("ranklist", ranklist)
+	wg.Wait()
 	c.SendValue(result)
 	return nil
 }

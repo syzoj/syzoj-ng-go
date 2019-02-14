@@ -20,7 +20,7 @@ import (
 //     limit: An integer, the max number of problems to return, max 100
 //     skip: An integer, how many documents to skip, default 0
 //
-// Response: A `problems` array with each object corresponding to a problem in the results.
+// Response: A `problems` array with each object corresponding to a problem in the results, and the count of matching documents.
 //
 // Example response:
 //     {
@@ -46,6 +46,8 @@ func Handle_ProblemDb(c *ApiContext) (apiErr ApiError) {
 			return ErrNotLoggedIn
 		}
 		query = append(query, bson.E{"owner", c.Session.AuthUserUid})
+	} else {
+		query = append(query, bson.E{"public", true})
 	}
 	if len(form["search"]) != 0 {
 		query = append(query, bson.E{"title", bson.D{{"$regex", regexp.QuoteMeta(form["search"][0])}}})
@@ -59,7 +61,7 @@ func Handle_ProblemDb(c *ApiContext) (apiErr ApiError) {
 			options.SetSkip(skip)
 		}
 	}
-	var limit int64
+	var limit int64 = 100
 	if len(form["limit"]) != 0 {
 		l, err := strconv.ParseInt(form["limit"][0], 10, 64)
 		if err == nil {

@@ -116,6 +116,7 @@ func (c *Contest) PlayerSubmission(player *ContestPlayer, name string, submissio
 		userId:      player.userId,
 		submission:  submission,
 		penaltyTime: time.Now().Sub(c.startTime),
+		submitTime:  time.Now(),
 	}
 	submission.Broker.Subscribe(playerSubmission)
 	problemEntry.submissions = append(problemEntry.submissions, playerSubmission)
@@ -129,6 +130,7 @@ func (c *Contest) PlayerSubmission(player *ContestPlayer, name string, submissio
 	model.SetUpdate(bson.D{{"$push", bson.D{{"problems." + name + ".submissions", bson.D{
 		{"submission_id", submissionId},
 		{"penalty_time", playerSubmission.penaltyTime},
+		{"submit_time", playerSubmission.submitTime},
 	}}}}})
 	c.playerUpdateChan <- model
 	return nil
@@ -154,4 +156,8 @@ func (p *ContestPlayerProblem) GetSubmissions() []*ContestPlayerSubmission {
 
 func (s *ContestPlayerSubmission) GetSubmissionId() primitive.ObjectID {
 	return s.submission.Id
+}
+
+func (s *ContestPlayerSubmission) GetSubmitTime() time.Time {
+	return s.submitTime
 }

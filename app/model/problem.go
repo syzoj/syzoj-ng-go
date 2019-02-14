@@ -13,6 +13,7 @@ type Problem struct {
 	Owner      []primitive.ObjectID `bson:"owner"`
 	CreateTime time.Time            `bson:"create_time"`
 	ShortName  string               `bson:"short_name"`
+	Public     bool                 `bson:"public"`
 
 	// Couple with the public problemset
 	PublicStats ProblemStats `bson:"public_stats"`
