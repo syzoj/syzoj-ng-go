@@ -145,6 +145,11 @@ func (srv *ApiServer) Close() {
 	}
 	srv.wsConn = nil // Cause errors if someone attempts to write to wsConn
 	srv.wsConnMutex.Unlock()
+	srv.streamLock.Lock()
+	for _, sender := range srv.streamSender {
+		close(sender.closeChan)
+	}
+	srv.streamLock.Unlock()
 	srv.wg.Done()
 	srv.wg.Wait()
 }

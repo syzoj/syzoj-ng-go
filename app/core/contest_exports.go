@@ -43,6 +43,7 @@ type ContestProblemEntry struct {
 	Name      string
 }
 
+// Returns a snapshot
 func (c *Contest) GetProblems() []*ContestProblemEntry {
 	entries := make([]*ContestProblemEntry, len(c.problems))
 	for i, p := range c.problems {

@@ -4,12 +4,14 @@ import (
 	"io"
 	"net/http"
 	"sync"
+	"time"
 
 	"github.com/gorilla/mux"
 )
 
 type StreamSender struct {
 	body      io.Reader
+	timer     *time.Timer
 	closeChan chan struct{}
 	closeOnce sync.Once
 }
@@ -36,6 +38,7 @@ func (srv *ApiServer) HandleStream(w http.ResponseWriter, r *http.Request) {
 	sender := &StreamSender{
 		body:      r.Body,
 		closeChan: make(chan struct{}),
+		timer:     time.NewTimer(time.Second * 120),
 	}
 	srv.streamSender[token] = sender
 	if _, ok := srv.streamReceiver[token]; ok {
@@ -44,14 +47,11 @@ func (srv *ApiServer) HandleStream(w http.ResponseWriter, r *http.Request) {
 		delete(srv.streamReceiver, token)
 	}
 	srv.streamLock.Unlock()
-	go func() {
-		<-r.Context().Done()
-	}()
 	select {
 	case <-r.Context().Done():
 	case <-sender.closeChan:
+	case <-sender.timer.C:
 	}
-
 	srv.streamLock.Lock()
 	if s2, _ := srv.streamSender[token]; s2 == sender {
 		delete(srv.streamSender, token)
@@ -83,7 +83,9 @@ func (srv *ApiServer) GetStream(token string) *StreamReceiver {
 func pairStream(sender *StreamSender, receiver *StreamReceiver) {
 	go func() {
 		receiver.o.Do(func() {
-			receiver.sender = sender
+			if sender.timer.Stop() {
+				receiver.sender = sender
+			}
 			close(receiver.notifyChan)
 		})
 	}()
