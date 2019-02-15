@@ -123,6 +123,7 @@ func (c *contestStatusContext) run() {
 			} else {
 				msg.Set("is_player", arena.NewFalse())
 			}
+			msg.Set("clarifications", arena.NewNumberInt(len(contest.GetClarifications())))
 		}()
 
 		var w io.WriteCloser

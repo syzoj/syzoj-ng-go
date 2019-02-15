@@ -35,6 +35,7 @@ type Contest struct {
 	submissionPerProblem int
 	problems             []*model.ProblemEntry
 	nameToProblems       map[string]int
+	clarifications       []*ContestClarification
 
 	players map[primitive.ObjectID]*ContestPlayer
 
@@ -57,6 +58,13 @@ type contestSchedule struct {
 	typ  string
 	done bool
 	t    time.Time
+}
+
+type ContestClarification struct {
+	CreateTime  time.Time
+	Title       string
+	ProblemName string
+	Content     string
 }
 
 func (c *Contest) serializeState() interface{} {
@@ -95,6 +103,16 @@ func (c *Contest) serializeState() interface{} {
 		state = append(state, bson.E{"ranklist_comp", "acm"})
 	case ContestDummyRankComp:
 	default:
+	}
+	clarifications := bson.A{}
+	for _, clarification := range c.clarifications {
+		clarificationD := bson.D{
+			{"create_time", clarification.CreateTime},
+			{"title", clarification.Title},
+			{"problem_name", clarification.ProblemName},
+			{"content", clarification.Content},
+		}
+		clarifications = append(clarifications, clarificationD)
 	}
 	return state
 }
@@ -138,6 +156,16 @@ func (c *Contest) loadState(state *model.ContestState) {
 	case "all":
 		c.ranklistVisibility = "all"
 	default:
+	}
+	c.clarifications = nil
+	for _, clarificationModel := range state.Clarifications {
+		clarification := &ContestClarification{
+			CreateTime:  clarificationModel.CreateTime,
+			Title:       clarificationModel.Title,
+			ProblemName: clarificationModel.ProblemName,
+			Content:     clarificationModel.Content,
+		}
+		c.clarifications = append(c.clarifications, clarification)
 	}
 }
 

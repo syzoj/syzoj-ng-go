@@ -16,15 +16,16 @@ type Contest struct {
 
 // Volatile contest states.
 type ContestState struct {
-	Running              bool               `bson:"running,omitempty"`
-	StartTime            time.Time          `bson:"start_time,omitempty"`
-	Problems             []*ProblemEntry    `bson:"problems,omitempty"`
-	Schedule             []*ContestSchedule `bson:"schedule,omitempty"`
-	RanklistType         string             `bson:"ranklist_type,omitempty"`
-	RanklistComp         string             `bson:"ranklist_comp,omitempty"`
-	RanklistVisibility   string             `bson:"ranklist_visibility,omitempty"`
-	JudgeInContest       bool               `bson:"judge_in_contest,omitempty"`
-	SubmissionPerProblem int32              `bson:"submission_per_problem,omitempty"`
+	Running              bool                    `bson:"running,omitempty"`
+	StartTime            time.Time               `bson:"start_time,omitempty"`
+	Problems             []*ProblemEntry         `bson:"problems,omitempty"`
+	Schedule             []*ContestSchedule      `bson:"schedule,omitempty"`
+	RanklistType         string                  `bson:"ranklist_type,omitempty"`
+	RanklistComp         string                  `bson:"ranklist_comp,omitempty"`
+	RanklistVisibility   string                  `bson:"ranklist_visibility,omitempty"`
+	JudgeInContest       bool                    `bson:"judge_in_contest,omitempty"`
+	SubmissionPerProblem int32                   `bson:"submission_per_problem,omitempty"`
+	Clarifications       []*ContestClarification `bson:"clarifications,omitempty"`
 }
 
 type ProblemEntry struct {
@@ -36,4 +37,11 @@ type ContestSchedule struct {
 	Type      string    `bson:"type"`
 	Done      bool      `bson:"done"`
 	StartTime time.Time `bson:"start_time"`
+}
+
+type ContestClarification struct {
+	CreateTime  time.Time `bson:"create_time"`
+	Title       string    `bson:"title"`
+	ProblemName string    `bson:"problem_name"`
+	Content     string    `bson:"content"`
 }

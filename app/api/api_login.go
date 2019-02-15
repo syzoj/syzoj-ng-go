@@ -64,6 +64,9 @@ func Handle_Login(c *ApiContext) (apiErr ApiError) {
 	); err != nil {
 		panic(err)
 	}
+	if err = c.SessionReload(); err != nil {
+		panic(err)
+	}
 	c.SendValue(new(fastjson.Arena).NewNull())
 	return
 }

@@ -146,6 +146,26 @@ func (c *Contest) JudgeAll() {
 	}
 }
 
+func (c *Contest) AppendClarification(problemName string, title string, content string) {
+	clarification := &ContestClarification{
+		CreateTime:  time.Now(),
+		Title:       title,
+		ProblemName: problemName,
+		Content:     content,
+	}
+	newClarifications := make([]*ContestClarification, len(c.clarifications)+1)
+	copy(newClarifications, c.clarifications)
+	newClarifications[len(c.clarifications)] = clarification
+	c.clarifications = newClarifications
+	c.saveState()
+	c.StatusBroker.Broadcast()
+}
+
+// A snapshot of all clarifications, safe to read even after RUnlock()
+func (c *Contest) GetClarifications() []*ContestClarification {
+	return c.clarifications
+}
+
 func (p *ContestPlayer) GetProblems() map[string]*ContestPlayerProblem {
 	return p.problems
 }

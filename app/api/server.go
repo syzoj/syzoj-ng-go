@@ -27,6 +27,10 @@ type ApiServer struct {
 	wsConn      map[*websocket.Conn]struct{}
 	wsConnMutex sync.Mutex
 	cancelFunc  func()
+
+	streamSender   map[string]*StreamSender
+	streamReceiver map[string]*StreamReceiver
+	streamLock     sync.Mutex
 }
 type Config struct {
 	DebugToken string `json:"debug_token"`
@@ -35,10 +39,12 @@ type Config struct {
 // Creates an API server.
 func CreateApiServer(mongodb *mongo.Client, c *core.Core, config Config) (*ApiServer, error) {
 	srv := &ApiServer{
-		mongodb: mongodb.Database("syzoj"),
-		c:       c,
-		config:  config,
-		wsConn:  make(map[*websocket.Conn]struct{}),
+		mongodb:        mongodb.Database("syzoj"),
+		c:              c,
+		config:         config,
+		wsConn:         make(map[*websocket.Conn]struct{}),
+		streamSender:   make(map[string]*StreamSender),
+		streamReceiver: make(map[string]*StreamReceiver),
 	}
 	srv.wg.Add(1)
 	srv.ctx, srv.cancelFunc = context.WithCancel(context.Background())
@@ -48,6 +54,7 @@ func CreateApiServer(mongodb *mongo.Client, c *core.Core, config Config) (*ApiSe
 
 func (srv *ApiServer) setupRoutes() {
 	router := mux.NewRouter()
+	router.Handle("/api/stream/{token}", http.HandlerFunc(srv.HandleStream)).Methods("POST", "PUT")
 	router.Handle("/api/register", srv.wrapHandler(Handle_Register)).Methods("POST")
 	router.Handle("/api/login", srv.wrapHandler(Handle_Login)).Methods("POST")
 	router.Handle("/api/nav/logout", srv.wrapHandler(Handle_Nav_Logout)).Methods("POST")
@@ -66,6 +73,7 @@ func (srv *ApiServer) setupRoutes() {
 	router.Handle("/api/contest/{contest_id:[0-9A-Za-z\\-_]{16}}/load", srv.wrapHandler(Handle_Contest_Load)).Methods("POST")
 	router.Handle("/api/contest/{contest_id:[0-9A-Za-z\\-_]{16}}/unload", srv.wrapHandler(Handle_Contest_Unload)).Methods("POST")
 	router.Handle("/api/contest/{contest_id:[0-9A-Za-z\\-_]{16}}/judge-all", srv.wrapHandler(Handle_Contest_JudgeAll)).Methods("POST")
+	router.Handle("/api/contest/{contest_id:[0-9A-Za-z\\-_]{16}}/add-clarification", srv.wrapHandler(Handle_Contest_AddClarification)).Methods("POST")
 	router.Handle("/api/contest/{contest_id:[0-9A-Za-z\\-_]{16}}/problem/{entry_name}", srv.wrapHandler(Handle_Contest_Problem)).Methods("GET")
 	router.Handle("/api/contest/{contest_id:[0-9A-Za-z\\-_]{16}}/problem/{entry_name}/submit", srv.wrapHandler(Handle_Contest_Problem_Submit)).Methods("POST")
 	router.Handle("/api/contest/{contest_id:[0-9A-Za-z\\-_]{16}}/status", srv.wrapHandlerNoToken(Handle_Contest_Status)).Methods("GET")
@@ -75,6 +83,7 @@ func (srv *ApiServer) setupRoutes() {
 	router.Handle("/api/article/view/{article_id:[0-9A-Za-z\\-_]{16}}", srv.wrapHandler(Handle_Article_View)).Methods("GET")
 	debugRouter := mux.NewRouter()
 	debugRouter.Handle("/api/debug/submission/{submission_id:[0-9A-Za-z\\-_]{16}}/enqueue", srv.wrapHandlerNoToken(Handle_Debug_Submission_Enqueue)).Methods("POST")
+	debugRouter.Handle("/api/debug/upload", srv.wrapHandlerNoToken(Handle_Debug_Upload)).Methods("POST")
 	if srv.config.DebugToken != "" {
 		router.PathPrefix("/api/debug/").HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			token := r.Header.Get("X-Debug-Token")
