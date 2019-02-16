@@ -155,8 +155,8 @@ message Response {
 }
 
 message ResponseSession {
-	optional string user_name = 1 [(tagger.tags) = "bson:\"user_name\""];
-	optional bool logged_in = 2 [(tagger.tags) = "bson:\"logged_in\""];
+	optional string user_name = 1;
+	optional bool logged_in = 2;
 }
 
 message LoginRequest {
@@ -168,4 +168,44 @@ message RegisterRequest {
 	optional string username = 1;
 	optional string password = 2;
 	optional string email = 3;
+}
+
+message ProblemDbResponse {
+	repeated Problem problems = 1;
+}
+
+message ProblemDbNewRequest {
+	optional Problem problem = 1;
+}
+message ProblemDbNewResponse {
+	optional Problem problem = 1;
+	optional bool can_submit = 2;
+	optional bool is_owner = 3;
+}
+
+message ProblemDbEditRequest {
+	optional Problem problem = 1;
+}
+
+message ProblemDbViewSubmitRequest {
+	optional SubmissionContent code = 1;
+}
+
+message ProblemDbViewSubmitResponse {
+	optional Submission submission = 1;
+}
+
+message SubmissionsResponse {
+	repeated SubmissionsResponseSubmissionEntry submissions = 1;
+}
+
+message SubmissionsResponseSubmissionEntry {
+	optional Submission submission = 1;
+	optional Problem problem = 2;
+	optional User submit_user = 3;
+}
+
+message SubmissionViewResponse {
+	optional Submission submission = 1;
+	optional Problem problem = 2;
 }

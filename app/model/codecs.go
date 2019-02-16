@@ -55,14 +55,14 @@ func NewObjectIDProto() *ObjectID {
 
 func GetObjectID(o *ObjectID) (primitive.ObjectID, error) {
 	if o == nil {
-		return primitive.ObjectID{}, nil
+		return primitive.ObjectID{}, ErrInvalidObjectID
 	}
 	return DecodeObjectID(*o.Id)
 }
 
 func MustGetObjectID(o *ObjectID) primitive.ObjectID {
 	if o == nil {
-		return primitive.ObjectID{}
+		panic(ErrInvalidObjectID)
 	}
 	v, err := DecodeObjectID(*o.Id)
 	if err != nil {
@@ -103,13 +103,12 @@ type objectIDCodec struct{}
 
 func (objectIDCodec) EncodeValue(c bsoncodec.EncodeContext, w bsonrw.ValueWriter, v reflect.Value) error {
 	x := v.Interface().(*ObjectID)
-	var objectID primitive.ObjectID
-	var err error
-	if x != nil {
-		objectID, err = DecodeObjectID(*x.Id)
-		if err != nil {
-			return err
-		}
+	if x == nil {
+		return ErrInvalidObjectID
+	}
+	objectID, err := DecodeObjectID(*x.Id)
+	if err != nil {
+		return err
 	}
 	enc, err := c.LookupEncoder(objectIDType)
 	if err != nil {
