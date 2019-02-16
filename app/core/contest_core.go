@@ -6,6 +6,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/golang/protobuf/ptypes"
 	"github.com/mongodb/mongo-go-driver/bson"
 	"github.com/mongodb/mongo-go-driver/bson/primitive"
 	"github.com/mongodb/mongo-go-driver/mongo"
@@ -118,29 +119,29 @@ func (c *Contest) serializeState() interface{} {
 }
 
 func (c *Contest) loadState(state *model.ContestState) {
-	c.running = state.Running
-	c.startTime = state.StartTime
-	c.judgeInContest = state.JudgeInContest
-	c.submissionPerProblem = int(state.SubmissionPerProblem)
-	c.problems = state.Problems
+	c.running = state.GetRunning()
+	c.startTime, _ = ptypes.Timestamp(state.GetStartTime())
+	c.judgeInContest = state.GetJudgeInContest()
+	c.submissionPerProblem = int(state.GetSubmissionPerProblem())
+	c.problems = state.GetProblems()
 	c.nameToProblems = make(map[string]int)
 	for i, problem := range c.problems {
-		c.nameToProblems[problem.Name] = i
+		c.nameToProblems[problem.GetName()] = i
 	}
 	for _, scheduleModel := range state.Schedule {
 		schedule := &contestSchedule{
-			typ:  scheduleModel.Type,
-			done: scheduleModel.Done,
-			t:    scheduleModel.StartTime,
+			typ:  scheduleModel.GetType(),
+			done: scheduleModel.GetDone(),
 		}
+		schedule.t, _ = ptypes.Timestamp(scheduleModel.GetStartTime())
 		c.schedules = append(c.schedules, schedule)
 	}
-	switch state.RanklistType {
+	switch state.GetRanklistType() {
 	case "realtime":
 		c.ranklist = "realtime"
 	default:
 	}
-	switch state.RanklistComp {
+	switch state.GetRanklistComp() {
 	case "maxsum":
 		c.rankcomp = ContestRankCompMaxScoreSum{}
 	case "lastsum":
@@ -150,7 +151,7 @@ func (c *Contest) loadState(state *model.ContestState) {
 	default:
 		c.rankcomp = ContestDummyRankComp{}
 	}
-	switch state.RanklistVisibility {
+	switch state.GetRanklistVisibility() {
 	case "player":
 		c.ranklistVisibility = "player"
 	case "all":
@@ -160,11 +161,11 @@ func (c *Contest) loadState(state *model.ContestState) {
 	c.clarifications = nil
 	for _, clarificationModel := range state.Clarifications {
 		clarification := &ContestClarification{
-			CreateTime:  clarificationModel.CreateTime,
-			Title:       clarificationModel.Title,
-			ProblemName: clarificationModel.ProblemName,
-			Content:     clarificationModel.Content,
+			Title:       clarificationModel.GetTitle(),
+			ProblemName: clarificationModel.GetProblemName(),
+			Content:     clarificationModel.GetContent(),
 		}
+		clarification.CreateTime, _ = ptypes.Timestamp(clarificationModel.GetCreateTime())
 		c.clarifications = append(c.clarifications, clarification)
 	}
 }
@@ -206,7 +207,7 @@ func (c *Contest) load(contestModel *model.Contest) {
 
 		c.loaded = true
 		c.wg.Add(1)
-		c.loadState(&contestModel.State)
+		c.loadState(contestModel.State)
 		c.sortSchedules()
 		go c.startSchedule()
 

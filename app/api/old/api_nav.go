@@ -1,8 +1,8 @@
 package api
 
 import (
-	"github.com/golang/protobuf/ptypes/empty"
 	"github.com/mongodb/mongo-go-driver/bson"
+	"github.com/valyala/fastjson"
 )
 
 // POST /api/nav/logout
@@ -27,6 +27,6 @@ func Handle_Nav_Logout(c *ApiContext) (apiErr ApiError) {
 	if err = c.SessionReload(); err != nil {
 		panic(err)
 	}
-	c.SendValue(&empty.Empty{})
+	c.SendValue(new(fastjson.Arena).NewNull())
 	return
 }

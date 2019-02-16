@@ -112,8 +112,9 @@ func (c *Core) initContestLocked(ctx context.Context) (err error) {
 		if err = cursor.Decode(&contestModel); err != nil {
 			return
 		}
-		contest := &Contest{c: c, id: contestModel.Id}
-		c.contests[contestModel.Id] = contest
+		contest := &Contest{c: c}
+		contest.id, _ = model.GetObjectID(contestModel.Id)
+		c.contests[contest.id] = contest
 		contest.load(&contestModel)
 	}
 	if err = cursor.Err(); err != nil {

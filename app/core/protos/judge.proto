@@ -1,9 +1,10 @@
 syntax = "proto3";
 
 import "google/protobuf/empty.proto";
+import "google/protobuf/wrappers.proto";
 
 service Judge {
-    rpc FetchTask (JudgeRequest) returns (FetchTaskResult) {}
+	rpc FetchTask (JudgeRequest) returns (FetchTaskResult) {}
 	rpc SetTaskProgress (stream TaskProgress) returns (google.protobuf.Empty) {}
 	rpc SetTaskResult (SetTaskResultMessage) returns (google.protobuf.Empty) {}
 }
@@ -14,8 +15,8 @@ message JudgeRequest {
 }
 
 message FetchTaskResult {
-    bool success = 1;
-    Task task = 2;
+	bool success = 1;
+	Task task = 2;
 }
 
 message Task {
@@ -38,5 +39,6 @@ message SetTaskResultMessage {
 	string judger_id = 1;
 	string judger_token = 2;
 	int64 task_tag = 3;
-    TaskResult result = 4;
+	TaskResult result = 4;
+	google.protobuf.Int64Value myint = 5;
 }

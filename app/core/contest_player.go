@@ -3,6 +3,7 @@ package core
 import (
 	"time"
 
+	"github.com/golang/protobuf/ptypes"
 	"github.com/mongodb/mongo-go-driver/bson/primitive"
 
 	"github.com/syzoj/syzoj-ng-go/app/model"
@@ -74,20 +75,21 @@ func (c *Contest) updatePlayerRankInfo(player *ContestPlayer) {
 func (c *Contest) loadPlayer(contestPlayerModel *model.ContestPlayer) {
 	player := new(ContestPlayer)
 	player.Broker = util.NewBroker()
-	player.modelId = contestPlayerModel.Id
-	player.userId = contestPlayerModel.User
+	player.modelId, _ = model.GetObjectID(contestPlayerModel.GetId())
+	player.userId, _ = model.GetObjectID(contestPlayerModel.GetUser())
 	player.problems = make(map[string]*ContestPlayerProblem)
 	for i, problemEntryModel := range contestPlayerModel.Problems {
 		problemEntry := new(ContestPlayerProblem)
 		for _, submissionModel := range problemEntryModel.Submissions {
-			csubmission := c.c.GetSubmission(submissionModel.SubmissionId)
+			submissionId, _ := model.GetObjectID(submissionModel.GetSubmissionId())
+			csubmission := c.c.GetSubmission(submissionId)
 			submission := &ContestPlayerSubmission{
-				c:           c,
-				userId:      player.userId,
-				submission:  csubmission,
-				penaltyTime: submissionModel.PenaltyTime,
-				submitTime:  submissionModel.SubmitTime,
+				c:          c,
+				userId:     player.userId,
+				submission: csubmission,
 			}
+			submission.penaltyTime, _ = ptypes.Duration(submissionModel.GetPenaltyTime())
+			submission.submitTime, _ = ptypes.Timestamp(submissionModel.GetSubmitTime())
 			csubmission.Broker.Subscribe(submission)
 			submission.Notify()
 			problemEntry.submissions = append(problemEntry.submissions, submission)

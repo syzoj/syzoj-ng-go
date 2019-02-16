@@ -62,11 +62,11 @@ func (srv *Core) initJudge(ctx context.Context) (err error) {
 			panic(err)
 		}
 		item := &queueItem{
-			id:        submission.Id,
-			problemId: submission.Problem,
-			language:  submission.Content.Language,
-			code:      submission.Content.Code,
+			language: submission.Content.GetLanguage(),
+			code:     submission.Content.GetCode(),
 		}
+		item.id = model.MustGetObjectID(submission.GetId())
+		item.problemId = model.MustGetObjectID(submission.GetProblem())
 		srv.enqueue(item)
 	}
 	if err = cursor.Err(); err != nil {
@@ -102,11 +102,11 @@ func (c *Core) EnqueueSubmission(id primitive.ObjectID) {
 		return
 	}
 	item := &queueItem{
-		id:        submission.Id,
-		problemId: submission.Problem,
-		language:  submission.Content.Language,
-		code:      submission.Content.Code,
+		language: submission.Content.GetLanguage(),
+		code:     submission.Content.GetCode(),
 	}
+	item.id, _ = model.GetObjectID(submission.GetId())
+	item.problemId, _ = model.GetObjectID(submission.GetProblem())
 	c.enqueue(item)
 }
 
@@ -140,9 +140,9 @@ func (c *Core) GetSubmission(submissionId primitive.ObjectID) *Submission {
 		if err = c.mongodb.Collection("submission").FindOne(c.context, bson.D{{"_id", submissionId}}, mongo_options.FindOne().SetProjection(bson.D{{"_id", 1}, {"result", 1}})).Decode(&submissionModel); err != nil {
 			log.WithField("submissionId", submissionId).Error("Failed to load submission: ", err)
 		}
-		if submissionModel.Result.Status == "Done" {
+		if submissionModel.Result.GetStatus() == "Done" {
 			submission.Done = true
-			submission.Score = submissionModel.Result.Score
+			submission.Score = submissionModel.Result.GetScore()
 		} else {
 			submission.Done = false
 		}

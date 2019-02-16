@@ -1,16 +1,16 @@
 package api
 
 import (
-	"bytes"
 	"context"
-	"io"
 	"net/http"
 	"net/url"
-	"strconv"
 
+	"github.com/golang/protobuf/proto"
+	"github.com/golang/protobuf/ptypes"
 	"github.com/gorilla/mux"
 	"github.com/gorilla/websocket"
-	"github.com/valyala/fastjson"
+
+	"github.com/syzoj/syzoj-ng-go/app/model"
 )
 
 type ApiContext struct {
@@ -57,16 +57,11 @@ func (c *ApiContext) SetHeader(name string, value string) {
 	c.res.Header().Add(name, value)
 }
 
-func (c *ApiContext) getSessionVal(arena *fastjson.Arena) *fastjson.Value {
-	val := arena.NewObject()
-	val.Set("user_name", arena.NewString(c.Session.AuthUserUserName))
-	if c.Session.LoggedIn() {
-		val.Set("logged_in", arena.NewTrue())
-	} else {
-		val.Set("logged_in", arena.NewFalse())
+func (c *ApiContext) getSessionVal() *model.ResponseSession {
+	return &model.ResponseSession{
+		UserName: proto.String(c.Session.AuthUserUserName),
+		LoggedIn: proto.Bool(c.Session.LoggedIn()),
 	}
-	//godoc.org/github.com/mongodb/mongo-go-driver/mongo#Databasehttps://godoc.org/github.com/mongodb/mongo-go-driver/mongo#Databasehttps://godoc.org/github.com/mongodb/mongo-go-driver/mongo#Databasegithub.com/dgraph-io/dgo"
-	return val
 }
 
 func (c *ApiContext) SendError(err ApiError) {
@@ -75,30 +70,32 @@ func (c *ApiContext) SendError(err ApiError) {
 	} else {
 		log.Infof("Failed to handle request %s: %s", c.req.URL, err)
 	}
-	arena := new(fastjson.Arena)
-	val := arena.NewObject()
-	val.Set("error", arena.NewString(err.Error()))
+	resp := new(model.Response)
+	resp.Error = proto.String(err.Error())
 	if c.Session != nil {
-		val.Set("session", c.getSessionVal(arena))
+		resp.Session = c.getSessionVal()
 	}
-	_, err2 := c.res.Write(val.MarshalTo(nil))
+	err2 := jsonMarshaler.Marshal(c.res, resp)
 	if err2 != nil {
 		log.WithField("error", err2).Warning("Failed to write error")
 	}
 }
 
-func (c *ApiContext) SendValue(val *fastjson.Value) {
-	arena := new(fastjson.Arena)
-	mval := arena.NewObject()
-	mval.Set("data", val)
-	if c.Session != nil {
-		mval.Set("session", c.getSessionVal(arena))
-	}
-	data := mval.MarshalTo(nil)
-	c.SetHeader("Content-Length", strconv.Itoa(len(data)))
-	_, err := c.res.Write(data)
+func (c *ApiContext) SendValue(val proto.Message) {
+	var err error
+	resp := &model.Response{}
+	resp.Data, err = ptypes.MarshalAny(val)
 	if err != nil {
 		log.WithField("error", err).Warning("Failed to write response")
+		return
+	}
+	if c.Session != nil {
+		resp.Session = c.getSessionVal()
+	}
+	err = jsonMarshaler.Marshal(c.res, resp)
+	if err != nil {
+		log.WithField("error", err).Warning("Failed to write response")
+		return
 	}
 }
 
@@ -106,13 +103,8 @@ func (c *ApiContext) Context() context.Context {
 	return c.req.Context()
 }
 
-func (c *ApiContext) GetBody() (*fastjson.Value, error) {
-	var err error
-	buf := bytes.Buffer{}
-	if _, err = io.Copy(&buf, c.req.Body); err != nil {
-		return nil, err
-	}
-	return fastjson.ParseBytes(buf.Bytes())
+func (c *ApiContext) GetBody(msg proto.Message) error {
+	return jsonUnmarshaler.Unmarshal(c.req.Body, msg)
 }
 
 func (c *ApiContext) UpgradeWebSocket() (*websocket.Conn, error) {

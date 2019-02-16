@@ -16,6 +16,7 @@ import (
 	"time"
 
 	_ "github.com/go-sql-driver/mysql"
+	"github.com/mongodb/mongo-go-driver/bson/bsoncodec"
 	"github.com/mongodb/mongo-go-driver/mongo"
 	mongo_options "github.com/mongodb/mongo-go-driver/mongo/options"
 	"github.com/mongodb/mongo-go-driver/mongo/readconcern"
@@ -27,6 +28,7 @@ import (
 	"github.com/syzoj/syzoj-ng-go/app/api"
 	"github.com/syzoj/syzoj-ng-go/app/core"
 	judge_api "github.com/syzoj/syzoj-ng-go/app/core/protos"
+	"github.com/syzoj/syzoj-ng-go/app/model"
 	"github.com/syzoj/syzoj-ng-go/tool/import"
 )
 
@@ -80,8 +82,13 @@ func cmdImport() {
 	options := mongo_options.Client()
 	options.ReadConcern = readconcern.Majority()
 	options.WriteConcern = new(writeconcern.WriteConcern)
+	builder := bsoncodec.NewRegistryBuilder()
+	bsoncodec.DefaultValueEncoders{}.RegisterDefaultEncoders(builder)
+	bsoncodec.DefaultValueDecoders{}.RegisterDefaultDecoders(builder)
+	model.Register(builder)
+	options.Registry = builder.Build()
 	writeconcern.WMajority()(options.WriteConcern)
-	if mongoClient, err = mongo.Connect(context.Background(), config.Mongo); err != nil {
+	if mongoClient, err = mongo.Connect(context.Background(), config.Mongo, options); err != nil {
 		log.Fatal("Error connecting to MongoDB: ", err)
 	}
 	if err = mongoClient.Ping(context.Background(), nil); err != nil {
@@ -125,7 +132,15 @@ func cmdRun() {
 
 	log.Info("Connecting to MongoDB")
 	var mongoClient *mongo.Client
-	if mongoClient, err = mongo.Connect(context.Background(), config.Mongo); err != nil {
+	options := mongo_options.Client()
+	options.ReadConcern = readconcern.Majority()
+	options.WriteConcern = new(writeconcern.WriteConcern)
+	builder := bsoncodec.NewRegistryBuilder()
+	bsoncodec.DefaultValueEncoders{}.RegisterDefaultEncoders(builder)
+	bsoncodec.DefaultValueDecoders{}.RegisterDefaultDecoders(builder)
+	model.Register(builder)
+	options.Registry = builder.Build()
+	if mongoClient, err = mongo.Connect(context.Background(), config.Mongo, options); err != nil {
 		log.Fatal("Error connecting to MongoDB: ", err)
 	}
 	if err = mongoClient.Ping(context.Background(), nil); err != nil {

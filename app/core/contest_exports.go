@@ -7,6 +7,7 @@ import (
 	"github.com/mongodb/mongo-go-driver/bson/primitive"
 	"github.com/mongodb/mongo-go-driver/mongo"
 
+	"github.com/syzoj/syzoj-ng-go/app/model"
 	"github.com/syzoj/syzoj-ng-go/util"
 )
 
@@ -48,8 +49,8 @@ func (c *Contest) GetProblems() []*ContestProblemEntry {
 	entries := make([]*ContestProblemEntry, len(c.problems))
 	for i, p := range c.problems {
 		entries[i] = new(ContestProblemEntry)
-		entries[i].ProblemId = p.ProblemId
-		entries[i].Name = p.Name
+		entries[i].ProblemId, _ = model.GetObjectID(p.GetProblemId())
+		entries[i].Name = p.GetName()
 	}
 	return entries
 }
@@ -60,10 +61,11 @@ func (c *Contest) GetProblemByName(name string) *ContestProblemEntry {
 		return nil
 	}
 	entry := c.problems[entryId]
-	return &ContestProblemEntry{
-		ProblemId: entry.ProblemId,
-		Name:      entry.Name,
+	v := &ContestProblemEntry{
+		Name: entry.GetName(),
 	}
+	v.ProblemId, _ = model.GetObjectID(entry.ProblemId)
+	return v
 }
 
 // The logic is duplicated in loadPlayer
@@ -95,7 +97,7 @@ func (c *Contest) RegisterPlayer(userId primitive.ObjectID) bool {
 // * ErrGeneral
 // * ErrTooManySubmissions
 func (c *Contest) PlayerSubmission(player *ContestPlayer, name string, submissionId primitive.ObjectID) error {
-	if !checkName(name) {
+	if !model.CheckName(name) {
 		log.Debug("Contest.PlayerSubmission: Invalid problem name")
 		return ErrGeneral
 	}
