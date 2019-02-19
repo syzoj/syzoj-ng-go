@@ -5,6 +5,8 @@ import "google/protobuf/duration.proto";
 import "google/protobuf/any.proto";
 import "tagger.proto";
 
+option go_package = "github.com/syzoj/syzoj-ng-go/app/model";
+
 message ObjectID {
 	required string id = 1;
 }
