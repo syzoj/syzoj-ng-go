@@ -209,3 +209,12 @@ message SubmissionViewResponse {
 	optional Submission submission = 1;
 	optional Problem problem = 2;
 }
+
+message ContestsResponse {
+	repeated ContestsResponseContestEntry contests = 1;
+}
+
+message ContestsResponseContestEntry {
+	optional Contest contest = 1;
+	optional bool running = 2;
+}
