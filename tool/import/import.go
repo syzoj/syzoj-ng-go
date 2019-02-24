@@ -9,10 +9,12 @@ import (
 	"strings"
 	"time"
 
-	"github.com/mongodb/mongo-go-driver/bson"
-	"github.com/mongodb/mongo-go-driver/bson/primitive"
-	"github.com/mongodb/mongo-go-driver/mongo"
+	"github.com/golang/protobuf/proto"
+	"github.com/golang/protobuf/ptypes"
 	"github.com/sirupsen/logrus"
+	"go.mongodb.org/mongo-driver/mongo"
+
+	"github.com/syzoj/syzoj-ng-go/app/model"
 )
 
 var log = logrus.StandardLogger()
@@ -86,7 +88,6 @@ func convertMath(s string) string {
 func (i *importer) writeProblems() {
 	var err error
 	for p := range i.problems {
-		problemId := primitive.NewObjectID()
 		var content []string
 		if p.Description != "" {
 			content = append(content, "# 题目描述\n", p.Description)
@@ -104,9 +105,12 @@ func (i *importer) writeProblems() {
 			content = append(content, "# 数据范围与提示\n", p.LimitAndHint)
 		}
 		contents := strings.Join(content, "\n\n")
-		if _, err = i.mongodb.Collection("problem").InsertOne(context.Background(),
-			bson.D{{"_id", problemId}, {"title", p.Title}, {"statement", contents}, {"short_name", p.Id}},
-		); err != nil {
+		problemModel := new(model.Problem)
+		problemModel.Id = model.NewObjectIDProto()
+		problemModel.Title = proto.String(p.Title)
+		problemModel.Statement = proto.String(contents)
+		problemModel.ShortName = proto.String(p.Id)
+		if _, err = i.mongodb.Collection("problem").InsertOne(context.Background(), problemModel); err != nil {
 			log.WithField("id", p.Id).Info("Error inserting problem: ", err.Error())
 			err = nil
 		}
@@ -148,19 +152,18 @@ func (i *importer) writeUsers() {
 			err = nil
 			continue
 		}
-		doc := bson.D{
-			{"_id", primitive.NewObjectID()},
-			{"username", user.UserName},
-			{"email", user.Email},
-			{"auth", bson.D{
-				{"method", int64(2)},
-				{"password", passmd5},
-			}},
+		userModel := new(model.User)
+		userModel.Id = model.NewObjectIDProto()
+		userModel.Username = proto.String(user.UserName)
+		userModel.Email = proto.String(user.Email)
+		userModel.Auth = &model.UserAuth{
+			Method:   proto.Int64(2),
+			Password: passmd5,
 		}
 		if user.RegisterTime.Valid {
-			doc = append(doc, bson.E{"register_time", time.Unix(user.RegisterTime.Int64, 0)})
+			userModel.RegisterTime, _ = ptypes.TimestampProto(time.Unix(user.RegisterTime.Int64, 0))
 		}
-		if _, err = i.mongodb.Collection("user").InsertOne(context.Background(), doc); err != nil {
+		if _, err = i.mongodb.Collection("user").InsertOne(context.Background(), userModel); err != nil {
 			log.Error("Error inserting user: ", err)
 			err = nil
 		}

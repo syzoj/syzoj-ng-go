@@ -16,12 +16,12 @@ import (
 	"time"
 
 	_ "github.com/go-sql-driver/mysql"
-	"github.com/mongodb/mongo-go-driver/bson/bsoncodec"
-	"github.com/mongodb/mongo-go-driver/mongo"
-	mongo_options "github.com/mongodb/mongo-go-driver/mongo/options"
-	"github.com/mongodb/mongo-go-driver/mongo/readconcern"
-	"github.com/mongodb/mongo-go-driver/mongo/writeconcern"
 	"github.com/sirupsen/logrus"
+	"go.mongodb.org/mongo-driver/bson/bsoncodec"
+	"go.mongodb.org/mongo-driver/mongo"
+	mongo_options "go.mongodb.org/mongo-driver/mongo/options"
+	"go.mongodb.org/mongo-driver/mongo/readconcern"
+	"go.mongodb.org/mongo-driver/mongo/writeconcern"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/reflection"
 
@@ -87,8 +87,9 @@ func cmdImport() {
 	bsoncodec.DefaultValueDecoders{}.RegisterDefaultDecoders(builder)
 	model.Register(builder)
 	options.Registry = builder.Build()
+	options.ApplyURI(config.Mongo)
 	writeconcern.WMajority()(options.WriteConcern)
-	if mongoClient, err = mongo.Connect(context.Background(), config.Mongo, options); err != nil {
+	if mongoClient, err = mongo.Connect(context.Background(), options); err != nil {
 		log.Fatal("Error connecting to MongoDB: ", err)
 	}
 	if err = mongoClient.Ping(context.Background(), nil); err != nil {
@@ -140,7 +141,8 @@ func cmdRun() {
 	bsoncodec.DefaultValueDecoders{}.RegisterDefaultDecoders(builder)
 	model.Register(builder)
 	options.Registry = builder.Build()
-	if mongoClient, err = mongo.Connect(context.Background(), config.Mongo, options); err != nil {
+	options.ApplyURI(config.Mongo)
+	if mongoClient, err = mongo.Connect(context.Background(), options); err != nil {
 		log.Fatal("Error connecting to MongoDB: ", err)
 	}
 	if err = mongoClient.Ping(context.Background(), nil); err != nil {

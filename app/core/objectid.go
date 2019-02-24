@@ -3,7 +3,7 @@ package core
 import (
 	"encoding/base64"
 
-	"github.com/mongodb/mongo-go-driver/bson/primitive"
+	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 
 func EncodeObjectID(id primitive.ObjectID) string {

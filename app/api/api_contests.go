@@ -1,9 +1,9 @@
 package api
 
 import (
-	"github.com/mongodb/mongo-go-driver/bson"
-	"github.com/mongodb/mongo-go-driver/mongo"
-	mongo_options "github.com/mongodb/mongo-go-driver/mongo/options"
+	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/mongo"
+	mongo_options "go.mongodb.org/mongo-driver/mongo/options"
 
 	"github.com/syzoj/syzoj-ng-go/app/model"
 )
@@ -25,7 +25,9 @@ func Handle_Contests(c *ApiContext) (apiErr ApiError) {
 		if err = cursor.Decode(contestModel); err != nil {
 			panic(err)
 		}
-		entry.Contest = contestModel
+		entry.Contest = new(model.Contest)
+		entry.Contest.Name = contestModel.Name
+		entry.Contest.Id = contestModel.Id
 		resp.Contests = append(resp.Contests, entry)
 	}
 	if err = cursor.Err(); err != nil {

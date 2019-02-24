@@ -5,9 +5,9 @@ import (
 	"crypto/subtle"
 
 	"github.com/golang/protobuf/ptypes/empty"
-	"github.com/mongodb/mongo-go-driver/bson"
-	"github.com/mongodb/mongo-go-driver/mongo"
-	mongo_options "github.com/mongodb/mongo-go-driver/mongo/options"
+	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/mongo"
+	mongo_options "go.mongodb.org/mongo-driver/mongo/options"
 	"golang.org/x/crypto/bcrypt"
 
 	"github.com/syzoj/syzoj-ng-go/app/model"

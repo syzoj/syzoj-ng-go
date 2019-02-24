@@ -4,12 +4,14 @@ import (
 	"context"
 	"errors"
 
+	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/ptypes/empty"
-	"github.com/mongodb/mongo-go-driver/bson"
-	"github.com/mongodb/mongo-go-driver/bson/primitive"
-	"github.com/mongodb/mongo-go-driver/mongo"
+	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/bson/primitive"
+	"go.mongodb.org/mongo-driver/mongo"
 
 	judge_api "github.com/syzoj/syzoj-ng-go/app/core/protos"
+	"github.com/syzoj/syzoj-ng-go/app/model"
 )
 
 type judgeRpc struct {
@@ -22,9 +24,7 @@ func (srv *Core) JudgeRpc() judge_api.JudgeServer {
 
 func (srv judgeRpc) FetchTask(ctx context.Context, in *judge_api.JudgeRequest) (res *judge_api.FetchTaskResult, err error) {
 	var judgerId primitive.ObjectID
-	var ok bool
-	if judgerId, ok = DecodeObjectIDOK(in.JudgerId); !ok {
-		err = errors.New("Invalid judger id")
+	if judgerId, err = model.GetObjectID(in.JudgerId); err != nil {
 		return
 	}
 	judger := srv.getJudger(judgerId)
@@ -63,12 +63,11 @@ loop:
 			panic("Queue item doesn't exist")
 		}
 		res = new(judge_api.FetchTaskResult)
-		res.Success = true
+		res.Success = proto.Bool(true)
 		res.Task = &judge_api.Task{
-			TaskTag:   int64(id),
-			ProblemId: EncodeObjectID(item.problemId),
-			Language:  item.language,
-			Code:      item.code,
+			TaskTag:   proto.Int64(int64(id)),
+			ProblemId: model.ObjectIDProto(item.problemId),
+			Content:   item.content,
 		}
 		log.WithFields(item.getFields()).WithField("judgerId", judgerId).Debug("Judge item taken by judger")
 		return
@@ -81,19 +80,17 @@ loop:
 	}
 }
 
-func (srv judgeRpc) SetTaskProgress(s judge_api.Judge_SetTaskProgressServer) (err error) {
+func (c judgeRpc) SetTaskProgress(s judge_api.Judge_SetTaskProgressServer) (err error) {
 	return
 }
 
 func (c judgeRpc) SetTaskResult(ctx context.Context, in *judge_api.SetTaskResultMessage) (e *empty.Empty, err error) {
 	var judgerId primitive.ObjectID
-	var ok bool
-	if judgerId, ok = DecodeObjectIDOK(in.JudgerId); !ok {
-		err = errors.New("Invalid judger id")
+	if judgerId, err = model.GetObjectID(in.JudgerId); err != nil {
 		return
 	}
 	judger := c.getJudger(judgerId)
-	id := int(in.TaskTag)
+	id := int(in.GetTaskTag())
 	judger.listLock.Lock()
 	var found bool
 	for k, v := range judger.judgingTask {
@@ -112,30 +109,22 @@ func (c judgeRpc) SetTaskResult(ctx context.Context, in *judge_api.SetTaskResult
 	delete(c.queueItems, id)
 	c.queueLock.Unlock()
 	go func() {
-		submission := c.GetSubmission(item.id)
-		submission.Lock.Lock()
-		submission.Done = true
-		submission.Score = float64(in.Result.Score)
-		submission.Lock.Unlock()
 		var result *mongo.UpdateResult
 		if result, err = c.mongodb.Collection("submission").UpdateOne(c.context,
 			bson.D{{"_id", item.id}},
 			bson.D{
 				{"$set", bson.D{
-					{"result", bson.D{
-						{"status", in.Result.Result},
-						{"score", in.Result.Score}},
-					}},
-				},
+					{"result", in.Result},
+				}},
 				{"$unset", bson.D{{"judge_queue_status", 1}}},
 			}); err != nil {
 			log.WithField("submissionId", item.id).Error("Failed to update judge queue status: ", err)
 			return
 		}
-		submission.Broker.Broadcast()
 		if result.MatchedCount == 0 {
 			log.WithFields(item.getFields()).Warning("Failed to update judge status")
 		}
+		c.invokeSubmissionHook(item.id, in.Result)
 	}()
 	e = new(empty.Empty)
 	return

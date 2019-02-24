@@ -1,185 +1,256 @@
 package core
 
 import (
-	"context"
-	"errors"
 	"sync"
-	"time"
 
-	"github.com/mongodb/mongo-go-driver/bson"
-	"github.com/mongodb/mongo-go-driver/bson/primitive"
-	"github.com/mongodb/mongo-go-driver/mongo"
+	"github.com/golang/protobuf/proto"
+	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/bson/primitive"
+	mongo_options "go.mongodb.org/mongo-driver/mongo/options"
 
 	"github.com/syzoj/syzoj-ng-go/app/model"
 )
 
-type ContestOptions struct {
-	Rules     ContestRules
-	StartTime time.Time
-	Duration  time.Duration
+type Contest struct {
+	c           *Core
+	mu          sync.Mutex
+	id          primitive.ObjectID
+	running     bool
+	playersById map[primitive.ObjectID]*ContestPlayer
+	players     []*ContestPlayer
+
+	judgeInContest bool
+	problems       []*ContestProblem
+	problemsByName map[string]*ContestProblem
+
+	submissions  map[primitive.ObjectID]*model.SubmissionResult
+	ranklist     *model.ContestRanklist
+	ranklistimpl ContestRanklistImpl
+	ranklistSema chan struct{}
 }
 
-type ContestRules struct {
-	JudgeInContest      bool
-	SeeResult           bool
-	RejudgeAfterContest bool
-	RanklistType        string // realtime, defer, ""
-	RanklistVisibility  string
-	RanklistComp        string // maxsum, lastsum, acm
+// immutable
+type ContestProblem struct {
+	name string
+	data *model.ContestProblem
 }
 
-var ErrInvalidOptions = errors.New("Invalid contest options")
-
-// No locking required
-func (c *Core) CreateContest(ctx context.Context, id primitive.ObjectID, options *ContestOptions) (err error) {
-	var result *mongo.UpdateResult
-	schedule := bson.A{}
-	if options.Duration <= 0 {
-		log.Debug("CreateContest: Invalid contest options: Duration <= 0")
-		return ErrInvalidOptions
-	}
-	switch options.Rules.RanklistType {
-	case "realtime":
-	case "":
-	default:
-		return ErrInvalidOptions
-	}
-	switch options.Rules.RanklistComp {
-	case "maxsum":
-	case "lastsum":
-	case "acm":
-	default:
-		return ErrInvalidOptions
-	}
-	schedule = append(schedule, bson.D{
-		{"type", "start"},
-		{"done", false},
-		{"start_time", options.StartTime},
-	})
-	schedule = append(schedule, bson.D{
-		{"type", "stop"},
-		{"done", false},
-		{"start_time", options.StartTime.Add(options.Duration)},
-	})
-	contestD := bson.D{
-		{"running", false},
-		{"schedule", schedule},
-		{"ranklist_type", options.Rules.RanklistType},
-		{"ranklist_comp", options.Rules.RanklistComp},
-		{"start_time", options.StartTime},
-		{"judge_in_contest", options.Rules.JudgeInContest},
-		{"submission_per_problem", 32}, // TODO: make this configurable
-	}
-	if result, err = c.mongodb.Collection("contest").UpdateOne(ctx, bson.D{{"_id", id}}, bson.D{{"$set", bson.D{{"state", contestD}}}}); err != nil {
-		return
-	}
-	if result.MatchedCount == 0 {
-		return errors.New("Problemset not found")
-	}
-	if err = c.LoadContest(id); err != nil {
-		return
-	}
-	return
+type ContestPlayer struct {
+	ct       *Contest
+	modelId  primitive.ObjectID
+	userId   primitive.ObjectID
+	problems []*ContestPlayerProblem
 }
 
-// Loads a contest into memory. Blocks until the contest is in memory.
-// This is currently slow and blocks other operations.
-func (c *Core) LoadContest(id primitive.ObjectID) (err error) {
-	var contestModel model.Contest
-	if err = c.mongodb.Collection("contest").FindOne(c.context, bson.D{{"_id", id}}).Decode(&contestModel); err != nil {
-		return
-	}
-	c.lock.Lock()
-	defer c.lock.Unlock()
-	if _, found := c.contests[id]; found {
-		log.WithField("contestId", id).Warning("LoadContest: contest already loaded")
-		return errors.New("Contest already loaded")
-	}
-	contest := &Contest{c: c, id: id}
-	c.contests[id] = contest
-	contest.load(&contestModel)
-	return
+type ContestPlayerProblem struct {
+	name        string
+	submissions []*ContestPlayerProblemSubmission
 }
 
-func (c *Core) initContestLocked(ctx context.Context) (err error) {
+type ContestPlayerProblemSubmission struct {
+	submissionId primitive.ObjectID
+}
+
+func (c *Core) initContests() error {
+	c.contestsLock.Lock()
+	defer c.contestsLock.Unlock()
 	c.contests = make(map[primitive.ObjectID]*Contest)
-	var cursor *mongo.Cursor
-	if cursor, err = c.mongodb.Collection("contest").Find(ctx, bson.D{}); err != nil {
-		return
+	cursor, err := c.mongodb.Collection("contest").Find(c.context, bson.D{})
+	if err != nil {
+		return err
 	}
-	for cursor.Next(ctx) {
-		var contestModel model.Contest
-		if err = cursor.Decode(&contestModel); err != nil {
-			return
+	defer cursor.Close(c.context)
+	for cursor.Next(c.context) {
+		contestModel := new(model.Contest)
+		if err := cursor.Decode(contestModel); err != nil {
+			return err
 		}
-		contest := &Contest{c: c}
-		contest.id, _ = model.GetObjectID(contestModel.Id)
-		c.contests[contest.id] = contest
-		contest.load(&contestModel)
+		c.contests[model.MustGetObjectID(contestModel.Id)] = c.loadContest(contestModel)
 	}
-	if err = cursor.Err(); err != nil {
-		return
+	if err := cursor.Err(); err != nil {
+		return err
 	}
-	return
+	return nil
 }
 
-func (c *Core) unloadAllContestsLocked() error {
+func (c *Core) unloadContests() {
 	var wg sync.WaitGroup
-	for id, contest := range c.contests {
+	for _, contest := range c.contests {
 		wg.Add(1)
-		go func(contest *Contest) {
-			contest.unload()
-			wg.Done()
-		}(contest)
-		delete(c.contests, id)
+		go func() {
+			defer wg.Done()
+			contest.save()
+		}()
 	}
 	wg.Wait()
-	return nil
+	return
 }
 
-// Unloads a contest from memory. Waits until the contest is ready to be reloaded.
-// This is currently slow and blocks other operations.
-func (c *Core) UnloadContest(id primitive.ObjectID) error {
-	c.lock.Lock()
-	defer c.lock.Unlock()
-	contest := c.contests[id]
-	if contest == nil {
-		log.WithField("contestId", id).Warning("UnloadContest: contest not loaded")
-		return errors.New("Contest is not loaded")
+// Returns a snapshot of all contests
+func (c *Core) GetContests() []*Contest {
+	c.contestsLock.Lock()
+	defer c.contestsLock.Unlock()
+	contests := make([]*Contest, len(c.contests))
+	i := 0
+	for _, contest := range c.contests {
+		contests[i] = contest
+		i++
 	}
-	delete(c.contests, id)
-	contest.unload()
-	return nil
+	return contests
 }
 
-// Call RUnlock() if return value is not nil
-func (c *Core) GetContestR(id primitive.ObjectID) *Contest {
-	c.lock.RLock()
-	contest := c.contests[id]
-	c.lock.RUnlock()
-	if contest == nil {
-		return nil
-	}
-	contest.lock.RLock()
-	if !contest.loaded {
-		contest.lock.RUnlock()
-		panic("Core: contest unloaded without removing from map")
-	}
-	return contest
+func (c *Core) GetContest(id primitive.ObjectID) *Contest {
+	c.contestsLock.Lock()
+	defer c.contestsLock.Unlock()
+	return c.contests[id]
 }
 
-// Call Unlock() if return value is not nil
-func (c *Core) GetContestW(id primitive.ObjectID) *Contest {
-	c.lock.RLock()
-	contest := c.contests[id]
-	c.lock.RUnlock()
-	if contest == nil {
-		return nil
+func (c *Core) loadContest(contestModel *model.Contest) *Contest {
+	ct := new(Contest)
+	ct.mu.Lock()
+	defer ct.mu.Unlock()
+	ct.c = c
+	ct.id = model.MustGetObjectID(contestModel.Id)
+	ct.running = contestModel.State.GetRunning()
+	ct.judgeInContest = contestModel.State.GetJudgeInContest()
+	ct.loadPlayers()
+	ct.submissions = make(map[primitive.ObjectID]*model.SubmissionResult)
+	ct.problems = make([]*ContestProblem, len(contestModel.State.Problems))
+	ct.problemsByName = make(map[string]*ContestProblem)
+	for i, problemModel := range contestModel.State.Problems {
+		ct.problems[i] = &ContestProblem{data: problemModel, name: problemModel.GetName()}
+		ct.problemsByName[problemModel.GetName()] = ct.problems[i]
 	}
-	contest.lock.Lock()
-	if !contest.loaded {
-		contest.lock.Unlock()
-		panic("Core: contest unloaded without removing from map")
+	ct.ranklistSema = make(chan struct{}, 1)
+	go c.AddSubmissionHook(contestHook{ct})
+	ranklistType := contestModel.State.GetRanklistType()
+	ct.ranklistimpl = ranklists[ranklistType]
+	if ct.ranklistimpl == nil {
+		ct.ranklistimpl = DummyRanklist{}
 	}
-	return contest
+	ct.notifyUpdateRanklist()
+	return ct
+}
+
+func (ct *Contest) save() {
+	ct.mu.Lock()
+	defer ct.mu.Unlock()
+	state := new(model.ContestState)
+	state.Running = proto.Bool(ct.running)
+	state.JudgeInContest = proto.Bool(ct.judgeInContest)
+	state.RanklistType = proto.String(ct.ranklistimpl.Type())
+	for _, problem := range ct.problems {
+		state.Problems = append(state.Problems, problem.data)
+	}
+	_, err := ct.c.mongodb.Collection("contest").UpdateOne(ct.c.context, bson.D{{"_id", ct.id}}, bson.D{{"$set", bson.D{{"state", state}}}})
+	if err != nil {
+		log.WithField("contestId", ct.id).WithError(err).Error("Failed to save contest state")
+	}
+
+	var wg sync.WaitGroup
+	for _, player := range ct.players {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			player.save()
+		}()
+	}
+	wg.Wait()
+}
+
+func (ct *Contest) loadPlayers() {
+	ct.playersById = make(map[primitive.ObjectID]*ContestPlayer)
+	cursor, err := ct.c.mongodb.Collection("contest_player").Find(ct.c.context, bson.D{{"contest", ct.id}})
+	if err != nil {
+		log.WithField("contestId", ct.id).WithError(err).Error("Failed to load contest players")
+		return
+	}
+	defer cursor.Close(ct.c.context)
+	for cursor.Next(ct.c.context) {
+		playerModel := new(model.ContestPlayer)
+		if err = cursor.Decode(playerModel); err != nil {
+			log.WithField("contestId", ct.id).WithError(err).Error("Failed to load contest players")
+			return
+		}
+		player := ct.loadPlayerModel(playerModel)
+		ct.players = append(ct.players, player)
+		ct.playersById[player.userId] = player
+	}
+	if err = cursor.Err(); err != nil {
+		log.WithField("contestId", ct.id).WithError(err).Error("Failed to load contest players")
+		return
+	}
+}
+
+func (ct *Contest) loadPlayerModel(playerModel *model.ContestPlayer) *ContestPlayer {
+	player := new(ContestPlayer)
+	player.ct = ct
+	player.modelId = model.MustGetObjectID(playerModel.Id)
+	player.userId = model.MustGetObjectID(playerModel.User)
+	return player
+}
+
+func (p *ContestPlayer) save() {
+	playerModel := new(model.ContestPlayer)
+	playerModel.Id = model.ObjectIDProto(p.modelId)
+	playerModel.User = model.ObjectIDProto(p.userId)
+	playerModel.Contest = model.ObjectIDProto(p.ct.id)
+	if _, err := p.ct.c.mongodb.Collection("contest_player").ReplaceOne(p.ct.c.context, bson.D{{"_id", p.modelId}}, playerModel, mongo_options.Replace().SetUpsert(true)); err != nil {
+		log.WithField("contestId", p.ct.id).WithField("playerId", p.modelId).WithError(err).Error("Failed to save player")
+	}
+}
+
+func (ct *Contest) RegisterPlayer(userId primitive.ObjectID) bool {
+	ct.mu.Lock()
+	defer ct.mu.Unlock()
+	if _, found := ct.playersById[userId]; found {
+		return true
+	}
+	player := new(ContestPlayer)
+	player.ct = ct
+	player.modelId = primitive.NewObjectID()
+	player.userId = userId
+	ct.players = append(ct.players, player)
+	ct.playersById[userId] = player
+	return true
+}
+
+func (ct *Contest) GetPlayerById(userId primitive.ObjectID) *ContestPlayer {
+	ct.mu.Lock()
+	defer ct.mu.Unlock()
+	return ct.playersById[userId]
+}
+
+func (ct *Contest) GetId() primitive.ObjectID {
+	return ct.id
+}
+
+func (ct *Contest) GetProblems() []*ContestProblem {
+	ct.mu.Lock()
+	defer ct.mu.Unlock()
+	problems := make([]*ContestProblem, len(ct.problems))
+	copy(problems, ct.problems)
+	return problems
+}
+
+func (ct *Contest) IsRunning() bool {
+	ct.mu.Lock()
+	defer ct.mu.Unlock()
+	return ct.running
+}
+
+func (p *ContestPlayer) GetUserId() primitive.ObjectID {
+	return p.userId
+}
+
+func (p *ContestPlayer) GetModelId() primitive.ObjectID {
+	return p.modelId
+}
+
+func (p *ContestProblem) GetData() *model.ContestProblem {
+	return p.data
+}
+
+func (p *ContestProblem) GetName() string {
+	return p.name
 }

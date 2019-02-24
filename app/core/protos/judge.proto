@@ -1,7 +1,9 @@
-syntax = "proto3";
+syntax = "proto2";
 
 import "google/protobuf/empty.proto";
-import "google/protobuf/wrappers.proto";
+import "model.proto";
+
+option go_package = "github.com/syzoj/syzoj-ng-go/app/core/protos";
 
 service Judge {
 	rpc FetchTask (JudgeRequest) returns (FetchTaskResult) {}
@@ -10,35 +12,28 @@ service Judge {
 }
 
 message JudgeRequest {
-	string judger_id = 1;
-	string judger_token = 2;
+	optional ObjectID judger_id = 3;
+	optional string judger_token = 2;
 }
 
 message FetchTaskResult {
-	bool success = 1;
-	Task task = 2;
+	optional bool success = 1;
+	optional Task task = 2;
 }
 
 message Task {
-	int64 task_tag = 1;
-	string problem_id = 2;
-	string language = 3;
-	string code = 4;
+	optional int64 task_tag = 1;
+	optional ObjectID problem_id = 5;
+	optional SubmissionContent content = 6;
 }
 
 message TaskProgress {
 	
 }
 
-message TaskResult {
-	string result = 2;
-	float score = 3;
-}
-
 message SetTaskResultMessage {
-	string judger_id = 1;
-	string judger_token = 2;
-	int64 task_tag = 3;
-	TaskResult result = 4;
-	google.protobuf.Int64Value myint = 5;
+	optional ObjectID judger_id = 5;
+	optional string judger_token = 2;
+	optional int64 task_tag = 3;
+	optional SubmissionResult result = 6;
 }

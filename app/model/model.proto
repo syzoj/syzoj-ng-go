@@ -85,7 +85,7 @@ message Contest {
 message ContestState {
 	optional bool running = 1 [(tagger.tags) = "bson:\"running,omitempty\""];
 	optional google.protobuf.Timestamp start_time = 2 [(tagger.tags) = "bson:\"start_time,omitempty\""];
-	repeated ProblemEntry problems = 3 [(tagger.tags) = "bson:\"problems,omitempty\""];
+	repeated ContestProblem problems = 3 [(tagger.tags) = "bson:\"problems,omitempty\""];
 	repeated ContestSchedule schedule = 4 [(tagger.tags) = "bson:\"schedule,omitempty\""];
 	optional string ranklist_type = 5 [(tagger.tags) = "bson:\"ranklist_type,omitempty\""];
 	optional string ranklist_comp = 6 [(tagger.tags) = "bson:\"ranklist_comp,omitempty\""];
@@ -95,9 +95,9 @@ message ContestState {
 	repeated ContestClarification clarifications = 10 [(tagger.tags) = "bson:\"clarifications,omitempty\""];
 }
 
-message ProblemEntry {
+message ContestProblem {
 	optional string name = 1 [(tagger.tags) = "bson:\"name,omitempty\""];
-	optional ObjectID problem_id = 2 [(tagger.tags) = "bson:\"problem_id,omitempty\""];
+	optional ObjectID problem = 2 [(tagger.tags) = "bson:\"problem,omitempty\""];
 }
 
 message ContestSchedule {
@@ -118,10 +118,11 @@ message ContestPlayer {
 	optional ObjectID contest = 2 [(tagger.tags) = "bson:\"contest,omitempty\""];
 	optional ObjectID user = 3 [(tagger.tags) = "bson:\"user,omitempty\""];
 	optional google.protobuf.Timestamp register_time = 4 [(tagger.tags) = "bson:\"register_time,omitempty\""];
-	map<string, ContestPlayerProblemEntry> problems = 5 [(tagger.tags) = "bson:\"problems,omitempty\""];
+	repeated ContestPlayerProblemEntry problems = 5 [(tagger.tags) = "bson:\"problems,omitempty\""];
 }
 
 message ContestPlayerProblemEntry {
+	optional string name = 5 [(tagger.tags) = "bson:\"problems,omitempty\""];
 	repeated ContestPlayerProblemSubmissionEntry submissions = 1 [(tagger.tags) = "bson:\"submissions,omitempty\""];
 }
 
@@ -132,7 +133,7 @@ message ContestPlayerProblemSubmissionEntry {
 }
 
 message Article {
-	optional ObjectID id = 1  [(tagger.tags) = "bson:\"_id,omitempty\""];
+	optional ObjectID id = 1 [(tagger.tags) = "bson:\"_id,omitempty\""];
 	optional string title = 2 [(tagger.tags) = "bson:\"title,omitempty\""];
 	optional ObjectID owner = 3 [(tagger.tags) = "bson:\"owner,omitempty\""];
 	optional string text = 4 [(tagger.tags) = "bson:\"text,omitempty\""];
@@ -148,6 +149,17 @@ message Reply {
 	optional string text = 4 [(tagger.tags) = "bson:\"text,omitempty\""];
 }
 
+// Internal data
+message ContestRanklist {
+	optional string ranklist_type = 1;
+	repeated ContestRanklistEntry entries = 2;
+}
+
+message ContestRanklistEntry {
+	optional User user = 1;
+	optional double score_sum = 2;
+	optional google.protobuf.Duration penalty_time = 3;
+}
 
 // API part
 message Response {
@@ -219,4 +231,27 @@ message ContestsResponse {
 message ContestsResponseContestEntry {
 	optional Contest contest = 1;
 	optional bool running = 2;
+}
+
+message ContestIndexResponse {
+	optional Contest contest = 1;
+	repeated ContestProblemEntryResponse problems = 2;
+	optional bool running = 3;
+}
+
+message ContestProblemEntryResponse {
+	optional string name = 1;
+	optional Problem problem = 2;
+}
+
+message ContestRanklistResponse {
+	optional ContestRanklist ranklist = 1;
+}
+
+// Debug API
+message DebugContestSubmitRequest {
+	optional ObjectID contest_id = 1;
+	optional ObjectID user_id = 2;
+	optional ObjectID submission_id = 3;
+	optional string name = 4;
 }

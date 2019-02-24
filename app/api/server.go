@@ -9,8 +9,8 @@ import (
 	"github.com/golang/protobuf/jsonpb"
 	"github.com/gorilla/mux"
 	"github.com/gorilla/websocket"
-	"github.com/mongodb/mongo-go-driver/mongo"
 	"github.com/sirupsen/logrus"
+	"go.mongodb.org/mongo-driver/mongo"
 
 	"github.com/syzoj/syzoj-ng-go/app/core"
 )
@@ -70,11 +70,12 @@ func (srv *ApiServer) setupRoutes() {
 	router.Handle("/api/submissions", srv.wrapHandler(Handle_Submissions)).Methods("GET")
 	router.Handle("/api/submission/view/{submission_id:[0-9A-Za-z\\-_]{16}}", srv.wrapHandler(Handle_Submission_View)).Methods("GET")
 	router.Handle("/api/contests", srv.wrapHandler(Handle_Contests)).Methods("GET")
+	router.Handle("/api/contest/{contest_id:[0-9A-Za-z\\-_]{16}}/ranklist", srv.wrapHandler(Handle_Contest_Ranklist)).Methods("GET")
+	router.Handle("/api/contest/{contest_id:[0-9A-Za-z\\-_]{16}}/index", srv.wrapHandler(Handle_Contest_Index)).Methods("GET")
 	/*
 		router.Handle("/api/p/{short_name}", srv.wrapHandler(Handle_P)).Methods("GET")
 		router.Handle("/api/contest-new", srv.wrapHandler(Handle_Contest_New)).Methods("POST")
 		router.Handle("/api/contest/{contest_id:[0-9A-Za-z\\-_]{16}}/register", srv.wrapHandler(Handle_Contest_Register)).Methods("POST")
-		router.Handle("/api/contest/{contest_id:[0-9A-Za-z\\-_]{16}}/index", srv.wrapHandler(Handle_Contest_Index)).Methods("GET")
 		router.Handle("/api/contest/{contest_id:[0-9A-Za-z\\-_]{16}}/submissions", srv.wrapHandler(Handle_Contest_Submissions)).Methods("GET")
 		router.Handle("/api/contest/{contest_id:[0-9A-Za-z\\-_]{16}}/ranklist", srv.wrapHandler(Handle_Contest_Ranklist)).Methods("GET")
 		router.Handle("/api/contest/{contest_id:[0-9A-Za-z\\-_]{16}}/load", srv.wrapHandler(Handle_Contest_Load)).Methods("POST")
@@ -89,9 +90,10 @@ func (srv *ApiServer) setupRoutes() {
 	*/
 	debugRouter := mux.NewRouter()
 	/*
-		debugRouter.Handle("/api/debug/submission/{submission_id:[0-9A-Za-z\\-_]{16}}/enqueue", srv.wrapHandlerNoToken(Handle_Debug_Submission_Enqueue)).Methods("POST")
+			debugRouter.Handle("/api/debug/submission/{submission_id:[0-9A-Za-z\\-_]{16}}/enqueue", srv.wrapHandlerNoToken(Handle_Debug_Submission_Enqueue)).Methods("POST")
 		debugRouter.Handle("/api/debug/upload", srv.wrapHandlerNoToken(Handle_Debug_Upload)).Methods("POST")
 	*/
+	debugRouter.Handle("/api/debug/contest-submit", srv.wrapHandlerNoToken(Handle_Debug_Contest_Submit)).Methods("POST")
 	if srv.config.DebugToken != "" {
 		router.PathPrefix("/api/debug/").HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			token := r.Header.Get("X-Debug-Token")

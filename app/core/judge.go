@@ -4,21 +4,19 @@ import (
 	"context"
 	"sync"
 
-	"github.com/mongodb/mongo-go-driver/bson"
-	"github.com/mongodb/mongo-go-driver/bson/primitive"
-	"github.com/mongodb/mongo-go-driver/mongo"
-	mongo_options "github.com/mongodb/mongo-go-driver/mongo/options"
+	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/bson/primitive"
+	"go.mongodb.org/mongo-driver/mongo"
+	mongo_options "go.mongodb.org/mongo-driver/mongo/options"
 	"github.com/sirupsen/logrus"
 
 	"github.com/syzoj/syzoj-ng-go/app/model"
-	"github.com/syzoj/syzoj-ng-go/util"
 )
 
 type queueItem struct {
 	id        primitive.ObjectID
 	problemId primitive.ObjectID
-	language  string
-	code      string
+	content   *model.SubmissionContent
 }
 
 type judger struct {
@@ -28,12 +26,28 @@ type judger struct {
 	judgingTask []int
 }
 
-type Submission struct {
-	Lock   sync.RWMutex
-	Id     primitive.ObjectID
-	Broker *util.Broker
-	Done   bool
-	Score  float64
+type SubmissionHook interface {
+	OnSubmissionResult(submissionId primitive.ObjectID, result *model.SubmissionResult)
+}
+
+func (c *Core) AddSubmissionHook(hook SubmissionHook) {
+	c.submissionHooksMutex.Lock()
+	defer c.submissionHooksMutex.Unlock()
+	c.submissionHooks[hook] = struct{}{}
+}
+
+func (c *Core) RemoveSubmissionHook(hook SubmissionHook) {
+	c.submissionHooksMutex.Lock()
+	defer c.submissionHooksMutex.Unlock()
+	delete(c.submissionHooks, hook)
+}
+
+func (c *Core) invokeSubmissionHook(submissionId primitive.ObjectID, result *model.SubmissionResult) {
+	c.submissionHooksMutex.Lock()
+	defer c.submissionHooksMutex.Unlock()
+	for hook, _ := range c.submissionHooks {
+		hook.OnSubmissionResult(submissionId, result)
+	}
 }
 
 func (item *queueItem) getFields() logrus.Fields {
@@ -48,7 +62,6 @@ func (srv *Core) initJudge(ctx context.Context) (err error) {
 	srv.queueItems = make(map[int]*queueItem)
 	srv.queueSize = 0
 	srv.judgers = make(map[primitive.ObjectID]*judger)
-	srv.submissions = make(map[primitive.ObjectID]*Submission)
 	var cursor *mongo.Cursor
 	if cursor, err = srv.mongodb.Collection("submission").Find(ctx,
 		bson.D{{"judge_queue_status.in_queue", true}},
@@ -61,10 +74,8 @@ func (srv *Core) initJudge(ctx context.Context) (err error) {
 		if err = cursor.Decode(&submission); err != nil {
 			panic(err)
 		}
-		item := &queueItem{
-			language: submission.Content.GetLanguage(),
-			code:     submission.Content.GetCode(),
-		}
+		item := new(queueItem)
+		item.content = submission.Content
 		item.id = model.MustGetObjectID(submission.GetId())
 		item.problemId = model.MustGetObjectID(submission.GetProblem())
 		srv.enqueue(item)
@@ -101,12 +112,10 @@ func (c *Core) EnqueueSubmission(id primitive.ObjectID) {
 		log.WithField("submissionId", id).Error("Failed to set judge queue status: ", err)
 		return
 	}
-	item := &queueItem{
-		language: submission.Content.GetLanguage(),
-		code:     submission.Content.GetCode(),
-	}
-	item.id, _ = model.GetObjectID(submission.GetId())
-	item.problemId, _ = model.GetObjectID(submission.GetProblem())
+	item := new(queueItem)
+	item.content = submission.Content
+	item.id = model.MustGetObjectID(submission.GetId())
+	item.problemId = model.MustGetObjectID(submission.GetProblem())
 	c.enqueue(item)
 }
 
@@ -121,32 +130,4 @@ func (c *Core) getJudger(id primitive.ObjectID) *judger {
 		c.judgers[id] = j
 	}
 	return j
-}
-
-func (c *Core) GetSubmission(submissionId primitive.ObjectID) *Submission {
-	c.submissionsLock.Lock()
-	submission, ok := c.submissions[submissionId]
-	if !ok {
-		submission = new(Submission)
-		submission.Id = submissionId
-		submission.Broker = util.NewBroker()
-		c.submissions[submissionId] = submission
-		submission.Lock.Lock()
-	}
-	c.submissionsLock.Unlock()
-	if !ok {
-		var submissionModel model.Submission
-		var err error
-		if err = c.mongodb.Collection("submission").FindOne(c.context, bson.D{{"_id", submissionId}}, mongo_options.FindOne().SetProjection(bson.D{{"_id", 1}, {"result", 1}})).Decode(&submissionModel); err != nil {
-			log.WithField("submissionId", submissionId).Error("Failed to load submission: ", err)
-		}
-		if submissionModel.Result.GetStatus() == "Done" {
-			submission.Done = true
-			submission.Score = submissionModel.Result.GetScore()
-		} else {
-			submission.Done = false
-		}
-		submission.Lock.Unlock()
-	}
-	return submission
 }

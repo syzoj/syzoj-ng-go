@@ -4,8 +4,8 @@ import (
 	"context"
 	"sync"
 
-	"github.com/mongodb/mongo-go-driver/bson/primitive"
-	"github.com/mongodb/mongo-go-driver/mongo"
+	"go.mongodb.org/mongo-driver/bson/primitive"
+	"go.mongodb.org/mongo-driver/mongo"
 	"github.com/sirupsen/logrus"
 )
 
@@ -21,20 +21,19 @@ type Core struct {
 	cancelFunc  func()
 	cancelFunc2 func()
 
-	queue      chan int
-	queueSize  int
-	queueItems map[int]*queueItem
-	queueLock  sync.Mutex
+	queue                chan int
+	queueSize            int
+	queueItems           map[int]*queueItem
+	queueLock            sync.Mutex
+	judgers              map[primitive.ObjectID]*judger
+	judgerLock           sync.Mutex
+	submissionHooks      map[SubmissionHook]struct{}
+	submissionHooksMutex sync.Mutex
 
-	// TODO: This may leak memory, perform GC on it
-	submissions     map[primitive.ObjectID]*Submission
-	submissionsLock sync.Mutex
+	contestsLock sync.Mutex
+	contests     map[primitive.ObjectID]*Contest
 
-	judgers    map[primitive.ObjectID]*judger
-	judgerLock sync.Mutex
-
-	contests map[primitive.ObjectID]*Contest
-	wg       sync.WaitGroup
+	wg sync.WaitGroup
 
 	oracle     map[interface{}]struct{}
 	oracleLock sync.Mutex
@@ -44,6 +43,7 @@ func NewCore(mongodb *mongo.Client) (srv *Core, err error) {
 	srv = &Core{
 		mongodb: mongodb.Database("syzoj"),
 	}
+	srv.submissionHooks = make(map[SubmissionHook]struct{})
 	srv.context, srv.cancelFunc = context.WithCancel(context.Background())
 	srv.context2, srv.cancelFunc2 = context.WithCancel(context.Background())
 	srv.lock.Lock()
@@ -51,7 +51,7 @@ func NewCore(mongodb *mongo.Client) (srv *Core, err error) {
 	if err = srv.initJudge(srv.context); err != nil {
 		return
 	}
-	if err = srv.initContestLocked(srv.context); err != nil {
+	if err = srv.initContests(); err != nil {
 		return
 	}
 	srv.initOracle()
@@ -62,6 +62,6 @@ func (c *Core) Close() error {
 	c.lock.Lock()
 	defer c.lock.Unlock()
 	c.cancelFunc2()
-	c.unloadAllContestsLocked()
+	c.unloadContests()
 	return nil
 }

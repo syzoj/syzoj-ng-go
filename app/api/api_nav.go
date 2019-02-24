@@ -2,7 +2,7 @@ package api
 
 import (
 	"github.com/golang/protobuf/ptypes/empty"
-	"github.com/mongodb/mongo-go-driver/bson"
+	"go.mongodb.org/mongo-driver/bson"
 )
 
 // POST /api/nav/logout
