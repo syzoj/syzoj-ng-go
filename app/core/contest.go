@@ -204,7 +204,7 @@ func (ct *Contest) RegisterPlayer(userId primitive.ObjectID) bool {
 	ct.mu.Lock()
 	defer ct.mu.Unlock()
 	if _, found := ct.playersById[userId]; found {
-		return true
+		return false
 	}
 	player := new(ContestPlayer)
 	player.ct = ct
@@ -231,6 +231,10 @@ func (ct *Contest) GetProblems() []*ContestProblem {
 	problems := make([]*ContestProblem, len(ct.problems))
 	copy(problems, ct.problems)
 	return problems
+}
+
+func (ct *Contest) GetProblemByName(name string) *ContestProblem {
+    return ct.problemsByName[name]
 }
 
 func (ct *Contest) IsRunning() bool {

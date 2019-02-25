@@ -91,6 +91,9 @@ message ContestRanklistResponse {
 	optional ContestRanklist ranklist = 1;
 }
 
+message ContestProblemViewResponse {
+    optional Problem problem = 1;
+}
 // Debug API
 message DebugContestSubmitRequest {
 	optional ObjectID contest_id = 1;

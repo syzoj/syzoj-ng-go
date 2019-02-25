@@ -7,6 +7,7 @@ import (
 	"go.mongodb.org/mongo-driver/bson"
 
 	"github.com/syzoj/syzoj-ng-go/app/model"
+    "github.com/syzoj/syzoj-ng-go/app/core"
 )
 
 func Handle_Contest_Index(c *ApiContext) ApiError {
@@ -30,7 +31,11 @@ func Handle_Contest_Index(c *ApiContext) ApiError {
 	resp.Contest.Name = contestModel.Name
 	resp.Contest.Description = contestModel.Description
 	resp.Running = proto.Bool(contest.IsRunning())
-	if contest.IsRunning() {
+    var player *core.ContestPlayer
+    if c.Session.LoggedIn() {
+        player = contest.GetPlayerById(c.Session.AuthUserUid)
+    }
+	if contest.CheckListProblems(player) {
 		var wg sync.WaitGroup
 		resp.Problems = make([]*model.ContestProblemEntryResponse, len(problems))
 		for i, problem := range problems {
