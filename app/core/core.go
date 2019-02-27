@@ -4,9 +4,9 @@ import (
 	"context"
 	"sync"
 
+	"github.com/sirupsen/logrus"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
-	"github.com/sirupsen/logrus"
 )
 
 var log = logrus.StandardLogger()

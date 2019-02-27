@@ -138,7 +138,7 @@ func Handle_ProblemDb_View_Submit(c *ApiContext) ApiError {
 		User:       model.ObjectIDProto(c.Session.AuthUserUid),
 		Owner:      []*model.ObjectID{model.ObjectIDProto(c.Session.AuthUserUid)},
 		Problem:    model.ObjectIDProto(problemId),
-		Content:    body.Code,
+		Content:    body.Content,
 		SubmitTime: ptypes.TimestampNow(),
 		Public:     proto.Bool(true),
 	}

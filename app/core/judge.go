@@ -4,11 +4,11 @@ import (
 	"context"
 	"sync"
 
+	"github.com/sirupsen/logrus"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
 	mongo_options "go.mongodb.org/mongo-driver/mongo/options"
-	"github.com/sirupsen/logrus"
 
 	"github.com/syzoj/syzoj-ng-go/app/model"
 )
@@ -45,7 +45,7 @@ func (c *Core) RemoveSubmissionHook(hook SubmissionHook) {
 func (c *Core) invokeSubmissionHook(submissionId primitive.ObjectID, result *model.SubmissionResult) {
 	c.submissionHooksMutex.Lock()
 	defer c.submissionHooksMutex.Unlock()
-	for hook, _ := range c.submissionHooks {
+	for hook := range c.submissionHooks {
 		hook.OnSubmissionResult(submissionId, result)
 	}
 }

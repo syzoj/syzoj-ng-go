@@ -234,7 +234,7 @@ func (ct *Contest) GetProblems() []*ContestProblem {
 }
 
 func (ct *Contest) GetProblemByName(name string) *ContestProblem {
-    return ct.problemsByName[name]
+	return ct.problemsByName[name]
 }
 
 func (ct *Contest) IsRunning() bool {
