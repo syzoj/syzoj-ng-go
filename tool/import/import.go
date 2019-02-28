@@ -8,6 +8,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+    "os"
+    "path"
 
 	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/ptypes"
@@ -24,6 +26,8 @@ type importer struct {
 	problems chan *problem
 	users    chan *user
 	db       *sql.DB
+    oldDataPath string
+    newDataPath string
 }
 type problem struct {
 	Id           string
@@ -36,12 +40,14 @@ type problem struct {
 	Count        int
 }
 
-func ImportMySQL(mongodb *mongo.Client, mysql *sql.DB) {
+func ImportMySQL(mongodb *mongo.Client, mysql *sql.DB, oldDataPath string, newDataPath string) {
 	i := &importer{
 		mongodb:  mongodb.Database("syzoj"),
 		problems: make(chan *problem),
 		users:    make(chan *user),
 		db:       mysql,
+        oldDataPath: oldDataPath,
+        newDataPath: newDataPath,
 	}
 	i.work()
 }
@@ -114,6 +120,14 @@ func (i *importer) writeProblems() {
 			log.WithField("id", p.Id).Info("Error inserting problem: ", err.Error())
 			err = nil
 		}
+
+        name := problemModel.Id.GetId()
+        if i.oldDataPath != "" {
+            _, err := os.Stat(path.Join(i.oldDataPath, p.Id))
+            if err == nil {
+                conv_problem(path.Join(i.oldDataPath, p.Id), path.Join(i.newDataPath, name))
+            }
+        }
 	}
 }
 

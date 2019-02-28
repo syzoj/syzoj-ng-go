@@ -37,9 +37,8 @@ func Handle_Contest_Problem_View(c *ApiContext) ApiError {
 	if err = c.Server().mongodb.Collection("problem").FindOne(c.Context(), bson.D{{"_id", problemId}}).Decode(problemModel); err != nil {
 		panic(err)
 	}
-	resp.Problem = new(model.Problem)
-	resp.Problem.Title = problemModel.Title
-	resp.Problem.Statement = problemModel.Statement
+	resp.ProblemTitle = problemModel.Title
+	resp.ProblemStatement = problemModel.Statement
 	c.SendValue(resp)
 	return nil
 }
@@ -81,8 +80,7 @@ func Handle_Contest_Problem_Submit(c *ApiContext) ApiError {
 	}
 	contest.AppendSubmission(player, problemName, model.MustGetObjectID(submissionModel.Id))
 	resp := new(model.ContestProblemSubmitResponse)
-	resp.Submission = new(model.Submission)
-	resp.Submission.Id = submissionModel.Id
+	resp.SubmissionId = submissionModel.Id
 	c.SendValue(resp)
 	return nil
 }

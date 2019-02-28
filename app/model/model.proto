@@ -1,21 +1,21 @@
 syntax = "proto2";
 
+package syzoj.server;
+
 import "google/protobuf/timestamp.proto";
 import "google/protobuf/duration.proto";
 import "tagger.proto";
+import "primitive.proto";
+import "judge.proto";
 
 option go_package = "github.com/syzoj/syzoj-ng-go/app/model";
 
-message ObjectID {
-	required string id = 1;
-}
-
 message User {
-	optional ObjectID id = 1 [(tagger.tags) = "bson:\"_id,omitempty\""];
+	optional syzoj.primitive.ObjectID id = 1 [(tagger.tags) = "bson:\"_id,omitempty\""];
 	optional string username = 2 [(tagger.tags) = "bson:\"username,omitempty\""];
 	optional string email = 3 [(tagger.tags) = "bson:\"email,omitempty\""];
 	optional google.protobuf.Timestamp register_time = 4 [(tagger.tags) = "bson:\"register_time,omitempty\""];
-	optional UserAuth auth = 5 [(tagger.tags) = "bson:\"auth,omitempty\""];
+	optional syzoj.server.UserAuth auth = 5 [(tagger.tags) = "bson:\"auth,omitempty\""];
 
 }
 message UserAuth {
@@ -24,28 +24,16 @@ message UserAuth {
 }
 
 message Submission {
-	optional ObjectID id = 1 [(tagger.tags) = "bson:\"_id,omitempty\""];
+	optional syzoj.primitive.ObjectID id = 1 [(tagger.tags) = "bson:\"_id,omitempty\""];
 	optional string type = 2 [(tagger.tags) = "bson:\"type,omitempty\""];
-	optional ObjectID user = 3 [(tagger.tags) = "bson:\"user,omitempty\""];
-	repeated ObjectID owner = 4 [(tagger.tags) = "bson:\"owner,omitempty\""];
-	optional ObjectID problem = 5 [(tagger.tags) = "bson:\"problem,omitempty\""];
+	optional syzoj.primitive.ObjectID user = 3 [(tagger.tags) = "bson:\"user,omitempty\""];
+	repeated syzoj.primitive.ObjectID owner = 4 [(tagger.tags) = "bson:\"owner,omitempty\""];
+	optional syzoj.primitive.ObjectID problem = 5 [(tagger.tags) = "bson:\"problem,omitempty\""];
 	optional google.protobuf.Timestamp submit_time = 6 [(tagger.tags) = "bson:\"submit_time,omitempty\""];
-	optional SubmissionContent content = 7 [(tagger.tags) = "bson:\"content,omitempty\""];
-	optional SubmissionResult result = 8 [(tagger.tags) = "bson:\"result,omitempty\""];
-	optional JudgeQueueStatus judge_queue_status = 9 [(tagger.tags) = "bson:\"judge_queue_status,omitempty\""];
+	optional syzoj.judge.SubmissionContent content = 7 [(tagger.tags) = "bson:\"content,omitempty\""];
+	optional syzoj.judge.SubmissionResult result = 8 [(tagger.tags) = "bson:\"result,omitempty\""];
+	optional syzoj.server.JudgeQueueStatus judge_queue_status = 9 [(tagger.tags) = "bson:\"judge_queue_status,omitempty\""];
 	optional bool public = 10 [(tagger.tags) = "bson:\"public,omitempty\""];
-}
-
-message SubmissionContent {
-	optional string language = 1 [(tagger.tags) = "bson:\"language,omitempty\""];
-	optional string code = 2 [(tagger.tags) = "bson:\"code,omitempty\""];
-}
-
-message SubmissionResult {
-	optional string status = 1 [(tagger.tags) = "bson:\"status,omitempty\""];
-	optional double score = 2 [(tagger.tags) = "bson:\"score,omitempty\""];
-	optional int64 memory_usage = 3 [(tagger.tags) = "bson:\"memory_usage,omitempty\""];
-	optional google.protobuf.Duration time_usage = 4 [(tagger.tags) = "bson:\"time_usage,omitempty\""];
 }
 
 message JudgeQueueStatus {
@@ -53,20 +41,20 @@ message JudgeQueueStatus {
 }
 
 message Session {
-	optional ObjectID id = 1 [(tagger.tags) = "bson:\"_id,omitempty\""];
+	optional syzoj.primitive.ObjectID id = 1 [(tagger.tags) = "bson:\"_id,omitempty\""];
 	optional string session_token = 2 [(tagger.tags) = "bson:\"session_token,omitempty\""];
-	optional ObjectID session_user = 3 [(tagger.tags) = "bson:\"session_user,omitempty\""];
+	optional syzoj.primitive.ObjectID session_user = 3 [(tagger.tags) = "bson:\"session_user,omitempty\""];
 }
 
 message Problem {
-	optional ObjectID id = 1 [(tagger.tags) = "bson:\"_id,omitempty\""];
+	optional syzoj.primitive.ObjectID id = 1 [(tagger.tags) = "bson:\"_id,omitempty\""];
 	optional string title = 2 [(tagger.tags) = "bson:\"title,omitempty\""];
 	optional string statement = 3 [(tagger.tags) = "bson:\"statement,omitempty\""];
-	repeated ObjectID owner = 4 [(tagger.tags) = "bson:\"owner,omitempty\""];
+	repeated syzoj.primitive.ObjectID owner = 4 [(tagger.tags) = "bson:\"owner,omitempty\""];
 	optional google.protobuf.Timestamp create_time = 5 [(tagger.tags) = "bson:\"create_time,omitempty\""];
 	optional string short_name = 6 [(tagger.tags) = "bson:\"short_name,omitempty\""];
 	optional bool public = 7 [(tagger.tags) = "bson:\"public,omitempty\""];
-	optional ProblemStats public_stats = 8 [(tagger.tags) = "bson:\"public_stats,omitempty\""];
+	optional syzoj.server.ProblemStats public_stats = 8 [(tagger.tags) = "bson:\"public_stats,omitempty\""];
 }
 message ProblemStats {
 	optional int64 accept = 1 [(tagger.tags) = "bson:\"accept,omitempty\""];
@@ -74,29 +62,29 @@ message ProblemStats {
 }
 
 message Contest {
-	optional ObjectID id = 1 [(tagger.tags) = "bson:\"_id,omitempty\""];
+	optional syzoj.primitive.ObjectID id = 1 [(tagger.tags) = "bson:\"_id,omitempty\""];
 	optional string name = 2 [(tagger.tags) = "bson:\"name,omitempty\""];
 	optional string description = 3 [(tagger.tags) = "bson:\"description,omitempty\""];
-	optional ObjectID owner = 4 [(tagger.tags) = "bson:\"owner,omitempty\""];
-	optional ContestState state = 5 [(tagger.tags) = "bson:\"state,omitempty\""];
+	optional syzoj.primitive.ObjectID owner = 4 [(tagger.tags) = "bson:\"owner,omitempty\""];
+	optional syzoj.server.ContestState state = 5 [(tagger.tags) = "bson:\"state,omitempty\""];
 }
 
 message ContestState {
 	optional bool running = 1 [(tagger.tags) = "bson:\"running,omitempty\""];
 	optional google.protobuf.Timestamp start_time = 2 [(tagger.tags) = "bson:\"start_time,omitempty\""];
-	repeated ContestProblem problems = 3 [(tagger.tags) = "bson:\"problems,omitempty\""];
-	repeated ContestSchedule schedule = 4 [(tagger.tags) = "bson:\"schedule,omitempty\""];
+	repeated syzoj.server.ContestProblem problems = 3 [(tagger.tags) = "bson:\"problems,omitempty\""];
+	repeated syzoj.server.ContestSchedule schedule = 4 [(tagger.tags) = "bson:\"schedule,omitempty\""];
 	optional string ranklist_type = 5 [(tagger.tags) = "bson:\"ranklist_type,omitempty\""];
 	optional string ranklist_comp = 6 [(tagger.tags) = "bson:\"ranklist_comp,omitempty\""];
 	optional string ranklist_visibility = 7 [(tagger.tags) = "bson:\"ranklist_visibility,omitempty\""];
 	optional bool judge_in_contest = 8 [(tagger.tags) = "bson:\"judge_in_contest,omitempty\""];
 	optional int32 submission_per_problem = 9 [(tagger.tags) = "bson:\"submission_per_problem,omitempty\""];
-	repeated ContestClarification clarifications = 10 [(tagger.tags) = "bson:\"clarifications,omitempty\""];
+	repeated syzoj.server.ContestClarification clarifications = 10 [(tagger.tags) = "bson:\"clarifications,omitempty\""];
 }
 
 message ContestProblem {
 	optional string name = 1 [(tagger.tags) = "bson:\"name,omitempty\""];
-	optional ObjectID problem = 2 [(tagger.tags) = "bson:\"problem,omitempty\""];
+	optional syzoj.primitive.ObjectID problem = 2 [(tagger.tags) = "bson:\"problem,omitempty\""];
 }
 
 message ContestSchedule {
@@ -113,50 +101,41 @@ message ContestClarification {
 }
 
 message ContestPlayer {
-	optional ObjectID id = 1 [(tagger.tags) = "bson:\"_id,omitempty\""];
-	optional ObjectID contest = 2 [(tagger.tags) = "bson:\"contest,omitempty\""];
-	optional ObjectID user = 3 [(tagger.tags) = "bson:\"user,omitempty\""];
+	optional syzoj.primitive.ObjectID id = 1 [(tagger.tags) = "bson:\"_id,omitempty\""];
+	optional syzoj.primitive.ObjectID contest = 2 [(tagger.tags) = "bson:\"contest,omitempty\""];
+	optional syzoj.primitive.ObjectID user = 3 [(tagger.tags) = "bson:\"user,omitempty\""];
 	optional google.protobuf.Timestamp register_time = 4 [(tagger.tags) = "bson:\"register_time,omitempty\""];
 	repeated ContestPlayerProblemEntry problems = 5 [(tagger.tags) = "bson:\"problems,omitempty\""];
 }
 
 message ContestPlayerProblemEntry {
 	optional string name = 5 [(tagger.tags) = "bson:\"problems,omitempty\""];
-	repeated ContestPlayerProblemSubmissionEntry submissions = 1 [(tagger.tags) = "bson:\"submissions,omitempty\""];
+	repeated syzoj.server.ContestPlayerProblemSubmissionEntry submissions = 1 [(tagger.tags) = "bson:\"submissions,omitempty\""];
 }
 
 message ContestPlayerProblemSubmissionEntry {
-	optional ObjectID submission_id = 1 [(tagger.tags) = "bson:\"submission_id,omitempty\""];
+	optional syzoj.primitive.ObjectID submission_id = 1 [(tagger.tags) = "bson:\"submission_id,omitempty\""];
 	optional google.protobuf.Duration penalty_time = 2 [(tagger.tags) = "bson:\"penalty_time,omitempty\""];
 	optional google.protobuf.Timestamp submit_time = 3 [(tagger.tags) = "bson:\"submit_time,omitempty\""];
 }
 
 message Article {
-	optional ObjectID id = 1 [(tagger.tags) = "bson:\"_id,omitempty\""];
+	optional syzoj.primitive.ObjectID id = 1 [(tagger.tags) = "bson:\"_id,omitempty\""];
 	optional string title = 2 [(tagger.tags) = "bson:\"title,omitempty\""];
-	optional ObjectID owner = 3 [(tagger.tags) = "bson:\"owner,omitempty\""];
+	optional syzoj.primitive.ObjectID owner = 3 [(tagger.tags) = "bson:\"owner,omitempty\""];
 	optional string text = 4 [(tagger.tags) = "bson:\"text,omitempty\""];
-	repeated Reply reply = 5 [(tagger.tags) = "bson:\"reply,omitempty\""];
+	repeated syzoj.server.Reply reply = 5 [(tagger.tags) = "bson:\"reply,omitempty\""];
 	optional google.protobuf.Timestamp create_time = 6 [(tagger.tags) = "bson:\"create_time,omitempty\""];
 	optional google.protobuf.Timestamp last_edit_time = 7 [(tagger.tags) = "bson:\"last_edit_time,omitempty\""];
 }
 
 message Reply {
-	optional ObjectID owner = 1 [(tagger.tags) = "bson:\"owner,omitempty\""];
+	optional syzoj.primitive.ObjectID owner = 1 [(tagger.tags) = "bson:\"owner,omitempty\""];
 	optional google.protobuf.Timestamp create_time = 2 [(tagger.tags) = "bson:\"create_time,omitempty\""];
 	optional google.protobuf.Timestamp last_edit_time = 3 [(tagger.tags) = "bson:\"last_edit_time,omitempty\""];
 	optional string text = 4 [(tagger.tags) = "bson:\"text,omitempty\""];
 }
 
-// Internal data
-message ContestRanklist {
-	optional string ranklist_type = 1;
-	repeated ContestRanklistEntry entries = 2;
+message Judger {
+    optional string token = 1 [(tagger.tags) = "bson:\"token,omitempty\""];
 }
-
-message ContestRanklistEntry {
-	optional User user = 1;
-	optional double score_sum = 2;
-	optional google.protobuf.Duration penalty_time = 3;
-}
-

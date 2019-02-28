@@ -103,9 +103,6 @@ type objectIDCodec struct{}
 
 func (objectIDCodec) EncodeValue(c bsoncodec.EncodeContext, w bsonrw.ValueWriter, v reflect.Value) error {
 	x := v.Interface().(*ObjectID)
-	if x == nil {
-		return ErrInvalidObjectID
-	}
 	objectID, err := DecodeObjectID(*x.Id)
 	if err != nil {
 		return err

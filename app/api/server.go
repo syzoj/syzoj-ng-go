@@ -95,6 +95,7 @@ func (srv *ApiServer) setupRoutes() {
 		debugRouter.Handle("/api/debug/upload", srv.wrapHandlerNoToken(Handle_Debug_Upload)).Methods("POST")
 	*/
 	debugRouter.Handle("/api/debug/contest-submit", srv.wrapHandlerNoToken(Handle_Debug_Contest_Submit)).Methods("POST")
+	debugRouter.Handle("/api/debug/submission/{submission_id:[0-9A-Za-z\\-_]{16}}/enqueue", srv.wrapHandlerNoToken(Handle_Debug_Submission_Enqueue)).Methods("POST")
 	if srv.config.DebugToken != "" {
 		router.PathPrefix("/api/debug/").HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			token := r.Header.Get("X-Debug-Token")

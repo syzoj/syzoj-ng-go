@@ -102,8 +102,7 @@ func (r MaxSumRanklist) getRanklist(ct *Contest) *model.ContestRanklist {
 	ranklist.Entries = make([]*model.ContestRanklistEntry, len(sorter.list))
 	for i, player := range sorter.list {
 		entry := new(model.ContestRanklistEntry)
-		entry.User = new(model.User)
-		entry.User.Id = model.ObjectIDProto(player.userId)
+		entry.UserId = model.ObjectIDProto(player.userId)
 		entry.ScoreSum = proto.Float64(sorter.info[player].sum)
 		ranklist.Entries[i] = entry
 	}

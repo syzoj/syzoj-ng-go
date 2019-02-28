@@ -51,25 +51,29 @@ func Handle_Submissions(c *ApiContext) (apiErr ApiError) {
 			return
 		}
 		entry := &model.SubmissionsResponseSubmissionEntry{
-			Submission: submission,
-			Problem:    &model.Problem{},
-			SubmitUser: &model.User{},
+			SubmissionId: submission.Id,
+			ProblemId:    submission.Problem,
+			UserId: submission.User,
 		}
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			err := c.Server().mongodb.Collection("problem").FindOne(c.Context(), bson.D{{"_id", submission.Problem}}, mongo_options.FindOne().SetProjection(bson.D{{"title", 1}})).Decode(entry.Problem)
+            problem := new(model.Problem)
+			err := c.Server().mongodb.Collection("problem").FindOne(c.Context(), bson.D{{"_id", submission.Problem}}, mongo_options.FindOne().SetProjection(bson.D{{"title", 1}})).Decode(problem)
 			if err != nil {
 				log.WithField("submissionId", submission.Id).WithError(err).Warning("Failed to get problem for submission")
 			}
+            entry.ProblemTitle = problem.Title
 		}()
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			err := c.Server().mongodb.Collection("user").FindOne(c.Context(), bson.D{{"_id", submission.User}}, mongo_options.FindOne().SetProjection(bson.D{{"username", 1}})).Decode(entry.SubmitUser)
+            user := new(model.User)
+			err := c.Server().mongodb.Collection("user").FindOne(c.Context(), bson.D{{"_id", submission.User}}, mongo_options.FindOne().SetProjection(bson.D{{"username", 1}})).Decode(user)
 			if err != nil {
 				log.WithField("submissionId", submission.Id).WithError(err).Warning("Failed to get user for submission")
 			}
+            entry.UserUsername = user.Username
 		}()
 		resp.Submissions = append(resp.Submissions, entry)
 	}

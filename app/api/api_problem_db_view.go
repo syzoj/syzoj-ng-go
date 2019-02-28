@@ -49,12 +49,10 @@ func Handle_ProblemDb_View(c *ApiContext) ApiError {
 	if !isOwner && !problem.GetPublic() {
 		return ErrPermissionDenied
 	}
-	resp := new(model.ProblemDbNewResponse)
-	resp.Problem = new(model.Problem)
-	resp.Problem.Title = problem.Title
-	resp.Problem.Statement = problem.Statement
-	resp.CanSubmit = proto.Bool(c.Session.LoggedIn())
-	resp.IsOwner = proto.Bool(isOwner)
+	resp := new(model.ProblemDbViewResponse)
+    resp.ProblemId = problem.Id
+    resp.Title = problem.Title
+    resp.Statement = problem.Statement
 	c.SendValue(resp)
 	return nil
 }
@@ -69,9 +67,6 @@ func Handle_ProblemDb_View_Edit(c *ApiContext) ApiError {
 	body := new(model.ProblemDbEditRequest)
 	if err = c.GetBody(body); err != nil {
 		return badRequestError(err)
-	}
-	if body.Problem == nil {
-		return ErrGeneral
 	}
 	if !c.Session.LoggedIn() {
 		return ErrNotLoggedIn
@@ -93,8 +88,8 @@ func Handle_ProblemDb_View_Edit(c *ApiContext) ApiError {
 		return ErrPermissionDenied
 	}
 	newProblem := new(model.Problem)
-	newProblem.Title = body.Problem.Title
-	newProblem.Statement = body.Problem.Statement
+	newProblem.Title = body.Title
+	newProblem.Statement = body.Statement
 	if newProblem.Title != nil || newProblem.Statement != nil {
 		if _, err = c.Server().mongodb.Collection("problem").UpdateOne(c.Context(), bson.D{{"_id", problemId}}, bson.D{{"$set", newProblem}}); err != nil {
 			panic(err)
@@ -148,8 +143,7 @@ func Handle_ProblemDb_View_Submit(c *ApiContext) ApiError {
 	go c.Server().c.EnqueueSubmission(model.MustGetObjectID(submission.Id))
 	go c.Server().c.IncrementSubmissionCounter(problemId, model.MustGetObjectID(submission.Id))
 	resp := new(model.ProblemDbViewSubmitResponse)
-	resp.Submission = new(model.Submission)
-	resp.Submission.Id = submission.Id
+	resp.SubmissionId = submission.Id
 	c.SendValue(resp)
 	return nil
 }

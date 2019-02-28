@@ -27,9 +27,8 @@ func Handle_Contest_Index(c *ApiContext) ApiError {
 	}
 	problems := contest.GetProblems()
 	resp := new(model.ContestIndexResponse)
-	resp.Contest = new(model.Contest)
-	resp.Contest.Name = contestModel.Name
-	resp.Contest.Description = contestModel.Description
+	resp.ContestName = contestModel.Name
+	resp.ContestDescription = contestModel.Description
 	resp.Running = proto.Bool(contest.IsRunning())
 	var player *core.ContestPlayer
 	if c.Session.LoggedIn() {
@@ -49,8 +48,7 @@ func Handle_Contest_Index(c *ApiContext) ApiError {
 					log.WithField("problemId", problemId).WithError(err).Error("Failed to get problem title")
 					return
 				}
-				entry.Problem = new(model.Problem)
-				entry.Problem.Title = problemModel.Title
+				entry.ProblemTitle = problemModel.Title
 			}(problem.GetData().Problem)
 			resp.Problems[i] = entry
 		}

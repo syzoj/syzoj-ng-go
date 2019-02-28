@@ -18,22 +18,17 @@ func Handle_ProblemDb_New(c *ApiContext) ApiError {
 	if err = c.GetBody(body); err != nil {
 		return badRequestError(err)
 	}
-	problem := body.GetProblem()
-	if problem == nil {
-		return ErrGeneral
-	}
 	newProblem := new(model.Problem)
 	newProblem.Id = model.NewObjectIDProto()
 	newProblem.Owner = []*model.ObjectID{model.ObjectIDProto(c.Session.AuthUserUid)}
-	newProblem.Title = problem.Title
-	newProblem.Statement = problem.Statement
+	newProblem.Title = body.Title
+	newProblem.Statement = body.Statement
 	newProblem.CreateTime = ptypes.TimestampNow()
 	if _, err = c.Server().mongodb.Collection("problem").InsertOne(c.Context(), newProblem); err != nil {
 		panic(err)
 	}
 	resp := new(model.ProblemDbNewResponse)
-	resp.Problem = new(model.Problem)
-	resp.Problem.Id = newProblem.Id
+	resp.ProblemId = newProblem.Id
 	c.SendValue(resp)
 	return nil
 }

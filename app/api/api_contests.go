@@ -25,9 +25,8 @@ func Handle_Contests(c *ApiContext) (apiErr ApiError) {
 		if err = cursor.Decode(contestModel); err != nil {
 			panic(err)
 		}
-		entry.Contest = new(model.Contest)
-		entry.Contest.Name = contestModel.Name
-		entry.Contest.Id = contestModel.Id
+		entry.ContestTitle = contestModel.Name
+		entry.ContestId = contestModel.Id
 		resp.Contests = append(resp.Contests, entry)
 	}
 	if err = cursor.Err(); err != nil {

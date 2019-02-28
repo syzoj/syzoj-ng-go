@@ -17,3 +17,10 @@ func Handle_Debug_Contest_Submit(c *ApiContext) ApiError {
 	contest.AppendSubmission(player, req.GetName(), submissionId)
 	return nil
 }
+
+func Handle_Debug_Submission_Enqueue(c *ApiContext) ApiError {
+    vars := c.Vars()
+    submissionId := model.MustDecodeObjectID(vars["submission_id"])
+    go c.Server().c.EnqueueSubmission(submissionId)
+	return nil
+}

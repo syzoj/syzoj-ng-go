@@ -3,6 +3,7 @@ package core
 import (
 	"context"
 	"sync"
+    "crypto/subtle"
 
 	"github.com/sirupsen/logrus"
 	"go.mongodb.org/mongo-driver/bson"
@@ -24,6 +25,11 @@ type judger struct {
 	abortNotify chan struct{} // Notifies FetchTask to abort
 	listLock    sync.Mutex    // protects judgingTask
 	judgingTask []int
+    token string
+    id primitive.ObjectID
+    initOnce sync.Once
+    c *Core
+    found bool
 }
 
 type SubmissionHook interface {
@@ -127,7 +133,35 @@ func (c *Core) getJudger(id primitive.ObjectID) *judger {
 		j = new(judger)
 		j.abortNotify = make(chan struct{})
 		j.fetchLock = make(chan struct{}, 1)
+        j.id = id
+        j.c = c
 		c.judgers[id] = j
+        go j.initOnce.Do(j.init)
 	}
 	return j
+}
+
+func (j *judger) init() {
+    var err error
+    judgerModel := new(model.Judger)
+    if err = j.c.mongodb.Collection("judger").FindOne(j.c.context, bson.D{{"_id", j.id}}).Decode(judgerModel); err != nil {
+        if err == mongo.ErrNoDocuments {
+            return
+        }
+        log.WithError(err).WithField("judgerId", j.id).Error("Failed to find judger")
+        return
+    }
+    if judgerModel.Token == nil {
+        return
+    }
+    j.token = judgerModel.GetToken()
+    j.found = true
+}
+
+func (j *judger) checkToken(token string) bool {
+    j.initOnce.Do(j.init)
+    if !j.found {
+        return false
+    }
+    return subtle.ConstantTimeCompare([]byte(token), []byte(j.token)) == 1
 }

@@ -60,15 +60,15 @@ func Handle_ProblemDb(c *ApiContext) (apiErr ApiError) {
 			options.SetSkip(skip)
 		}
 	}
-	var limit int64 = 100
+	var limit int64 = 10000
 	if len(form["limit"]) != 0 {
 		l, err := strconv.ParseInt(form["limit"][0], 10, 64)
 		if err == nil {
 			limit = l
 		}
 	}
-	if limit > 100 {
-		limit = 100
+	if limit > 10000 {
+		limit = 10000
 	}
 	options.SetLimit(limit)
 	if cursor, err = c.Server().mongodb.Collection("problem").Find(c.Context(), query, options); err != nil {
@@ -78,11 +78,14 @@ func Handle_ProblemDb(c *ApiContext) (apiErr ApiError) {
 
 	resp := new(model.ProblemDbResponse)
 	for cursor.Next(c.Context()) {
-		problem := new(model.Problem)
-		if err = cursor.Decode(problem); err != nil {
+		problemModel := new(model.Problem)
+		if err = cursor.Decode(problemModel); err != nil {
 			return
 		}
-		resp.Problems = append(resp.Problems, problem)
+        entry := new(model.ProblemDbResponseProblemEntry)
+        entry.ProblemId = problemModel.Id
+        entry.Title = problemModel.Title
+		resp.Problems = append(resp.Problems, entry)
 	}
 	if err = cursor.Err(); err != nil {
 		panic(err)

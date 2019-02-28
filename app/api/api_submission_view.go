@@ -32,8 +32,10 @@ func Handle_Submission_View(c *ApiContext) (apiErr ApiError) {
 		log.WithField("submissionId", submissionId).WithError(err).Warning("Failed to read problem for submission")
 	}
 	resp := new(model.SubmissionViewResponse)
-	resp.Submission = submission
-	resp.Problem = problem
+	resp.SubmissionContent = submission.Content
+    resp.SubmissionResult = submission.Result
+	resp.ProblemId = problem.Id
+    resp.ProblemTitle = problem.Title
 	c.SendValue(resp)
 	return nil
 }
