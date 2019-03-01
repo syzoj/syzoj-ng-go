@@ -53,6 +53,8 @@ message ProblemDbViewResponse {
 	optional syzoj.primitive.ObjectID problem_id = 1;
     optional string title = 2;
     optional string statement = 3;
+    optional bool can_submit = 4;
+    optional bool is_owner = 5;
 }
 
 message ProblemDbEditRequest {

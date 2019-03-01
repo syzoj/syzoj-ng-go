@@ -53,6 +53,8 @@ func Handle_ProblemDb_View(c *ApiContext) ApiError {
     resp.ProblemId = problem.Id
     resp.Title = problem.Title
     resp.Statement = problem.Statement
+    resp.CanSubmit = proto.Bool(problem.GetPublic() && c.Session.LoggedIn())
+    resp.IsOwner = proto.Bool(isOwner)
 	c.SendValue(resp)
 	return nil
 }
