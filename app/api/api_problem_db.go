@@ -82,9 +82,9 @@ func Handle_ProblemDb(c *ApiContext) (apiErr ApiError) {
 		if err = cursor.Decode(problemModel); err != nil {
 			return
 		}
-        entry := new(model.ProblemDbResponseProblemEntry)
-        entry.ProblemId = problemModel.Id
-        entry.Title = problemModel.Title
+		entry := new(model.ProblemDbResponseProblemEntry)
+		entry.ProblemId = problemModel.Id
+		entry.Title = problemModel.Title
 		resp.Problems = append(resp.Problems, entry)
 	}
 	if err = cursor.Err(); err != nil {

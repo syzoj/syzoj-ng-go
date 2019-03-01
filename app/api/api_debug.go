@@ -19,8 +19,8 @@ func Handle_Debug_Contest_Submit(c *ApiContext) ApiError {
 }
 
 func Handle_Debug_Submission_Enqueue(c *ApiContext) ApiError {
-    vars := c.Vars()
-    submissionId := model.MustDecodeObjectID(vars["submission_id"])
-    go c.Server().c.EnqueueSubmission(submissionId)
+	vars := c.Vars()
+	submissionId := model.MustDecodeObjectID(vars["submission_id"])
+	go c.Server().c.EnqueueSubmission(submissionId)
 	return nil
 }

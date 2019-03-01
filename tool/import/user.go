@@ -1,18 +1,20 @@
 package tool_import
 
 import (
-    "database/sql"
-    "encoding/hex"
-    "time"
-    "context"
+	"context"
+	"database/sql"
+	"encoding/hex"
+	"time"
 
-    "github.com/golang/protobuf/ptypes"
-    "github.com/golang/protobuf/proto"
+	"github.com/golang/protobuf/proto"
+	"github.com/golang/protobuf/ptypes"
+	"go.mongodb.org/mongo-driver/bson/primitive"
 
-    "github.com/syzoj/syzoj-ng-go/app/model"
+	"github.com/syzoj/syzoj-ng-go/app/model"
 )
 
 type user struct {
+	Id           int64
 	UserName     string
 	Password     string
 	Email        string
@@ -22,12 +24,12 @@ type user struct {
 func (i *importer) readUsers(users chan *user) {
 	var err error
 	var rows *sql.Rows
-	if rows, err = i.db.Query("SELECT username, password, email, register_time FROM user"); err != nil {
+	if rows, err = i.db.Query("SELECT id, username, password, email, register_time FROM user"); err != nil {
 		log.Fatal("Error importing users from MySQL: ", err.Error())
 	}
 	for rows.Next() {
 		u := new(user)
-		err = rows.Scan(&u.UserName, &u.Password, &u.Email, &u.RegisterTime)
+		err = rows.Scan(&u.Id, &u.UserName, &u.Password, &u.Email, &u.RegisterTime)
 		if err != nil {
 			log.Error("Error reading user: ", err)
 			err = nil
@@ -39,6 +41,7 @@ func (i *importer) readUsers(users chan *user) {
 
 func (i *importer) writeUsers(users chan *user) {
 	var err error
+	i.userId = make(map[int64]primitive.ObjectID)
 	for user := range users {
 		var passmd5 []byte
 		passmd5, err = hex.DecodeString(user.Password)
@@ -62,5 +65,6 @@ func (i *importer) writeUsers(users chan *user) {
 			log.Error("Error inserting user: ", err)
 			err = nil
 		}
+		i.userId[user.Id] = model.MustGetObjectID(userModel.Id)
 	}
 }

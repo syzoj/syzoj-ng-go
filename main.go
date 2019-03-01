@@ -65,8 +65,8 @@ func cmdImport() {
 	importFlagSet := flag.NewFlagSet("import", flag.ExitOnError)
 	configPtr := importFlagSet.String("config", "config.json", "Sets the config file")
 	mysqlPtr := importFlagSet.String("mysql", "root:@/syzoj", "MySQL database to import from")
-    oldDataPathPtr := importFlagSet.String("old_data", "", "Old data path")
-    newDataPathPtr := importFlagSet.String("new_data", "", "New data path")
+	oldDataPathPtr := importFlagSet.String("old_data", "", "Old data path")
+	newDataPathPtr := importFlagSet.String("new_data", "", "New data path")
 	importFlagSet.Parse(os.Args[2:])
 
 	var err error

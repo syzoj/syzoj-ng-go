@@ -1,31 +1,34 @@
 package tool_import
 
 import (
-    "database/sql"
-    "strconv"
-    "regexp"
-    "strings"
-    "path"
-    "context"
+	"context"
+	"database/sql"
+	"path"
+	"regexp"
+	"strconv"
+	"strings"
 
-    "github.com/golang/protobuf/proto"
+	"github.com/golang/protobuf/proto"
+	"go.mongodb.org/mongo-driver/bson/primitive"
 
-    "github.com/syzoj/syzoj-ng-go/app/model"
+	"github.com/syzoj/syzoj-ng-go/app/model"
 )
 
 type problem struct {
 	Id           string
+	IdInt        int64
 	Title        string
 	Description  string
 	InputFormat  string
 	OutputFormat string
 	Example      string
 	LimitAndHint string
-    Type sql.NullString
-    MemoryLimit sql.NullInt64
-    TimeLimit sql.NullInt64
-    FileIoInput sql.NullString
-    FileIoOutput sql.NullString
+	Type         sql.NullString
+	MemoryLimit  sql.NullInt64
+	TimeLimit    sql.NullInt64
+	FileIoInput  sql.NullString
+	FileIoOutput sql.NullString
+	Public       sql.NullBool
 	Count        int
 }
 
@@ -33,18 +36,19 @@ func (i *importer) getProblems(problems chan *problem) {
 	var err error
 	var rows *sql.Rows
 	if rows, err = i.db.Query("SELECT id, title, user_id, description, input_format, output_format, example, limit_and_hint, time_limit, memory_limit, additional_file_id, is_public, file_io_input_name, file_io_output_name, type FROM problem"); err != nil {
-		log.Fatal("Error importing problems from MySQL: ", err.Error())
+		log.WithError(err).Error("Error importing problems from MySQL")
+		close(problems)
+		return
 	}
 	for rows.Next() {
-		var id int
 		p := new(problem)
 		var d interface{}
-		err = rows.Scan(&id, &p.Title, &d, &p.Description, &p.InputFormat, &p.OutputFormat, &p.Example, &p.LimitAndHint, &p.MemoryLimit, &p.TimeLimit, &d, &d, &p.FileIoInput, &p.FileIoOutput, &p.Type)
+		err = rows.Scan(&p.IdInt, &p.Title, &d, &p.Description, &p.InputFormat, &p.OutputFormat, &p.Example, &p.LimitAndHint, &p.MemoryLimit, &p.TimeLimit, &d, &p.Public, &p.FileIoInput, &p.FileIoOutput, &p.Type)
 		if err != nil {
-			log.WithField("id", id).Info("Error reading problem: ", err.Error())
+			log.WithError(err).Error("Error reading problem")
 			err = nil
 		}
-		p.Id = strconv.Itoa(id)
+		p.Id = strconv.FormatInt(p.IdInt, 10)
 		problems <- p
 	}
 	close(problems)
@@ -61,6 +65,7 @@ func convertMath(s string) string {
 
 func (i *importer) writeProblems(problems chan *problem) {
 	var err error
+	i.problemId = make(map[int64]primitive.ObjectID)
 	for p := range problems {
 		var content []string
 		if p.Description != "" {
@@ -84,14 +89,16 @@ func (i *importer) writeProblems(problems chan *problem) {
 		problemModel.Title = proto.String(p.Title)
 		problemModel.Statement = proto.String(contents)
 		problemModel.ShortName = proto.String(p.Id)
+		problemModel.Public = proto.Bool(p.Public.Bool)
 		if _, err = i.mongodb.Collection("problem").InsertOne(context.Background(), problemModel); err != nil {
-			log.WithField("id", p.Id).Info("Error inserting problem: ", err.Error())
+			log.WithField("id", p.Id).WithError(err).Error("Error inserting problem")
 			err = nil
 		}
 
-        name := problemModel.Id.GetId()
-        if i.oldDataPath != "" {
-            conv_problem(p, path.Join(i.oldDataPath, p.Id), path.Join(i.newDataPath, name))
-        }
+		name := problemModel.Id.GetId()
+		if i.oldDataPath != "" {
+			conv_problem(p, path.Join(i.oldDataPath, p.Id), path.Join(i.newDataPath, name))
+		}
+		i.problemId[p.IdInt] = model.MustGetObjectID(problemModel.Id)
 	}
 }

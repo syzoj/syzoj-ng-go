@@ -28,10 +28,10 @@ func (srv judgeRpc) FetchTask(ctx context.Context, in *judge_api.JudgeRequest) (
 		return
 	}
 	judger := srv.getJudger(judgerId)
-    if !judger.checkToken(in.GetJudgerToken()) {
-        err = ErrPermissionDenied
-        return
-    }
+	if !judger.checkToken(in.GetJudgerToken()) {
+		err = ErrPermissionDenied
+		return
+	}
 loop:
 	for {
 		select {
