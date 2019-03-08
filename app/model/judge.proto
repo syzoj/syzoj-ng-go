@@ -20,7 +20,7 @@ message SubmissionResult {
 }
 
 message ProblemConf {
-    optional string type = 1 [(tagger.tags) = "yaml:\"type,omitempty\""];
+    optional string type = 1 [(tagger.tags) = "yaml:\"type,omitempty\"", default = "traditional"];
     repeated syzoj.judge.ProblemCase cases = 2 [(tagger.tags) = "yaml:\"cases,omitempty\""];
     optional syzoj.judge.ProblemCase cases_global = 3 [(tagger.tags) = "yaml:\"cases-global,omitempty\""];
     repeated syzoj.judge.ProblemSubtask subtasks = 4 [(tagger.tags) = "yaml:\"subtasks,omitempty\""];

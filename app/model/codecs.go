@@ -1,15 +1,12 @@
 package model
 
 import (
-	"encoding/base64"
-	"encoding/json"
 	"errors"
 	"reflect"
 	"time"
 
-	"github.com/golang/protobuf/jsonpb"
-	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/ptypes"
+	"github.com/golang/protobuf/ptypes/any"
 	"github.com/golang/protobuf/ptypes/duration"
 	"github.com/golang/protobuf/ptypes/timestamp"
 	"go.mongodb.org/mongo-driver/bson/bsoncodec"
@@ -20,84 +17,6 @@ import (
 var objectIDType = reflect.TypeOf(primitive.ObjectID{})
 var timeType = reflect.TypeOf(time.Time{})
 var durationType = reflect.TypeOf(time.Duration(0))
-
-var ErrInvalidObjectID = errors.New("Invalid ObjectID")
-
-func EncodeObjectID(id primitive.ObjectID) (string, error) {
-	return base64.URLEncoding.EncodeToString(id[:]), nil
-}
-
-func DecodeObjectID(id string) (primitive.ObjectID, error) {
-	var v primitive.ObjectID
-	n, err := base64.URLEncoding.Decode(v[:], []byte(id))
-	if err != nil || n != 12 {
-		return primitive.ObjectID{}, ErrInvalidObjectID
-	}
-	return v, nil
-}
-
-func MustDecodeObjectID(id string) primitive.ObjectID {
-	v, err := DecodeObjectID(id)
-	if err != nil {
-		panic(err)
-	}
-	return v
-}
-
-func ObjectIDProto(id primitive.ObjectID) *ObjectID {
-	s, _ := EncodeObjectID(id)
-	return &ObjectID{Id: proto.String(s)}
-}
-
-func NewObjectIDProto() *ObjectID {
-	return ObjectIDProto(primitive.NewObjectID())
-}
-
-func GetObjectID(o *ObjectID) (primitive.ObjectID, error) {
-	if o == nil {
-		return primitive.ObjectID{}, ErrInvalidObjectID
-	}
-	return DecodeObjectID(*o.Id)
-}
-
-func MustGetObjectID(o *ObjectID) primitive.ObjectID {
-	if o == nil {
-		panic(ErrInvalidObjectID)
-	}
-	v, err := DecodeObjectID(*o.Id)
-	if err != nil {
-		panic(err)
-	}
-	return v
-}
-
-// MarshalJSONPB implements the jsonpb.JSONPBMarshaler interface.
-func (o *ObjectID) MarshalJSONPB(*jsonpb.Marshaler) ([]byte, error) {
-	if o.Id == nil {
-		return nil, ErrInvalidObjectID
-	}
-	_, err := DecodeObjectID(*o.Id)
-	if err != nil {
-		return nil, ErrInvalidObjectID
-	}
-	return []byte(`"` + *o.Id + `"`), nil
-}
-
-// UnmarshalJSONPB implements the jsonpb.JSONPBUnmarshaler interface.
-func (o *ObjectID) UnmarshalJSONPB(m *jsonpb.Unmarshaler, b []byte) error {
-	var (
-		s   string
-		err error
-	)
-	if err = json.Unmarshal(b, &s); err != nil {
-		return err
-	}
-	if _, err = DecodeObjectID(s); err != nil {
-		return err
-	}
-	o.Id = proto.String(s)
-	return nil
-}
 
 type objectIDCodec struct{}
 
@@ -185,9 +104,90 @@ func (durationCodec) DecodeValue(c bsoncodec.DecodeContext, r bsonrw.ValueReader
 	return nil
 }
 
+type anyCodec struct{}
+
+var ErrInvalidAny = errors.New("Invalid any data")
+
+func (anyCodec) EncodeValue(c bsoncodec.EncodeContext, w bsonrw.ValueWriter, v reflect.Value) error {
+	x := v.Interface().(*any.Any)
+	var dany ptypes.DynamicAny
+	if err := ptypes.UnmarshalAny(x, &dany); err != nil {
+		return err
+	}
+	enc, err := c.LookupEncoder(reflect.TypeOf(dany.Message))
+	if err != nil {
+		return err
+	}
+	doc, err := w.WriteDocument()
+	if err != nil {
+		return err
+	}
+	el, err := doc.WriteDocumentElement("_type")
+	if err != nil {
+		return err
+	}
+	if err = el.WriteString(x.TypeUrl); err != nil {
+		return err
+	}
+	el, err = doc.WriteDocumentElement("_val")
+	if err != nil {
+		return err
+	}
+	if err = enc.EncodeValue(c, el, reflect.ValueOf(dany.Message)); err != nil {
+		return err
+	}
+	if err = doc.WriteDocumentEnd(); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (anyCodec) DecodeValue(c bsoncodec.DecodeContext, r bsonrw.ValueReader, v reflect.Value) error {
+	doc, err := r.ReadDocument()
+	if err != nil {
+		return err
+	}
+	key, val, err := doc.ReadElement()
+	if err != nil {
+		return err
+	} else if key != "_type" {
+		return ErrInvalidAny
+	}
+	typeUrl, err := val.ReadString()
+	if err != nil {
+		return err
+	}
+	x := new(any.Any)
+	x.TypeUrl = typeUrl
+	msg, err := ptypes.Empty(x)
+	if err != nil {
+		return err
+	}
+	dec, err := c.LookupDecoder(reflect.ValueOf(msg).Elem().Type())
+	if err != nil {
+		return err
+	}
+	key, val, err = doc.ReadElement()
+	if err != nil {
+		return err
+	} else if key != "_val" {
+		return ErrInvalidAny
+	}
+	if err = dec.DecodeValue(c, val, reflect.ValueOf(msg).Elem()); err != nil {
+		return err
+	}
+	x, err = ptypes.MarshalAny(msg)
+	if err != nil {
+		return err
+	}
+	v.Set(reflect.ValueOf(x))
+	return nil
+}
+
 // Register registers the codecs.
 func Register(r *bsoncodec.RegistryBuilder) *bsoncodec.RegistryBuilder {
 	return r.RegisterCodec(reflect.TypeOf(&ObjectID{}), objectIDCodec{}).
 		RegisterCodec(reflect.TypeOf(&timestamp.Timestamp{}), timestampCodec{}).
-		RegisterCodec(reflect.TypeOf(&duration.Duration{}), durationCodec{})
+		RegisterCodec(reflect.TypeOf(&duration.Duration{}), durationCodec{}).
+		RegisterCodec(reflect.TypeOf(&any.Any{}), anyCodec{})
 }

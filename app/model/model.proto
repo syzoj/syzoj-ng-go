@@ -4,6 +4,7 @@ package syzoj.server;
 
 import "google/protobuf/timestamp.proto";
 import "google/protobuf/duration.proto";
+import "google/protobuf/any.proto";
 import "tagger.proto";
 import "primitive.proto";
 import "judge.proto";
@@ -16,6 +17,8 @@ message User {
 	optional string email = 3 [(tagger.tags) = "bson:\"email,omitempty\""];
 	optional google.protobuf.Timestamp register_time = 4 [(tagger.tags) = "bson:\"register_time,omitempty\""];
 	optional syzoj.server.UserAuth auth = 5 [(tagger.tags) = "bson:\"auth,omitempty\""];
+
+	optional google.protobuf.Any extra_data = 6 [(tagger.tags) = "bson:\"extra,omitempty\""];
 
 }
 message UserAuth {
