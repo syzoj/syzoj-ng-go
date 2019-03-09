@@ -27,8 +27,8 @@ import (
 
 	"github.com/syzoj/syzoj-ng-go/app/api"
 	"github.com/syzoj/syzoj-ng-go/app/core"
-	judge_api "github.com/syzoj/syzoj-ng-go/app/core/protos"
 	"github.com/syzoj/syzoj-ng-go/app/model"
+	judge_rpc "github.com/syzoj/syzoj-ng-go/judger/rpc"
 	"github.com/syzoj/syzoj-ng-go/tool/import"
 )
 
@@ -168,7 +168,7 @@ func cmdRun() {
 		log.Info("Stopping SYZOJ core")
 		c.Close()
 	}()
-	judge_api.RegisterJudgeServer(grpcServer, c.JudgeRpc())
+	judge_rpc.RegisterJudgeServer(grpcServer, c.JudgeRpc())
 	reflection.Register(grpcServer)
 	go func() {
 		log.Info("Setting up gRPC service")

@@ -81,11 +81,15 @@ func (r MaxSumRanklist) getRanklist(ct *Contest) *model.ContestRanklist {
 			var maxScore float64
 			for _, submission := range problem.submissions {
 				submissionId := submission.submissionId
-				result := ct.submissions[submissionId]
-				if result != nil && result.Score != nil {
-					score := result.GetScore()
-					if score > maxScore {
-						maxScore = score
+				result := ct.submissionResults[submissionId]
+				if result != nil {
+					if _result, ok := result.(model.SubmissionScore); ok {
+						score, err := _result.Model_GetScore()
+						if err != nil {
+							if score > maxScore {
+								maxScore = score
+							}
+						}
 					}
 				}
 			}

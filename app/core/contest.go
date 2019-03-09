@@ -23,10 +23,10 @@ type Contest struct {
 	problems       []*ContestProblem
 	problemsByName map[string]*ContestProblem
 
-	submissions  map[primitive.ObjectID]*model.SubmissionResult
-	ranklist     *model.ContestRanklist
-	ranklistimpl ContestRanklistImpl
-	ranklistSema chan struct{}
+	submissionResults map[primitive.ObjectID]proto.Message
+	ranklist          *model.ContestRanklist
+	ranklistimpl      ContestRanklistImpl
+	ranklistSema      chan struct{}
 }
 
 // immutable
@@ -114,7 +114,7 @@ func (c *Core) loadContest(contestModel *model.Contest) *Contest {
 	ct.running = contestModel.State.GetRunning()
 	ct.judgeInContest = contestModel.State.GetJudgeInContest()
 	ct.loadPlayers()
-	ct.submissions = make(map[primitive.ObjectID]*model.SubmissionResult)
+	ct.submissionResults = make(map[primitive.ObjectID]proto.Message)
 	ct.problems = make([]*ContestProblem, len(contestModel.State.Problems))
 	ct.problemsByName = make(map[string]*ContestProblem)
 	for i, problemModel := range contestModel.State.Problems {

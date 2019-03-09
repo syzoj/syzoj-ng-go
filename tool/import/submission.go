@@ -1,7 +1,6 @@
 package tool_import
 
 import (
-	"context"
 	"database/sql"
 	"time"
 
@@ -44,6 +43,7 @@ func (i *importer) readSubmissions(submissions chan<- *submission) {
 	close(submissions)
 }
 
+// TODO: convert content and result
 func (i *importer) writeSubmissions(submissions <-chan *submission) {
 	for s := range submissions {
 		if !s.typ.Valid || s.typ.Int64 != 0 {
@@ -58,41 +58,8 @@ func (i *importer) writeSubmissions(submissions <-chan *submission) {
 		if problemId, found := i.problemId[s.problemId.Int64]; found {
 			submissionModel.Problem = model.ObjectIDProto(problemId)
 		}
-		submissionModel.Content = new(model.SubmissionContent)
-		if s.language.Valid {
-			submissionModel.Content.Language = proto.String(s.language.String)
-		}
-		if s.code.Valid {
-			submissionModel.Content.Code = proto.String(s.code.String)
-		}
 		if s.submitTime.Valid {
 			submissionModel.SubmitTime, _ = ptypes.TimestampProto(time.Unix(s.submitTime.Int64, 0))
-		}
-		doneResults := map[string]struct{}{
-			"Accepted":              {},
-			"Compile Error":         {},
-			"File Error":            {},
-			"Judgement Failed":      {},
-			"Memory Limit Exceeded": {},
-			"No Testdata":           {},
-			"Partially Correct":     {},
-			"Runtime Error":         {},
-			"System Error":          {},
-			"Time Limit Exceeded":   {},
-			"Wrong Answer":          {},
-			// Unknown and waiting omitted
-		}
-		if _, found := doneResults[s.status.String]; found {
-			submissionModel.Result = new(model.SubmissionResult)
-			if s.status.Valid {
-				submissionModel.Result.Status = proto.String(s.status.String)
-			}
-			if s.score.Valid {
-				submissionModel.Result.Score = proto.Float64(s.score.Float64)
-			}
-		}
-		if _, err := i.mongodb.Collection("submission").InsertOne(context.Background(), submissionModel); err != nil {
-			log.WithField("id", s.id).WithError(err).Warning("Error inserting submission")
 		}
 	}
 }

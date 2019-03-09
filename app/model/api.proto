@@ -5,7 +5,6 @@ package syzoj.api;
 import "google/protobuf/any.proto";
 import "google/protobuf/duration.proto";
 import "primitive.proto";
-import "judge.proto";
 
 option go_package = "github.com/syzoj/syzoj-ng-go/app/model";
 
@@ -63,7 +62,7 @@ message ProblemDbEditRequest {
 }
 
 message ProblemDbViewSubmitRequest {
-	optional syzoj.judge.SubmissionContent content = 1;
+	optional google.protobuf.Any content = 1;
 }
 
 message ProblemDbViewSubmitResponse {
@@ -83,8 +82,8 @@ message SubmissionsResponseSubmissionEntry {
 }
 
 message SubmissionViewResponse {
-	optional syzoj.judge.SubmissionContent submission_content = 1;
-    optional syzoj.judge.SubmissionResult submission_result = 2;
+	optional google.protobuf.Any submission_content = 1;
+    optional google.protobuf.Any submission_result = 2;
 	optional syzoj.primitive.ObjectID problem_id = 3;
     optional string problem_title = 4;
     optional syzoj.primitive.ObjectID submitter_id = 5;
@@ -141,7 +140,7 @@ message DebugContestSubmitRequest {
 }
 
 message ContestProblemSubmitRequest {
-	optional syzoj.judge.SubmissionContent content = 1;
+	optional google.protobuf.Any content = 1;
 }
 
 message ContestProblemSubmitResponse {

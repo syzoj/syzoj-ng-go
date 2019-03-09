@@ -5,6 +5,7 @@ import (
 	"crypto/subtle"
 	"sync"
 
+	"github.com/golang/protobuf/ptypes/any"
 	"github.com/sirupsen/logrus"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
@@ -15,9 +16,10 @@ import (
 )
 
 type queueItem struct {
-	id        primitive.ObjectID
-	problemId primitive.ObjectID
-	content   *model.SubmissionContent
+	id                primitive.ObjectID
+	problemId         primitive.ObjectID
+	submissionContent *any.Any
+	problemData       *any.Any
 }
 
 type judger struct {
@@ -33,7 +35,7 @@ type judger struct {
 }
 
 type SubmissionHook interface {
-	OnSubmissionResult(submissionId primitive.ObjectID, result *model.SubmissionResult)
+	OnSubmissionResult(submissionId primitive.ObjectID, result *any.Any)
 }
 
 func (c *Core) AddSubmissionHook(hook SubmissionHook) {
@@ -48,7 +50,7 @@ func (c *Core) RemoveSubmissionHook(hook SubmissionHook) {
 	delete(c.submissionHooks, hook)
 }
 
-func (c *Core) invokeSubmissionHook(submissionId primitive.ObjectID, result *model.SubmissionResult) {
+func (c *Core) invokeSubmissionHook(submissionId primitive.ObjectID, result *any.Any) {
 	c.submissionHooksMutex.Lock()
 	defer c.submissionHooksMutex.Unlock()
 	for hook := range c.submissionHooks {
@@ -61,6 +63,24 @@ func (item *queueItem) getFields() logrus.Fields {
 		"id":        EncodeObjectID(item.id),
 		"problemId": EncodeObjectID(item.problemId),
 	}
+}
+
+func (c *Core) prepareQueueItem(ctx context.Context, submissionModel *model.Submission) (*queueItem, error) {
+	var err error
+	item := new(queueItem)
+	item.submissionContent = submissionModel.Content
+	item.id = model.MustGetObjectID(submissionModel.GetId())
+	item.problemId = model.MustGetObjectID(submissionModel.GetProblem())
+	problemModel := new(model.Problem)
+	if err := c.mongodb.Collection("problem").FindOne(ctx, bson.D{{"problem_id", problemId}}, mongo_options.FindOne().SetProjection(bson.D{{"judge_data", 1}, {"judge_type", 1}})).Decode(problemModel); err != nil {
+		return nil, err
+	}
+	item.problemData = problemModel.JudgeData
+	item.problemType = problemModel.JudgeType
+	if err != nil {
+		return nil, err
+	}
+	return item, nil
 }
 
 func (srv *Core) initJudge(ctx context.Context) (err error) {
@@ -80,10 +100,10 @@ func (srv *Core) initJudge(ctx context.Context) (err error) {
 		if err = cursor.Decode(&submission); err != nil {
 			panic(err)
 		}
-		item := new(queueItem)
-		item.content = submission.Content
-		item.id = model.MustGetObjectID(submission.GetId())
-		item.problemId = model.MustGetObjectID(submission.GetProblem())
+		var item *queueItem
+		if item, err = srv.prepareQueueItem(ctx, submission); err != nil {
+			return
+		}
 		srv.enqueue(item)
 	}
 	if err = cursor.Err(); err != nil {
@@ -118,10 +138,11 @@ func (c *Core) EnqueueSubmission(id primitive.ObjectID) {
 		log.WithField("submissionId", id).Error("Failed to set judge queue status: ", err)
 		return
 	}
-	item := new(queueItem)
-	item.content = submission.Content
-	item.id = model.MustGetObjectID(submission.GetId())
-	item.problemId = model.MustGetObjectID(submission.GetProblem())
+	var item *queueItem
+	if item, err = c.prepareQueueItem(c.context, submission); err != nil {
+		log.WithField("submissionId", id).Error("Failed to prepare submission for judge: ", err)
+		return
+	}
 	c.enqueue(item)
 }
 

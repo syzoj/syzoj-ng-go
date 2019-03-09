@@ -1,6 +1,8 @@
 package core
 
 import (
+	"github.com/golang/protobuf/ptypes"
+	"github.com/golang/protobuf/ptypes/any"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 
@@ -11,10 +13,10 @@ type contestHook struct {
 	*Contest
 }
 
-func (ct contestHook) OnSubmissionResult(submissionId primitive.ObjectID, result *model.SubmissionResult) {
+func (ct contestHook) OnSubmissionResult(submissionId primitive.ObjectID, result *any.Any) {
 	ct.mu.Lock()
 	defer ct.mu.Unlock()
-	ct.submissions[submissionId] = result
+	ct.submissionResults[submissionId] = result
 	ct.notifyUpdateRanklist()
 }
 
@@ -51,9 +53,15 @@ func (ct *Contest) fetchSubmission(submissionId primitive.ObjectID) {
 		log.WithField("submissionId", submissionId).WithError(err).Error("Failed to fetch submission result")
 		return
 	}
+	var dany ptypes.DynamicAny
+	if submission.Result != nil {
+		if err := ptypes.UnmarshalAny(submission.Result, &dany); err != nil {
+			log.WithField("submissionId", submissionId).WithError(err).Error("Failed to parse submission result")
+		}
+	}
 	ct.mu.Lock()
 	defer ct.mu.Unlock()
-	ct.submissions[submissionId] = submission.Result
+	ct.submissionResults[submissionId] = dany.Message
 	ct.notifyUpdateRanklist()
 }
 

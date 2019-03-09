@@ -3,7 +3,6 @@ package tool_import
 import (
 	"context"
 	"database/sql"
-	"path"
 	"regexp"
 	"strconv"
 	"strings"
@@ -95,10 +94,6 @@ func (i *importer) writeProblems(problems chan *problem) {
 			err = nil
 		}
 
-		name := problemModel.Id.GetId()
-		if i.oldDataPath != "" {
-			conv_problem(p, path.Join(i.oldDataPath, p.Id), path.Join(i.newDataPath, name))
-		}
 		i.problemId[p.IdInt] = model.MustGetObjectID(problemModel.Id)
 	}
 }

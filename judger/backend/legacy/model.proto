@@ -1,0 +1,19 @@
+syntax = "proto2";
+
+package syzoj.judge.legacy;
+
+option go_package = "github.com/syzoj/syzoj-ng-go/judger/backend/legacy";
+
+message ProblemData {
+	optional int64 time_limit = 1;
+	optional int64 memory_limit = 2;
+	optional bool file_io = 3;
+	optional string file_io_input_name = 4;
+	optional string file_io_output_name = 5;
+	optional int32 type = 6;
+}
+
+message SubmissionContent {
+	optional string language = 1;
+	optional string code = 2;
+}

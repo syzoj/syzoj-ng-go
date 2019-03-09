@@ -10,19 +10,19 @@ import (
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
 
-	judge_api "github.com/syzoj/syzoj-ng-go/app/core/protos"
 	"github.com/syzoj/syzoj-ng-go/app/model"
+	"github.com/syzoj/syzoj-ng-go/judger/rpc"
 )
 
 type judgeRpc struct {
 	*Core
 }
 
-func (srv *Core) JudgeRpc() judge_api.JudgeServer {
+func (srv *Core) JudgeRpc() rpc.JudgeServer {
 	return judgeRpc{srv}
 }
 
-func (srv judgeRpc) FetchTask(ctx context.Context, in *judge_api.JudgeRequest) (res *judge_api.FetchTaskResult, err error) {
+func (srv judgeRpc) FetchTask(ctx context.Context, in *rpc.JudgeRequest) (res *rpc.FetchTaskResult, err error) {
 	var judgerId primitive.ObjectID
 	if judgerId, err = model.GetObjectID(in.JudgerId); err != nil {
 		return
@@ -66,29 +66,31 @@ loop:
 		if !ok {
 			panic("Queue item doesn't exist")
 		}
-		res = new(judge_api.FetchTaskResult)
+		res = new(rpc.FetchTaskResult)
 		res.Success = proto.Bool(true)
-		res.Task = &judge_api.Task{
-			TaskTag:   proto.Int64(int64(id)),
-			ProblemId: model.ObjectIDProto(item.problemId),
-			Content:   item.content,
+		res.Task = &rpc.Task{
+			TaskTag:           proto.Int64(int64(id)),
+			ProblemId:         model.ObjectIDProto(item.problemId),
+			SubmissionContent: item.submissionContent,
+			ProblemData:       item.problemData,
+			ProblemType:       item.problemType,
 		}
 		log.WithFields(item.getFields()).WithField("judgerId", judgerId).Debug("Judge item taken by judger")
 		return
 		/*
 			default:
-				res = new(judge_api.FetchTaskResult)
+				res = new(rpc.FetchTaskResult)
 				res.Success = false
 				return
 		*/
 	}
 }
 
-func (c judgeRpc) SetTaskProgress(s judge_api.Judge_SetTaskProgressServer) (err error) {
+func (c judgeRpc) SetTaskProgress(s rpc.Judge_SetTaskProgressServer) (err error) {
 	return
 }
 
-func (c judgeRpc) SetTaskResult(ctx context.Context, in *judge_api.SetTaskResultMessage) (e *empty.Empty, err error) {
+func (c judgeRpc) SetTaskResult(ctx context.Context, in *rpc.SetTaskResultMessage) (e *empty.Empty, err error) {
 	var judgerId primitive.ObjectID
 	if judgerId, err = model.GetObjectID(in.JudgerId); err != nil {
 		return

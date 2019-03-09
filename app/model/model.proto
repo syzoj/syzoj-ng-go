@@ -7,7 +7,6 @@ import "google/protobuf/duration.proto";
 import "google/protobuf/any.proto";
 import "tagger.proto";
 import "primitive.proto";
-import "judge.proto";
 
 option go_package = "github.com/syzoj/syzoj-ng-go/app/model";
 
@@ -33,8 +32,8 @@ message Submission {
 	repeated syzoj.primitive.ObjectID owner = 4 [(tagger.tags) = "bson:\"owner,omitempty\""];
 	optional syzoj.primitive.ObjectID problem = 5 [(tagger.tags) = "bson:\"problem,omitempty\""];
 	optional google.protobuf.Timestamp submit_time = 6 [(tagger.tags) = "bson:\"submit_time,omitempty\""];
-	optional syzoj.judge.SubmissionContent content = 7 [(tagger.tags) = "bson:\"content,omitempty\""];
-	optional syzoj.judge.SubmissionResult result = 8 [(tagger.tags) = "bson:\"result,omitempty\""];
+	optional google.protobuf.Any content = 7 [(tagger.tags) = "bson:\"content,omitempty\""];
+	optional google.protobuf.Any result = 8 [(tagger.tags) = "bson:\"result,omitempty\""];
 	optional syzoj.server.JudgeQueueStatus judge_queue_status = 9 [(tagger.tags) = "bson:\"judge_queue_status,omitempty\""];
 	optional bool public = 10 [(tagger.tags) = "bson:\"public,omitempty\""];
 }
@@ -58,6 +57,10 @@ message Problem {
 	optional string short_name = 6 [(tagger.tags) = "bson:\"short_name,omitempty\""];
 	optional bool public = 7 [(tagger.tags) = "bson:\"public,omitempty\""];
 	optional syzoj.server.ProblemStats public_stats = 8 [(tagger.tags) = "bson:\"public_stats,omitempty\""];
+	
+	// The data used for judging.
+	optional google.protobuf.Any judge_data = 9 [(tagger.tags) = "bson:\"judge_data,omitempty\""];
+	optional string judge_type = 10 [(tagger.tags) = "bson:\"judge_type,omitempty\""];
 }
 message ProblemStats {
 	optional int64 accept = 1 [(tagger.tags) = "bson:\"accept,omitempty\""];
