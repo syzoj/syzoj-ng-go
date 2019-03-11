@@ -20,6 +20,7 @@ type queueItem struct {
 	problemId         primitive.ObjectID
 	submissionContent *any.Any
 	problemData       *any.Any
+	problemType       string
 }
 
 type judger struct {
@@ -72,11 +73,11 @@ func (c *Core) prepareQueueItem(ctx context.Context, submissionModel *model.Subm
 	item.id = model.MustGetObjectID(submissionModel.GetId())
 	item.problemId = model.MustGetObjectID(submissionModel.GetProblem())
 	problemModel := new(model.Problem)
-	if err := c.mongodb.Collection("problem").FindOne(ctx, bson.D{{"problem_id", problemId}}, mongo_options.FindOne().SetProjection(bson.D{{"judge_data", 1}, {"judge_type", 1}})).Decode(problemModel); err != nil {
+	if err := c.mongodb.Collection("problem").FindOne(ctx, bson.D{{"_id", submissionModel.Problem}}, mongo_options.FindOne().SetProjection(bson.D{{"judge_data", 1}, {"judge_type", 1}})).Decode(problemModel); err != nil {
 		return nil, err
 	}
 	item.problemData = problemModel.JudgeData
-	item.problemType = problemModel.JudgeType
+	item.problemType = problemModel.GetJudgeType()
 	if err != nil {
 		return nil, err
 	}
@@ -90,19 +91,19 @@ func (srv *Core) initJudge(ctx context.Context) (err error) {
 	srv.judgers = make(map[primitive.ObjectID]*judger)
 	var cursor *mongo.Cursor
 	if cursor, err = srv.mongodb.Collection("submission").Find(ctx,
-		bson.D{{"judge_queue_status.in_queue", true}},
-		mongo_options.Find().SetProjection(bson.D{{"_id", 1}, {"problem", 1}, {"content.language", 1}, {"content.code", 1}, {"judge_queue_status", 1}})); err != nil {
+		bson.D{{"judge_queue_status.in_queue", true}}); err != nil {
 		return
 	}
 	defer cursor.Close(ctx)
 	for cursor.Next(ctx) {
 		submission := new(model.Submission)
-		if err = cursor.Decode(&submission); err != nil {
+		if err = cursor.Decode(submission); err != nil {
 			panic(err)
 		}
 		var item *queueItem
 		if item, err = srv.prepareQueueItem(ctx, submission); err != nil {
-			return
+			log.WithError(err).Warning("Failed to enqueue submission")
+			continue
 		}
 		srv.enqueue(item)
 	}
@@ -128,7 +129,7 @@ func (c *Core) EnqueueSubmission(id primitive.ObjectID) {
 	submission := new(model.Submission)
 	if err = c.mongodb.Collection("submission").FindOne(c.context,
 		bson.D{{"_id", id}},
-		mongo_options.FindOne().SetProjection(bson.D{{"_id", 1}, {"problem", 1}, {"content", 1}, {"judge_queue_status", 1}})).Decode(&submission); err != nil {
+		mongo_options.FindOne().SetProjection(bson.D{{"_id", 1}, {"problem", 1}, {"content", 1}, {"judge_queue_status", 1}})).Decode(submission); err != nil {
 		log.WithField("submissionId", id).Error("EnqueueSubmission: Failed to find submission: ", err)
 		return
 	}

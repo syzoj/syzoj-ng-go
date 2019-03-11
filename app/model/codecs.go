@@ -9,11 +9,13 @@ import (
 	"github.com/golang/protobuf/ptypes/any"
 	"github.com/golang/protobuf/ptypes/duration"
 	"github.com/golang/protobuf/ptypes/timestamp"
+	"github.com/sirupsen/logrus"
 	"go.mongodb.org/mongo-driver/bson/bsoncodec"
 	"go.mongodb.org/mongo-driver/bson/bsonrw"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 
+var log = logrus.StandardLogger()
 var objectIDType = reflect.TypeOf(primitive.ObjectID{})
 var timeType = reflect.TypeOf(time.Time{})
 var durationType = reflect.TypeOf(time.Duration(0))
@@ -145,17 +147,17 @@ func (anyCodec) EncodeValue(c bsoncodec.EncodeContext, w bsonrw.ValueWriter, v r
 func (anyCodec) DecodeValue(c bsoncodec.DecodeContext, r bsonrw.ValueReader, v reflect.Value) error {
 	doc, err := r.ReadDocument()
 	if err != nil {
-		return err
+		return ErrInvalidAny
 	}
 	key, val, err := doc.ReadElement()
 	if err != nil {
-		return err
+		return ErrInvalidAny
 	} else if key != "_type" {
 		return ErrInvalidAny
 	}
 	typeUrl, err := val.ReadString()
 	if err != nil {
-		return err
+		return ErrInvalidAny
 	}
 	x := new(any.Any)
 	x.TypeUrl = typeUrl
@@ -163,14 +165,12 @@ func (anyCodec) DecodeValue(c bsoncodec.DecodeContext, r bsonrw.ValueReader, v r
 	if err != nil {
 		return err
 	}
+	key, val, err = doc.ReadElement()
+	if err != nil || key != "_val" {
+		return ErrInvalidAny
+	}
 	dec, err := c.LookupDecoder(reflect.ValueOf(msg).Elem().Type())
 	if err != nil {
-		return err
-	}
-	key, val, err = doc.ReadElement()
-	if err != nil {
-		return err
-	} else if key != "_val" {
 		return ErrInvalidAny
 	}
 	if err = dec.DecodeValue(c, val, reflect.ValueOf(msg).Elem()); err != nil {
@@ -181,6 +181,10 @@ func (anyCodec) DecodeValue(c bsoncodec.DecodeContext, r bsonrw.ValueReader, v r
 		return err
 	}
 	v.Set(reflect.ValueOf(x))
+	_, _, err = doc.ReadElement()
+	if err != bsonrw.ErrEOD {
+		return ErrInvalidAny
+	}
 	return nil
 }
 

@@ -73,7 +73,7 @@ loop:
 			ProblemId:         model.ObjectIDProto(item.problemId),
 			SubmissionContent: item.submissionContent,
 			ProblemData:       item.problemData,
-			ProblemType:       item.problemType,
+			ProblemType:       proto.String(item.problemType),
 		}
 		log.WithFields(item.getFields()).WithField("judgerId", judgerId).Debug("Judge item taken by judger")
 		return

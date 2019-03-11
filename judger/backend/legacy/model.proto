@@ -2,18 +2,32 @@ syntax = "proto2";
 
 package syzoj.judge.legacy;
 
+import "google/protobuf/duration.proto";
+import "tagger.proto";
+
 option go_package = "github.com/syzoj/syzoj-ng-go/judger/backend/legacy";
 
 message ProblemData {
-	optional int64 time_limit = 1;
-	optional int64 memory_limit = 2;
-	optional bool file_io = 3;
-	optional string file_io_input_name = 4;
-	optional string file_io_output_name = 5;
-	optional int32 type = 6;
+	optional int64 time_limit = 1 [(tagger.tags) = "bson:\"time_limit,omitempty\""];
+	optional int64 memory_limit = 2 [(tagger.tags) = "bson:\"memory_limit,omitempty\""];
+	optional bool file_io = 3 [(tagger.tags) = "bson:\"file_io,omitempty\""];
+	optional string file_io_input_name = 4 [(tagger.tags) = "bson:\"file_io_input_name,omitempty\""];
+	optional string file_io_output_name = 5 [(tagger.tags) = "bson:\"file_io_output_name,omitempty\""];
+	optional int32 type = 6 [(tagger.tags) = "bson:\"type,omitempty\""];
 }
 
 message SubmissionContent {
-	optional string language = 1;
-	optional string code = 2;
+	optional string language = 1 [(tagger.tags) = "bson:\"language,omitempty\""];
+	optional string code = 2 [(tagger.tags) = "bson:\"code,omitempty\""];
+}
+
+message SubmissionResult {
+	optional google.protobuf.Duration time = 1 [(tagger.tags) = "bson:\"time,omitempty\""];
+	optional int64 memory = 2 [(tagger.tags) = "bson:\"memory,omitempty\""];
+	optional string message = 3 [(tagger.tags) = "bson:\"message,omitempty\""];
+	optional double score = 4 [(tagger.tags) = "bson:\"score,omitempty\""];
+}
+
+message SubmissionResultTestcase {
+	optional double score = 1 [(tagger.tags) = "bson:\"score,omitempty\""];
 }

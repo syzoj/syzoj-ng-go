@@ -28,6 +28,7 @@ import (
 	"github.com/syzoj/syzoj-ng-go/app/api"
 	"github.com/syzoj/syzoj-ng-go/app/core"
 	"github.com/syzoj/syzoj-ng-go/app/model"
+	_ "github.com/syzoj/syzoj-ng-go/judger/backend/legacy"
 	judge_rpc "github.com/syzoj/syzoj-ng-go/judger/rpc"
 	"github.com/syzoj/syzoj-ng-go/tool/import"
 )

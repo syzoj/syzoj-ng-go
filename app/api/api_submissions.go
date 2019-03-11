@@ -38,7 +38,7 @@ func Handle_Submissions(c *ApiContext) (apiErr ApiError) {
 	}
 	var cursor *mongo.Cursor
 	if cursor, err = c.Server().mongodb.Collection("submission").Find(c.Context(), query,
-		mongo_options.Find().SetProjection(bson.D{{"problem", 1}, {"result.status", 1}, {"result.score", 1}, {"user", 1}, {"content.language", 1}, {"submit_time", 1}}).SetLimit(50).SetSort(bson.D{{"submit_time", -1}})); err != nil {
+		mongo_options.Find().SetLimit(50).SetSort(bson.D{{"submit_time", -1}})); err != nil {
 		panic(err)
 	}
 	defer cursor.Close(c.Context())
@@ -48,7 +48,7 @@ func Handle_Submissions(c *ApiContext) (apiErr ApiError) {
 	for cursor.Next(c.Context()) {
 		submission := new(model.Submission)
 		if err = cursor.Decode(submission); err != nil {
-			return
+			panic(err)
 		}
 		entry := &model.SubmissionsResponseSubmissionEntry{
 			SubmissionId: submission.Id,

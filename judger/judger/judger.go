@@ -24,7 +24,7 @@ func NewJudger() *Judger {
 }
 
 func (j *Judger) Run(ctx context.Context) error {
-	conn, err := grpc.Dial(j.rpcUrl)
+	conn, err := grpc.Dial(j.rpcUrl, grpc.WithInsecure())
 	if err != nil {
 		return err
 	}
@@ -35,7 +35,7 @@ func (j *Judger) Run(ctx context.Context) error {
 	for {
 		task, err := j.client.FetchTask(ctx, j.judgeRequest)
 		if err != nil {
-			log.WithError(err).Warningf("Failed to fetch task, trying after %d seconds")
+			log.WithError(err).Warningf("Failed to fetch task, trying after %f seconds", float64(timeout)/float64(time.Second))
 			time.Sleep(timeout)
 			timeout = timeout * 2
 			if timeout > time.Minute {
