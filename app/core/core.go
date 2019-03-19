@@ -30,9 +30,6 @@ type Core struct {
 	submissionHooks      map[SubmissionHook]struct{}
 	submissionHooksMutex sync.Mutex
 
-	contestsLock sync.Mutex
-	contests     map[primitive.ObjectID]*Contest
-
 	wg sync.WaitGroup
 
 	oracle     map[interface{}]struct{}
@@ -51,9 +48,6 @@ func NewCore(mongodb *mongo.Client) (srv *Core, err error) {
 	if err = srv.initJudge(srv.context); err != nil {
 		return
 	}
-	if err = srv.initContests(); err != nil {
-		return
-	}
 	srv.initOracle()
 	return
 }
@@ -62,6 +56,5 @@ func (c *Core) Close() error {
 	c.lock.Lock()
 	defer c.lock.Unlock()
 	c.cancelFunc2()
-	c.unloadContests()
 	return nil
 }

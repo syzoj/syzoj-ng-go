@@ -1,6 +1,7 @@
 package api
 
 import (
+	"context"
 	"crypto/rand"
 	"encoding/hex"
 	"net/http"
@@ -26,14 +27,14 @@ func (s *Session) LoggedIn() bool {
 	return s.HasAuthUserUid
 }
 
-func (c *ApiContext) newSession() (err error) {
+func (c *ApiContext) newSession(ctx context.Context) (err error) {
 	var tokenBytes [16]byte
 	rand.Read(tokenBytes[:])
 	newToken := hex.EncodeToString(tokenBytes[:])
 	session := new(model.Session)
 	session.Id = model.NewObjectIDProto()
 	session.SessionToken = proto.String(newToken)
-	if _, err = c.Server().mongodb.Collection("session").InsertOne(c.Context(), session); err != nil {
+	if _, err = c.Server.mongodb.Collection("session").InsertOne(ctx, session); err != nil {
 		panic(err)
 	}
 	c.Session = new(Session)
@@ -48,17 +49,17 @@ func (c *ApiContext) newSession() (err error) {
 	return
 }
 
-func (c *ApiContext) SessionStart() (err error) {
+func (c *ApiContext) SessionStart(ctx context.Context) (err error) {
 	var claimedToken = c.GetCookie("SYZOJSESSION")
 	if len(claimedToken) != 32 {
 		claimedToken = ""
 	}
 	session := new(model.Session)
-	if err = c.Server().mongodb.Collection("session").FindOne(c.Context(),
+	if err = c.Server.mongodb.Collection("session").FindOne(ctx,
 		bson.D{{"session_token", claimedToken}},
 		mongo_options.FindOne().SetProjection(bson.D{{"_id", 1}, {"session_user", 1}}),
 	).Decode(session); err == mongo.ErrNoDocuments {
-		return c.newSession()
+		return c.newSession(ctx)
 	} else if err != nil {
 		panic(err)
 	}
@@ -68,7 +69,7 @@ func (c *ApiContext) SessionStart() (err error) {
 		c.Session.HasAuthUserUid = true
 		c.Session.AuthUserUid = model.MustGetObjectID(session.SessionUser)
 		user := new(model.User)
-		if err = c.Server().mongodb.Collection("user").FindOne(c.Context(),
+		if err = c.Server.mongodb.Collection("user").FindOne(ctx,
 			bson.D{{"_id", session.SessionUser}},
 			mongo_options.FindOne().SetProjection(bson.D{{"_id", "1"}, {"username", 1}}),
 		).Decode(user); err != nil {
@@ -83,16 +84,16 @@ func (c *ApiContext) SessionStart() (err error) {
 	return nil
 }
 
-func (c *ApiContext) SessionReload() (err error) {
+func (c *ApiContext) SessionReload(ctx context.Context) (err error) {
 	if c.Session == nil {
 		panic("Calling SessionReload() without existing session")
 	}
 	session := new(model.Session)
-	if err = c.Server().mongodb.Collection("session").FindOne(c.Context(),
+	if err = c.Server.mongodb.Collection("session").FindOne(ctx,
 		bson.D{{"_id", c.Session.SessUid}},
 		mongo_options.FindOne().SetProjection(bson.D{{"_id", 1}, {"session_user", 1}}),
 	).Decode(session); err == mongo.ErrNoDocuments {
-		return c.newSession()
+		return c.newSession(ctx)
 	} else if err != nil {
 		panic(err)
 	}
@@ -102,7 +103,7 @@ func (c *ApiContext) SessionReload() (err error) {
 		c.Session.HasAuthUserUid = true
 		c.Session.AuthUserUid = model.MustGetObjectID(session.SessionUser)
 		user := new(model.User)
-		if err = c.Server().mongodb.Collection("user").FindOne(c.Context(),
+		if err = c.Server.mongodb.Collection("user").FindOne(ctx,
 			bson.D{{"_id", session.SessionUser}},
 			mongo_options.FindOne().SetProjection(bson.D{{"_id", 1}, {"username", 1}}),
 		).Decode(user); err != nil {

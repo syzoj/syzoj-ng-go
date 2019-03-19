@@ -1,7 +1,6 @@
 package api
 
 import (
-	"context"
 	"net/http"
 	"net/url"
 
@@ -17,15 +16,11 @@ type ApiContext struct {
 	res     http.ResponseWriter
 	req     *http.Request
 	Session *Session
-	srv     *ApiServer
+	Server  *ApiServer
 }
 
 func (c *ApiContext) Vars() map[string]string {
 	return mux.Vars(c.req)
-}
-
-func (c *ApiContext) Server() *ApiServer {
-	return c.srv
 }
 
 func (c *ApiContext) FormValue(name string) string {
@@ -99,14 +94,10 @@ func (c *ApiContext) SendValue(val proto.Message) {
 	}
 }
 
-func (c *ApiContext) Context() context.Context {
-	return c.req.Context()
-}
-
 func (c *ApiContext) GetBody(msg proto.Message) error {
 	return jsonUnmarshaler.Unmarshal(c.req.Body, msg)
 }
 
 func (c *ApiContext) UpgradeWebSocket() (*websocket.Conn, error) {
-	return c.srv.wsUpgrader.Upgrade(c.res, c.req, nil)
+	return c.Server.wsUpgrader.Upgrade(c.res, c.req, nil)
 }

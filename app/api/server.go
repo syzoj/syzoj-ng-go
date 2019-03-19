@@ -59,43 +59,7 @@ func CreateApiServer(mongodb *mongo.Client, c *core.Core, config Config) (*ApiSe
 func (srv *ApiServer) setupRoutes() {
 	router := mux.NewRouter()
 	router.Handle("/api/stream/{token}", http.HandlerFunc(srv.HandleStream)).Methods("POST", "PUT")
-	router.Handle("/api/login", srv.wrapHandler(Handle_Login)).Methods("POST")
-	router.Handle("/api/register", srv.wrapHandler(Handle_Register)).Methods("POST")
-	router.Handle("/api/nav/logout", srv.wrapHandler(Handle_Nav_Logout)).Methods("POST")
-	router.Handle("/api/problem-db", srv.wrapHandler(Handle_ProblemDb)).Methods("GET")
-	router.Handle("/api/problem-db/new", srv.wrapHandler(Handle_ProblemDb_New)).Methods("POST")
-	router.Handle("/api/problem-db/view/{problem_id:[0-9A-Za-z\\-_]{16}}", srv.wrapHandler(Handle_ProblemDb_View)).Methods("GET")
-	router.Handle("/api/problem-db/view/{problem_id:[0-9A-Za-z\\-_]{16}}/submit", srv.wrapHandler(Handle_ProblemDb_View_Submit)).Methods("POST")
-	router.Handle("/api/problem-db/view/{problem_id:[0-9A-Za-z\\-_]{16}}/edit", srv.wrapHandler(Handle_ProblemDb_View_Edit)).Methods("POST")
-	router.Handle("/api/submissions", srv.wrapHandler(Handle_Submissions)).Methods("GET")
-	router.Handle("/api/submission/view/{submission_id:[0-9A-Za-z\\-_]{16}}", srv.wrapHandler(Handle_Submission_View)).Methods("GET")
-	router.Handle("/api/contests", srv.wrapHandler(Handle_Contests)).Methods("GET")
-	router.Handle("/api/contest/{contest_id:[0-9A-Za-z\\-_]{16}}/ranklist", srv.wrapHandler(Handle_Contest_Ranklist)).Methods("GET")
-	router.Handle("/api/contest/{contest_id:[0-9A-Za-z\\-_]{16}}/index", srv.wrapHandler(Handle_Contest_Index)).Methods("GET")
-	router.Handle("/api/contest/{contest_id:[0-9A-Za-z\\-_]{16}}/register", srv.wrapHandler(Handle_Contest_Register)).Methods("POST")
-	router.Handle("/api/contest/{contest_id:[0-9A-Za-z\\-_]{16}}/problem/{problem_name}/view", srv.wrapHandler(Handle_Contest_Problem_View)).Methods("GET")
-	router.Handle("/api/contest/{contest_id:[0-9A-Za-z\\-_]{16}}/problem/{problem_name}/submit", srv.wrapHandler(Handle_Contest_Problem_Submit)).Methods("POST")
-	/*
-		router.Handle("/api/p/{short_name}", srv.wrapHandler(Handle_P)).Methods("GET")
-		router.Handle("/api/contest-new", srv.wrapHandler(Handle_Contest_New)).Methods("POST")
-		router.Handle("/api/contest/{contest_id:[0-9A-Za-z\\-_]{16}}/submissions", srv.wrapHandler(Handle_Contest_Submissions)).Methods("GET")
-		router.Handle("/api/contest/{contest_id:[0-9A-Za-z\\-_]{16}}/ranklist", srv.wrapHandler(Handle_Contest_Ranklist)).Methods("GET")
-		router.Handle("/api/contest/{contest_id:[0-9A-Za-z\\-_]{16}}/load", srv.wrapHandler(Handle_Contest_Load)).Methods("POST")
-		router.Handle("/api/contest/{contest_id:[0-9A-Za-z\\-_]{16}}/unload", srv.wrapHandler(Handle_Contest_Unload)).Methods("POST")
-		router.Handle("/api/contest/{contest_id:[0-9A-Za-z\\-_]{16}}/judge-all", srv.wrapHandler(Handle_Contest_JudgeAll)).Methods("POST")
-		router.Handle("/api/contest/{contest_id:[0-9A-Za-z\\-_]{16}}/add-clarification", srv.wrapHandler(Handle_Contest_AddClarification)).Methods("POST")
-		router.Handle("/api/contest/{contest_id:[0-9A-Za-z\\-_]{16}}/problem/{entry_name}/submit", srv.wrapHandler(Handle_Contest_Problem_Submit)).Methods("POST")
-		router.Handle("/api/contest/{contest_id:[0-9A-Za-z\\-_]{16}}/status", srv.wrapHandlerNoToken(Handle_Contest_Status)).Methods("GET")
-		router.Handle("/api/articles", srv.wrapHandler(Handle_Articles)).Methods("GET")
-		router.Handle("/api/article/view/{article_id:[0-9A-Za-z\\-_]{16}}", srv.wrapHandler(Handle_Article_View)).Methods("GET")
-	*/
 	debugRouter := mux.NewRouter()
-	/*
-			debugRouter.Handle("/api/debug/submission/{submission_id:[0-9A-Za-z\\-_]{16}}/enqueue", srv.wrapHandlerNoToken(Handle_Debug_Submission_Enqueue)).Methods("POST")
-		debugRouter.Handle("/api/debug/upload", srv.wrapHandlerNoToken(Handle_Debug_Upload)).Methods("POST")
-	*/
-	debugRouter.Handle("/api/debug/contest-submit", srv.wrapHandlerNoToken(Handle_Debug_Contest_Submit)).Methods("POST")
-	debugRouter.Handle("/api/debug/submission/{submission_id:[0-9A-Za-z\\-_]{16}}/enqueue", srv.wrapHandlerNoToken(Handle_Debug_Submission_Enqueue)).Methods("POST")
 	if srv.config.DebugToken != "" {
 		router.PathPrefix("/api/debug/").HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			token := r.Header.Get("X-Debug-Token")
@@ -109,33 +73,33 @@ func (srv *ApiServer) setupRoutes() {
 	srv.router = router
 }
 
-func (srv *ApiServer) wrapHandler(h func(*ApiContext) ApiError) http.Handler {
+func (srv *ApiServer) wrapHandler(h func(context.Context, *ApiContext) ApiError) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		c := &ApiContext{
-			res: w,
-			req: r,
-			srv: srv,
+			res:    w,
+			req:    r,
+			Server: srv,
 		}
 		token := c.GetHeader("X-CSRF-Token")
 		if token != "1" {
 			c.SendError(ErrCSRF)
 			return
 		}
-		apiErr := h(c)
+		apiErr := h(r.Context(), c)
 		if apiErr != nil {
 			c.SendError(apiErr)
 		}
 	})
 }
 
-func (srv *ApiServer) wrapHandlerNoToken(h func(*ApiContext) ApiError) http.Handler {
+func (srv *ApiServer) wrapHandlerNoToken(h func(context.Context, *ApiContext) ApiError) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		c := &ApiContext{
-			res: w,
-			req: r,
-			srv: srv,
+			res:    w,
+			req:    r,
+			Server: srv,
 		}
-		apiErr := h(c)
+		apiErr := h(r.Context(), c)
 		if apiErr != nil {
 			c.SendError(apiErr)
 		}
