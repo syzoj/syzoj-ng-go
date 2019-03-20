@@ -1,11 +1,5 @@
 {
-    "mongo": "mongodb://localhost:27017",
+    "mysql": "root@/syzoj",
     "addr": ":5900",
-    "judge_addr": "0.0.0.0:3073",
-    "config": {
-        "data_path": "problem-data"
-    },
-    "api_server": {
-        "debug_token": ""
-    }
+    "judge_addr": "0.0.0.0:3073"
 }

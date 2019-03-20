@@ -1,7 +1,6 @@
 package main
 
 import (
-	"context"
 	"database/sql"
 	"encoding/json"
 	"flag"
@@ -17,29 +16,18 @@ import (
 
 	_ "github.com/go-sql-driver/mysql"
 	"github.com/sirupsen/logrus"
-	"go.mongodb.org/mongo-driver/bson/bsoncodec"
-	"go.mongodb.org/mongo-driver/mongo"
-	mongo_options "go.mongodb.org/mongo-driver/mongo/options"
-	"go.mongodb.org/mongo-driver/mongo/readconcern"
-	"go.mongodb.org/mongo-driver/mongo/writeconcern"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/reflection"
 
-	"github.com/syzoj/syzoj-ng-go/app/api"
-	"github.com/syzoj/syzoj-ng-go/app/core"
-	"github.com/syzoj/syzoj-ng-go/app/model"
-	_ "github.com/syzoj/syzoj-ng-go/judger/backend/legacy"
-	judge_rpc "github.com/syzoj/syzoj-ng-go/judger/rpc"
-	"github.com/syzoj/syzoj-ng-go/tool/import"
+	"github.com/syzoj/syzoj-ng-go/app/server"
 )
 
 var log = logrus.StandardLogger()
 
 type syzoj_config struct {
-	Mongo     string     `json:"mongo"`
+	MySQL     string     `json:"mysql"`
 	Addr      string     `json:"addr"`
-	JudgeAddr string     `json:"judge_addr"`
-	Api       api.Config `json:"api_server"`
+    RpcAddr string `json:"rpc_addr"`
 }
 
 func init() {
@@ -48,74 +36,16 @@ func init() {
 
 func main() {
 	if len(os.Args) <= 1 {
-		fmt.Println("Must specify a subcommand: run or import")
+		fmt.Println("Must specify a subcommand")
 		return
 	}
 	switch os.Args[1] {
 	case "run":
 		cmdRun()
-	case "import":
-		cmdImport()
 	default:
-		fmt.Println("Must specify a subcommand: run or import")
+		fmt.Println("Must specify a subcommand")
 		return
 	}
-}
-
-func cmdImport() {
-	importFlagSet := flag.NewFlagSet("import", flag.ExitOnError)
-	configPtr := importFlagSet.String("config", "config.json", "Sets the config file")
-	mysqlPtr := importFlagSet.String("mysql", "root:@/syzoj", "MySQL database to import from")
-	oldDataPathPtr := importFlagSet.String("old_data", "", "Old data path")
-	newDataPathPtr := importFlagSet.String("new_data", "", "New data path")
-	importFlagSet.Parse(os.Args[2:])
-
-	var err error
-	var configData []byte
-	if configData, err = ioutil.ReadFile(*configPtr); err != nil {
-		log.Fatal("Error reading config file: ", err)
-	}
-	var config *syzoj_config
-	if err = json.Unmarshal(configData, &config); err != nil {
-		log.Fatal("Error parsing config file: ", err)
-	}
-
-	log.Info("Connecting to MongoDB")
-	var mongoClient *mongo.Client
-	options := mongo_options.Client()
-	options.ReadConcern = readconcern.Majority()
-	options.WriteConcern = new(writeconcern.WriteConcern)
-	builder := bsoncodec.NewRegistryBuilder()
-	bsoncodec.DefaultValueEncoders{}.RegisterDefaultEncoders(builder)
-	bsoncodec.DefaultValueDecoders{}.RegisterDefaultDecoders(builder)
-	model.Register(builder)
-	options.Registry = builder.Build()
-	options.ApplyURI(config.Mongo)
-	writeconcern.WMajority()(options.WriteConcern)
-	if mongoClient, err = mongo.Connect(context.Background(), options); err != nil {
-		log.Fatal("Error connecting to MongoDB: ", err)
-	}
-	if err = mongoClient.Ping(context.Background(), nil); err != nil {
-		log.Fatal("Failed to ping MongoDB: ", err)
-	}
-	defer func() {
-		ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
-		defer cancel()
-		log.Info("Disconnecting from MongoDB")
-		mongoClient.Disconnect(ctx)
-	}()
-
-	log.Info("Connecting to MySQL")
-	var mysql *sql.DB
-	if mysql, err = sql.Open("mysql", *mysqlPtr); err != nil {
-		log.Fatal("Error connecting to MySQL: ", err)
-	}
-	defer func() {
-		log.Info("Disconnecting from MySQL")
-		mysql.Close()
-	}()
-
-	tool_import.ImportMySQL(mongoClient, mysql, *oldDataPathPtr, *newDataPathPtr)
 }
 
 func cmdRun() {
@@ -134,46 +64,29 @@ func cmdRun() {
 		log.Fatal("Error parsing config file: ", err)
 	}
 
-	log.Info("Connecting to MongoDB")
-	var mongoClient *mongo.Client
-	options := mongo_options.Client()
-	options.ReadConcern = readconcern.Majority()
-	options.WriteConcern = new(writeconcern.WriteConcern)
-	builder := bsoncodec.NewRegistryBuilder()
-	bsoncodec.DefaultValueEncoders{}.RegisterDefaultEncoders(builder)
-	bsoncodec.DefaultValueDecoders{}.RegisterDefaultDecoders(builder)
-	model.Register(builder)
-	options.Registry = builder.Build()
-	options.ApplyURI(config.Mongo)
-	if mongoClient, err = mongo.Connect(context.Background(), options); err != nil {
-		log.Fatal("Error connecting to MongoDB: ", err)
-	}
-	if err = mongoClient.Ping(context.Background(), nil); err != nil {
-		log.Fatal("Failed to ping MongoDB: ", err)
+	log.Info("Connecting to MySQL")
+    var mysql *sql.DB
+    if mysql, err = sql.Open("mysql", config.MySQL); err != nil {
+		log.Fatal("Error connecting to MySQL: ", err)
 	}
 	defer func() {
-		ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
-		defer cancel()
-		log.Info("Disconnecting from MongoDB")
-		mongoClient.Disconnect(ctx)
+		log.Info("Disconnecting from MySQL")
+        mysql.Close()
 	}()
 
 	var grpcServer *grpc.Server = grpc.NewServer()
 
-	log.Info("Start SYZOJ core")
-	var c *core.Core
-	if c, err = core.NewCore(mongoClient); err != nil {
-		log.Fatal("Error starting SYZOJ core: ", err)
-	}
+	log.Info("Start SYZOJ")
+	var s *server.Server
+	s = server.NewServer(mysql)
 	defer func() {
-		log.Info("Stopping SYZOJ core")
-		c.Close()
+		log.Info("Stopping SYZOJ")
+		s.Close()
 	}()
-	judge_rpc.RegisterJudgeServer(grpcServer, c.JudgeRpc())
 	reflection.Register(grpcServer)
 	go func() {
 		log.Info("Setting up gRPC service")
-		lis, err := net.Listen("tcp", "0.0.0.0:3073")
+		lis, err := net.Listen("tcp", config.RpcAddr)
 		if err != nil {
 			log.Fatal("Failed to listen: ", err)
 		}
@@ -182,15 +95,9 @@ func cmdRun() {
 		}
 	}()
 
-	log.Info("Setting up api server")
-	var apiServer *api.ApiServer
-	if apiServer, err = api.CreateApiServer(mongoClient, c, config.Api); err != nil {
-		log.Fatal("Error intializing api server: ", err)
-	}
-
+	log.Info("Setting up HTTP server")
 	router := mux.NewRouter()
-	router.PathPrefix("/api").Handler(apiServer)
-	//router.Handle("/judge-traditional", tjudgeService)
+	router.PathPrefix("/api").Handler(s.ApiServer())
 	router.Handle("/", http.FileServer(http.Dir("static")))
 
 	server := &http.Server{
@@ -210,5 +117,4 @@ func cmdRun() {
 	<-sigChan
 	log.Info("Shutting down web server")
 	server.Close()
-	apiServer.Close()
 }

@@ -3,146 +3,15 @@ syntax = "proto2";
 package syzoj.api;
 
 import "google/protobuf/any.proto";
-import "google/protobuf/duration.proto";
-import "primitive.proto";
 
 option go_package = "github.com/syzoj/syzoj-ng-go/app/model";
 
 message Response {
-	optional syzoj.api.ResponseSession session = 1;
-	optional string error = 2;
-	optional google.protobuf.Any data = 3;
-}
-
-message ResponseSession {
-	optional string user_name = 1;
-	optional bool logged_in = 2;
+	optional string error = 1;
+	optional google.protobuf.Any data = 2;
 }
 
 message LoginRequest {
-	optional string username = 1;
-	optional string password = 2;
-}
-
-message RegisterRequest {
-	optional string username = 1;
-	optional string password = 2;
-	optional string email = 3;
-}
-
-message ProblemDbResponse {
-	repeated ProblemDbResponseProblemEntry problems = 1;
-}
-
-message ProblemDbResponseProblemEntry {
-    optional syzoj.primitive.ObjectID problem_id = 1;
-    optional string title = 2;
-}
-
-message ProblemDbNewRequest {
-	optional string title = 1;
-    optional string statement = 2;
-}
-
-message ProblemDbNewResponse {
-	optional syzoj.primitive.ObjectID problem_id = 1;
-}
-
-message ProblemDbViewResponse {
-	optional syzoj.primitive.ObjectID problem_id = 1;
-    optional string title = 2;
-    optional string statement = 3;
-    optional bool can_submit = 4;
-    optional bool is_owner = 5;
-}
-
-message ProblemDbEditRequest {
-    optional string title = 1;
-    optional string statement = 2;
-}
-
-message ProblemDbViewSubmitRequest {
-	optional google.protobuf.Any content = 1;
-}
-
-message ProblemDbViewSubmitResponse {
-    optional syzoj.primitive.ObjectID submission_id = 1;
-}
-
-message SubmissionsResponse {
-	repeated syzoj.api.SubmissionsResponseSubmissionEntry submissions = 1;
-}
-
-message SubmissionsResponseSubmissionEntry {
-    optional syzoj.primitive.ObjectID submission_id = 1;
-    optional syzoj.primitive.ObjectID problem_id = 2;
-    optional syzoj.primitive.ObjectID user_id = 3;
-    optional string problem_title = 4;
-    optional string user_username = 5;
-}
-
-message SubmissionViewResponse {
-	optional google.protobuf.Any submission_content = 1;
-    optional google.protobuf.Any submission_result = 2;
-	optional syzoj.primitive.ObjectID problem_id = 3;
-    optional string problem_title = 4;
-    optional syzoj.primitive.ObjectID submitter_id = 5;
-}
-
-message ContestsResponse {
-	repeated syzoj.api.ContestsResponseContestEntry contests = 1;
-}
-
-message ContestsResponseContestEntry {
-	optional string contest_title = 1;
-	optional bool running = 2;
-    optional syzoj.primitive.ObjectID contest_id = 3;
-}
-
-message ContestIndexResponse {
-	optional string contest_name = 1;
-    optional string contest_description = 2;
-	repeated syzoj.api.ContestProblemEntryResponse problems = 3;
-	optional bool running = 4;
-}
-
-message ContestProblemEntryResponse {
-	optional string name = 1;
-	optional string problem_title = 2;
-    optional string problem_statement = 3;
-}
-
-message ContestRanklistResponse {
-	optional syzoj.api.ContestRanklist ranklist = 1;
-}
-
-message ContestRanklist {
-	optional string ranklist_type = 1;
-	repeated syzoj.api.ContestRanklistEntry entries = 2;
-}
-
-message ContestRanklistEntry {
-	optional syzoj.primitive.ObjectID user_id = 1;
-	optional double score_sum = 2;
-	optional google.protobuf.Duration penalty_time = 3;
-}
-
-message ContestProblemViewResponse {
-    optional string problem_title = 1;
-    optional string problem_statement = 2;
-}
-// Debug API
-message DebugContestSubmitRequest {
-	optional syzoj.primitive.ObjectID contest_id = 1;
-	optional syzoj.primitive.ObjectID user_id = 2;
-	optional syzoj.primitive.ObjectID submission_id = 3;
-	optional string name = 4;
-}
-
-message ContestProblemSubmitRequest {
-	optional google.protobuf.Any content = 1;
-}
-
-message ContestProblemSubmitResponse {
-    optional syzoj.primitive.ObjectID submission_id = 1;
+    optional string user_name = 1;
+    optional string password = 2;
 }
