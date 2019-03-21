@@ -1,14 +1,15 @@
 package server
 
 import (
-    "context"
+	"context"
 
-    "github.com/golang/protobuf/ptypes/empty"
+	"github.com/golang/protobuf/ptypes/empty"
 
-    "github.com/syzoj/syzoj-ng-go/app/model"
+	"github.com/syzoj/syzoj-ng-go/app/model"
 )
 
 func (s *apiServer) Handle_Login(ctx context.Context, req *model.LoginRequest) (*empty.Empty, error) {
-    log.Info(req)
-    return &empty.Empty{}, nil
+	log.Info(req)
+	log.Info(req.Test.Test())
+	return &empty.Empty{}, nil
 }

@@ -25,9 +25,9 @@ import (
 var log = logrus.StandardLogger()
 
 type syzoj_config struct {
-	MySQL     string     `json:"mysql"`
-	Addr      string     `json:"addr"`
-    RpcAddr string `json:"rpc_addr"`
+	MySQL   string `json:"mysql"`
+	Addr    string `json:"addr"`
+	RpcAddr string `json:"rpc_addr"`
 }
 
 func init() {
@@ -65,13 +65,13 @@ func cmdRun() {
 	}
 
 	log.Info("Connecting to MySQL")
-    var mysql *sql.DB
-    if mysql, err = sql.Open("mysql", config.MySQL); err != nil {
+	var mysql *sql.DB
+	if mysql, err = sql.Open("mysql", config.MySQL); err != nil {
 		log.Fatal("Error connecting to MySQL: ", err)
 	}
 	defer func() {
 		log.Info("Disconnecting from MySQL")
-        mysql.Close()
+		mysql.Close()
 	}()
 
 	var grpcServer *grpc.Server = grpc.NewServer()

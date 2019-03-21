@@ -1,7 +1,7 @@
 package server
 
 import (
-    "errors"
+	"errors"
 )
 
 var ErrBusy = errors.New("Server busy")
