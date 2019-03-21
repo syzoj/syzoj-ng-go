@@ -1,7 +1,6 @@
 package main
 
 import (
-	"database/sql"
 	"encoding/json"
 	"flag"
 	"fmt"
@@ -19,7 +18,8 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/reflection"
 
-	"github.com/syzoj/syzoj-ng-go/app/server"
+	"github.com/syzoj/syzoj-ng-go/server"
+	"github.com/syzoj/syzoj-ng-go/database"
 )
 
 var log = logrus.StandardLogger()
@@ -65,20 +65,20 @@ func cmdRun() {
 	}
 
 	log.Info("Connecting to MySQL")
-	var mysql *sql.DB
-	if mysql, err = sql.Open("mysql", config.MySQL); err != nil {
+	var db *database.Database
+	if db, err = database.Open("mysql", config.MySQL); err != nil {
 		log.Fatal("Error connecting to MySQL: ", err)
 	}
 	defer func() {
 		log.Info("Disconnecting from MySQL")
-		mysql.Close()
+		db.Close()
 	}()
 
 	var grpcServer *grpc.Server = grpc.NewServer()
 
 	log.Info("Start SYZOJ")
 	var s *server.Server
-	s = server.NewServer(mysql)
+	s = server.NewServer(db)
 	defer func() {
 		log.Info("Stopping SYZOJ")
 		s.Close()

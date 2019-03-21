@@ -1,0 +1,11 @@
+syntax = "proto2";
+
+package gotype;
+
+import "google/protobuf/descriptor.proto";
+
+option go_package = "github.com/syzoj/protoc-gen-gotype/gotype";
+
+extend google.protobuf.FieldOptions {
+    optional string gotype = 182673;
+}

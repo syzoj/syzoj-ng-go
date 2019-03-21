@@ -2,14 +2,6 @@
 
 
 [[projects]]
-  digest = "1:0bd21c4f764e11e23118affadc36945b359456d17e7c3847d41bf9b261af52d5"
-  name = "github.com/amsokol/protoc-gen-gotag"
-  packages = ["tagger"]
-  pruneopts = "UT"
-  revision = "26dde937dd4b8ff0a59d367a9daca4dee35ff9d2"
-  version = "v0.2.1"
-
-[[projects]]
   digest = "1:b498b36dbb2b306d1c5205ee5236c9e60352be8f9eea9bf08186723a9f75b4f3"
   name = "github.com/emirpasic/gods"
   packages = [
@@ -31,14 +23,6 @@
   pruneopts = "UT"
   revision = "72cd26f257d44c1114970e19afddcd812016007e"
   version = "v1.4.1"
-
-[[projects]]
-  digest = "1:c4a2528ccbcabf90f9f3c464a5fc9e302d592861bbfd0b7135a7de8a943d0406"
-  name = "github.com/go-stack/stack"
-  packages = ["."]
-  pruneopts = "UT"
-  revision = "259ab82a6cad3992b4e21ff5cac294ccb06474bc"
-  version = "v1.7.0"
 
 [[projects]]
   branch = "master"
@@ -181,12 +165,12 @@
   version = "v1.0.0"
 
 [[projects]]
-  digest = "1:b24d38b282bacf9791408a080f606370efa3d364e4b5fd9ba0f7b87786d3b679"
-  name = "github.com/urfave/cli"
-  packages = ["."]
+  branch = "master"
+  digest = "1:9205f1f2c3422d03dcaf43a02ac0dee602bd897df463ba993be5d5ff0de15536"
+  name = "github.com/syzoj/protoc-gen-gotype"
+  packages = ["gotype"]
   pruneopts = "UT"
-  revision = "cfb38830724cc34fedffe9a2a29fb54fa9169cd1"
-  version = "v1.20.0"
+  revision = "82610c037be18fd1d5ea5ecc67d5903458164ecc"
 
 [[projects]]
   digest = "1:172f94a6b3644a8f9e6b5e5b7fc9fe1e42d424f52a0300b2e7ab1e57db73f85d"
@@ -197,66 +181,10 @@
   version = "v0.2.1"
 
 [[projects]]
-  digest = "1:8e214e348491ae6a1a79c5bb728ed4eca7f1a2892cd66ad11f46558d684333f4"
-  name = "github.com/xdg/scram"
-  packages = ["."]
-  pruneopts = "UT"
-  revision = "b32d4bd2c91c5a4f0ea2a230da4350051b5fb5b0"
-
-[[projects]]
   branch = "master"
-  digest = "1:f5c1d04bc09c644c592b45b9f0bad4030521b1a7d11c7dadbb272d9439fa6e8e"
-  name = "github.com/xdg/stringprep"
-  packages = ["."]
-  pruneopts = "UT"
-  revision = "73f8eece6fdcd902c185bf651de50f3828bed5ed"
-
-[[projects]]
-  branch = "master"
-  digest = "1:21c46d60a89bbda0efb2bac28403942c00831cfef9cae4517afeb7d12814d68b"
-  name = "go.mongodb.org/mongo-driver"
-  packages = [
-    "bson",
-    "bson/bsoncodec",
-    "bson/bsonrw",
-    "bson/bsontype",
-    "bson/primitive",
-    "event",
-    "internal",
-    "mongo",
-    "mongo/options",
-    "mongo/readconcern",
-    "mongo/readpref",
-    "mongo/writeconcern",
-    "tag",
-    "version",
-    "x/bsonx",
-    "x/bsonx/bsoncore",
-    "x/mongo/driver",
-    "x/mongo/driver/auth",
-    "x/mongo/driver/auth/internal/gssapi",
-    "x/mongo/driver/session",
-    "x/mongo/driver/topology",
-    "x/mongo/driver/uuid",
-    "x/network/address",
-    "x/network/command",
-    "x/network/compressor",
-    "x/network/connection",
-    "x/network/connstring",
-    "x/network/description",
-    "x/network/result",
-    "x/network/wiremessage",
-  ]
-  pruneopts = "UT"
-  revision = "fcec76a7c147bbcef3aecb66ce318bd4a0b004b4"
-
-[[projects]]
-  branch = "master"
-  digest = "1:dd0a6aa5e810160987e6bd67547446299602fe173c4bc029f89d30f3f78d84ad"
+  digest = "1:8fb9191aba01f3ec2f7bf6442ec188913fd298410213ec4add667427e0d9e0d8"
   name = "golang.org/x/crypto"
   packages = [
-    "bcrypt",
-    "blowfish",
     "cast5",
     "curve25519",
     "ed25519",
@@ -269,7 +197,6 @@
     "openpgp/errors",
     "openpgp/packet",
     "openpgp/s2k",
-    "pbkdf2",
     "poly1305",
     "ssh",
     "ssh/agent",
@@ -294,13 +221,6 @@
   ]
   pruneopts = "UT"
   revision = "3a22650c66bd7f4fb6d1e8072ffd7b75c8a27898"
-
-[[projects]]
-  digest = "1:e0140c0c868c6e0f01c0380865194592c011fe521d6e12d78bfd33e756fe018a"
-  name = "golang.org/x/sync"
-  packages = ["semaphore"]
-  pruneopts = "UT"
-  revision = "fd80eb99c8f653c847d294a001bdf2a3a6f768f5"
 
 [[projects]]
   branch = "master"
@@ -466,47 +386,26 @@
   revision = "ec4a0fea49c7b46c2aeb0b51aac55779c607e52b"
   version = "v0.1.2"
 
-[[projects]]
-  digest = "1:4d2e5a73dc1500038e504a8d78b986630e3626dc027bc030ba5c75da257cdb96"
-  name = "gopkg.in/yaml.v2"
-  packages = ["."]
-  pruneopts = "UT"
-  revision = "51d6538a90f86fe93ac480b35f37b2be17fef232"
-  version = "v2.2.2"
-
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
   input-imports = [
-    "github.com/amsokol/protoc-gen-gotag/tagger",
     "github.com/go-sql-driver/mysql",
     "github.com/golang/protobuf/jsonpb",
     "github.com/golang/protobuf/proto",
     "github.com/golang/protobuf/ptypes",
     "github.com/golang/protobuf/ptypes/any",
-    "github.com/golang/protobuf/ptypes/duration",
     "github.com/golang/protobuf/ptypes/empty",
-    "github.com/golang/protobuf/ptypes/timestamp",
     "github.com/google/uuid",
     "github.com/gorilla/mux",
     "github.com/gorilla/websocket",
     "github.com/sirupsen/logrus",
     "github.com/syndtr/goleveldb/leveldb",
     "github.com/syndtr/goleveldb/leveldb/opt",
-    "github.com/urfave/cli",
-    "go.mongodb.org/mongo-driver/bson",
-    "go.mongodb.org/mongo-driver/bson/bsoncodec",
-    "go.mongodb.org/mongo-driver/bson/bsonrw",
-    "go.mongodb.org/mongo-driver/bson/primitive",
-    "go.mongodb.org/mongo-driver/mongo",
-    "go.mongodb.org/mongo-driver/mongo/options",
-    "go.mongodb.org/mongo-driver/mongo/readconcern",
-    "go.mongodb.org/mongo-driver/mongo/writeconcern",
-    "golang.org/x/crypto/bcrypt",
+    "github.com/syzoj/protoc-gen-gotype/gotype",
     "google.golang.org/grpc",
     "google.golang.org/grpc/reflection",
     "gopkg.in/src-d/go-git.v4",
-    "gopkg.in/yaml.v2",
   ]
   solver-name = "gps-cdcl"
   solver-version = 1

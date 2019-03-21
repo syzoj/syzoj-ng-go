@@ -1,0 +1,12 @@
+syntax = "proto2";
+
+package syzoj.server;
+
+import "gotype.proto";
+
+option go_package = "github.com/syzoj/syzoj-ng-go/model";
+
+message User {
+    optional string id = 1 [(gotype.gotype) = "UserRef"];
+    optional string user_name = 2;
+}
