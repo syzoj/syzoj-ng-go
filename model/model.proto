@@ -6,7 +6,22 @@ import "gotype.proto";
 
 option go_package = "github.com/syzoj/syzoj-ng-go/model";
 
+// This proto file defines all the data structures that would be stored in the database.
+// There are two sets of mesasges.
+// One is the messages with the id column and they coreespond to a table row. Every field
+// corresponds to a table column, and changes to those messages need to be reflected
+// in model/model.go and database/database.go. Each of these messages have a special Go
+// type suffixed Ref that represents the primary key column of the message.
+// The other is the messages nested in a BLOB column of a table row. These messages can
+// be changed easily and fields can be added or removed without changing anything else,
+// but they cannot be indexed.
+
 message User {
     optional string id = 1 [(gotype.gotype) = "UserRef"];
     optional string user_name = 2;
+    optional UserAuth auth = 3;
+}
+
+message UserAuth {
+    optional bytes password_hash = 1;
 }

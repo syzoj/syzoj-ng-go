@@ -19,14 +19,16 @@ func (s *apiServer) Handle_Login(ctx context.Context, req *model.LoginRequest) (
     if err != nil {
         return nil, err
     }
-    log.Info(b)
-	log.Info(req2)
-	log.Info(req2.Test.Test())
     txn, err := s.s.db.OpenTxn(ctx)
     if err != nil {
         return nil, err
     }
-    log.Info(txn.GetUser(ctx, req2.GetTest()))
-    
+    defer txn.Rollback()
+    user, err := txn.GetUser(ctx, req2.GetTest())
+    log.Info(user, err)
+    log.Info(user.Auth)
+    user.Auth = &model.UserAuth{PasswordHash: []byte{1, 2, 3, 4}}
+    log.Info(txn.SetUser(ctx, req2.GetTest(), user))
+    log.Info(txn.Commit())
 	return &empty.Empty{}, nil
 }
