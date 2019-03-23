@@ -18,16 +18,18 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/reflection"
 
-	"github.com/syzoj/syzoj-ng-go/server"
 	"github.com/syzoj/syzoj-ng-go/database"
+	"github.com/syzoj/syzoj-ng-go/server"
+	"github.com/syzoj/syzoj-ng-go/server/handlers"
 )
 
 var log = logrus.StandardLogger()
 
 type syzoj_config struct {
-	MySQL   string `json:"mysql"`
-	Addr    string `json:"addr"`
-	RpcAddr string `json:"rpc_addr"`
+	MySQL   string              `json:"mysql"`
+	Addr    string              `json:"addr"`
+	RpcAddr string              `json:"rpc_addr"`
+	Server  server.ServerConfig `json:"server"`
 }
 
 func init() {
@@ -78,7 +80,8 @@ func cmdRun() {
 
 	log.Info("Start SYZOJ")
 	var s *server.Server
-	s = server.NewServer(db)
+	s = server.NewServer(db, &config.Server)
+	handlers.RegisterHandlers(s.ApiServer())
 	defer func() {
 		log.Info("Stopping SYZOJ")
 		s.Close()

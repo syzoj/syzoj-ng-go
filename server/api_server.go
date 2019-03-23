@@ -15,9 +15,10 @@ import (
 	"github.com/syzoj/syzoj-ng-go/model"
 )
 
-type apiServer struct {
+type ApiServer struct {
 	s *Server
 
+	debug       bool
 	ctx         context.Context
 	router      *mux.Router
 	wsUpgrader  websocket.Upgrader
@@ -28,30 +29,42 @@ type apiServer struct {
 }
 
 type apiContextKey struct{}
-type apiContext struct {
-	w http.ResponseWriter
-	r *http.Request
+type ApiContext struct {
+	r   *http.Request
+	w   http.ResponseWriter
+	s   *ApiServer
+	mut []*model.Mutation
 }
 
 var jsonMarshaler = jsonpb.Marshaler{OrigName: true}
 var jsonUnmarshaler = jsonpb.Unmarshaler{}
 
-func (s *Server) newApiServer() *apiServer {
-	apiServer := new(apiServer)
-    apiServer.s = s
-	router := mux.NewRouter()
-	apiServer.router = router
-	apiServer.setupRoutes()
-	apiServer.ctx, apiServer.cancelFunc = context.WithCancel(s.ctx)
-	apiServer.wg.Add(1)
-	return apiServer
+type ApiConfig struct {
+	Debug bool `json:"debug"`
 }
 
-func (s *Server) ApiServer() http.Handler {
+func (s *Server) newApiServer(cfg *ApiConfig) *ApiServer {
+	ApiServer := new(ApiServer)
+	ApiServer.s = s
+	if cfg.Debug {
+		ApiServer.debug = true
+	}
+	router := mux.NewRouter()
+	router.PathPrefix("/api").Methods("OPTIONS").HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Allow", "OPTIONS, GET, HEAD, POST")
+		w.WriteHeader(200)
+	})
+	ApiServer.router = router
+	ApiServer.ctx, ApiServer.cancelFunc = context.WithCancel(s.ctx)
+	ApiServer.wg.Add(1)
+	return ApiServer
+}
+
+func (s *Server) ApiServer() *ApiServer {
 	return s.apiServer
 }
 
-func (s *apiServer) close() {
+func (s *ApiServer) close() {
 	s.cancelFunc()
 	s.wsConnMutex.Lock()
 	for conn := range s.wsConn {
@@ -63,18 +76,28 @@ func (s *apiServer) close() {
 	s.wg.Wait()
 }
 
-func (s *apiServer) setupRoutes() {
-	s.router.Path("/api/login").Methods("POST").Handler(s.wrapHandler(s.Handle_Login, true))
+func (s *ApiServer) Router() *mux.Router {
+	return s.router
 }
 
-func (s *apiServer) wrapHandler(h interface{}, checkToken bool) http.Handler {
+func (s *ApiServer) WrapHandler(h interface{}, checkToken bool) http.Handler {
+	if s.debug {
+		checkToken = false
+	}
 	val := reflect.ValueOf(h)
 	if val.Kind() != reflect.Func {
 		panic("wrapHandler: Invalid handler passed in")
 	}
 	t := val.Type()
-	if t.NumIn() != 2 {
-		panic("wrapHandler: Number of input arguments is not 2")
+	var reqType reflect.Type
+	if t.NumIn() == 1 {
+	} else if t.NumIn() == 2 {
+		reqType = t.In(1)
+		if !reqType.Implements(reflect.TypeOf((*proto.Message)(nil)).Elem()) {
+			panic("wrapHandler: Type of the second input argument does not implement proto.Message")
+		}
+	} else {
+		panic("wrapHandler: Number of input arguments is neither 1 nor 2")
 	}
 	if t.NumOut() != 2 {
 		panic("wrapHandler: Number of outputs is not 2")
@@ -85,82 +108,91 @@ func (s *apiServer) wrapHandler(h interface{}, checkToken bool) http.Handler {
 	if t.Out(1) != reflect.TypeOf((*error)(nil)).Elem() {
 		panic("wrapHandler: Type of second output is not error")
 	}
-	reqType := t.In(1)
 	respType := t.Out(0)
-	if !reqType.Implements(reflect.TypeOf((*proto.Message)(nil)).Elem()) {
-		panic("wrapHandler: Type of second argument does not implement proto.Message")
-	}
 	if !respType.Implements(reflect.TypeOf((*proto.Message)(nil)).Elem()) {
 		panic("wrapHandler: Type of first output does not ipmlement proto.Message")
 	}
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		c := &apiContext{r: r, w: w}
-		ctx := context.WithValue(r.Context(), apiContextKey{}, c)
+		c := &ApiContext{r: r, w: w, s: s}
+		ctx := s.ctx
+		ctx, cancelFunc := context.WithCancel(ctx)
+		defer cancelFunc()
+		ctx = context.WithValue(ctx, apiContextKey{}, c)
+		defer c.Send()
 		if checkToken {
 			token := r.Header.Get("X-CSRF-Token")
 			if token != "1" {
-				s.SendError(ctx, ErrCSRF)
+				c.SendError(ErrCSRF)
 				return
 			}
 		}
-		reqValue := reflect.New(reqType.Elem())
-		err := s.ReadBody(ctx, reqValue.Interface().(proto.Message))
-		if err != nil {
-			s.SendError(ctx, err)
-			return
-		}
-		out := val.Call([]reflect.Value{reflect.ValueOf(ctx), reqValue})
-		if out[1].Interface() != nil {
-			s.SendError(ctx, out[1].Interface().(error))
+		var out []reflect.Value
+		if reqType != nil {
+			reqValue := reflect.New(reqType.Elem())
+			err := c.ReadBody(reqValue.Interface().(proto.Message))
+			if err != nil {
+				c.SendError(err)
+				return
+			}
+			out = val.Call([]reflect.Value{reflect.ValueOf(ctx), reqValue})
 		} else {
-			s.SendBody(ctx, out[0].Interface().(proto.Message))
+			out = val.Call([]reflect.Value{reflect.ValueOf(ctx)})
+		}
+		if out[1].Interface() != nil {
+			c.SendError(out[1].Interface().(error))
+		} else {
+			c.SendBody(out[0].Interface().(proto.Message))
 		}
 	})
 }
 
-func (s *apiServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+func (s *ApiServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	s.wg.Add(1)
 	defer s.wg.Done()
+	if s.debug {
+		w.Header().Set("Access-Control-Allow-Origin", "*")
+		w.Header().Set("Access-Control-Allow-Headers", "Content-Type, X-CSRF-Token")
+	}
 	s.router.ServeHTTP(w, r)
 }
 
-func getApiContext(ctx context.Context) *apiContext {
-	return ctx.Value(apiContextKey{}).(*apiContext)
+func GetApiContext(ctx context.Context) *ApiContext {
+	return ctx.Value(apiContextKey{}).(*ApiContext)
 }
 
-func (s *apiServer) ReadBody(ctx context.Context, val proto.Message) error {
-	c := getApiContext(ctx)
+func (c *ApiContext) ReadBody(val proto.Message) error {
 	return jsonUnmarshaler.Unmarshal(c.r.Body, val)
 }
 
-func (s *apiServer) SendBody(ctx context.Context, val proto.Message) {
-	c := getApiContext(ctx)
-	resp := new(model.Response)
-	var err2 error
-	resp.Data, err2 = ptypes.MarshalAny(val)
-	if err2 != nil {
-		log.WithError(err2).Error("Failed to send response")
+func (c *ApiContext) Mutate(path string, method string, val proto.Message) {
+	m, err := ptypes.MarshalAny(val)
+	if err != nil {
+		log.WithError(err).Error("Failed to marshal message into any")
 		return
 	}
-	err2 = jsonMarshaler.Marshal(c.w, resp)
-	if err2 != nil {
-		log.WithError(err2).Error("Failed to send response")
-		return
+	mutation := &model.Mutation{
+		Path:   proto.String(path),
+		Method: proto.String(method),
+		Value:  m,
+	}
+	c.mut = append(c.mut, mutation)
+}
+
+func (c *ApiContext) SendBody(val proto.Message) {
+	c.Mutate("", "setBody", val)
+}
+
+func (c *ApiContext) SendError(err error) {
+	c.Mutate("", "setError", &model.Error{Error: proto.String(err.Error())})
+}
+
+func (c *ApiContext) Send() {
+	resp := &model.Response{Mutations: c.mut}
+	if err := jsonMarshaler.Marshal(c.w, resp); err != nil {
+		log.WithError(err).Error("Failed to send response")
 	}
 }
 
-func (s *apiServer) SendError(ctx context.Context, err error) {
-	c := getApiContext(ctx)
-	resp := new(model.Response)
-	resp.Error = proto.String(err.Error())
-	err2 := jsonMarshaler.Marshal(c.w, resp)
-	if err2 != nil {
-		log.WithError(err2).Error("Failed to send response")
-		return
-	}
-}
-
-func (s *apiServer) UpgradeWebSocket(ctx context.Context) (*websocket.Conn, error) {
-	c := getApiContext(ctx)
-	return s.wsUpgrader.Upgrade(c.w, c.r, nil)
+func (c *ApiContext) UpgradeWebSocket() (*websocket.Conn, error) {
+	return c.s.wsUpgrader.Upgrade(c.w, c.r, nil)
 }

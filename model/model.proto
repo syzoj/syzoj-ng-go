@@ -16,12 +16,23 @@ option go_package = "github.com/syzoj/syzoj-ng-go/model";
 // be changed easily and fields can be added or removed without changing anything else,
 // but they cannot be indexed.
 
+// Database models
 message User {
     optional string id = 1 [(gotype.gotype) = "UserRef"];
     optional string user_name = 2;
     optional UserAuth auth = 3;
 }
 
+message Problem {
+    optional string id = 1 [(gotype.gotype) = "ProblemRef"];
+    optional string title = 2;
+}
+
+message Submission {
+    optional string id = 1 [(gotype.gotype) = "SubmissionRef"];
+}
+
+// Nested messages
 message UserAuth {
     optional bytes password_hash = 1;
 }
