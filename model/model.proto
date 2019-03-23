@@ -3,6 +3,7 @@ syntax = "proto2";
 package syzoj.server;
 
 import "gotype.proto";
+import "model_data.proto";
 
 option go_package = "github.com/syzoj/syzoj-ng-go/model";
 
@@ -23,16 +24,40 @@ message User {
     optional UserAuth auth = 3;
 }
 
+message Device {
+    optional string id = 1 [(gotype.gotype) = "DeviceRef"];
+    optional string user = 2 [(gotype.gotype) = "UserRef"];
+    optional DeviceInfo info = 3;
+}
+
 message Problem {
     optional string id = 1 [(gotype.gotype) = "ProblemRef"];
     optional string title = 2;
 }
 
-message Submission {
-    optional string id = 1 [(gotype.gotype) = "SubmissionRef"];
+message ProblemSource {
+    optional string id = 1 [(gotype.gotype) = "ProblemSourceRef"];
+    optional ProblemSourceData data = 16;
 }
 
-// Nested messages
-message UserAuth {
-    optional bytes password_hash = 1;
+message ProblemJudger {
+    optional string id = 1 [(gotype.gotype) = "ProblemJudgerRef"];
+    optional string problem = 2 [(gotype.gotype) = "ProblemRef"];
+    optional string user = 3 [(gotype.gotype) = "UserRef"];
+    optional string type = 4;
+    optional ProblemJudgerData data = 16;
+}
+
+message ProblemStatement {
+    optional string id = 1 [(gotype.gotype) = "ProblemStatementRef"];
+    optional string problem = 2 [(gotype.gotype) = "ProblemRef"];
+    optional string user = 3 [(gotype.gotype) = "UserRef"];
+    optional ProblemStatementData data = 16;
+}
+
+message Submission {
+    optional string id = 1 [(gotype.gotype) = "SubmissionRef"];
+    optional string problem_judger = 2 [(gotype.gotype) = "ProblemJudgerRef"];
+    optional string user = 3 [(gotype.gotype) = "UserRef"];
+    optional SubmissionData data = 16;
 }

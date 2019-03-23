@@ -24,10 +24,34 @@ func NewUserRef() UserRef {
 	return UserRef(newId())
 }
 
+type DeviceRef string
+
+func NewDeviceRef() DeviceRef {
+	return DeviceRef(newId())
+}
+
 type ProblemRef string
 
 func NewProblemRef() ProblemRef {
 	return ProblemRef(newId())
+}
+
+type ProblemSourceRef string
+
+func NewProblemSourceRef() ProblemSourceRef {
+	return ProblemSourceRef(newId())
+}
+
+type ProblemJudgerRef string
+
+func NewProblemJudgerRef() ProblemJudgerRef {
+	return ProblemJudgerRef(newId())
+}
+
+type ProblemStatementRef string
+
+func NewProblemStatementRef() ProblemStatementRef {
+	return ProblemStatementRef(newId())
 }
 
 type SubmissionRef string
@@ -41,6 +65,20 @@ func (m *UserAuth) Value() (driver.Value, error) {
 }
 
 func (m *UserAuth) Scan(v interface{}) error {
+	if v == nil {
+		return nil
+	}
+	if b, ok := v.([]byte); ok {
+		return proto.Unmarshal(b, m)
+	}
+	return errors.New(fmt.Sprintf("Cannot scan %T into protobuf message", v))
+}
+
+func (m *DeviceInfo) Value() (driver.Value, error) {
+	return proto.Marshal(m)
+}
+
+func (m *DeviceInfo) Scan(v interface{}) error {
 	if v == nil {
 		return nil
 	}

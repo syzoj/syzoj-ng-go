@@ -1,0 +1,43 @@
+
+syntax = "proto2";
+
+package syzoj.server;
+
+import "google/protobuf/any.proto";
+
+option go_package = "github.com/syzoj/syzoj-ng-go/model";
+
+message UserAuth {
+    optional bytes password_hash = 1;
+}
+
+message DeviceInfo {
+    optional string token = 1;
+    optional string user_agent = 16;
+    optional string ip = 17;
+}
+
+message ProblemSourceData {
+    optional string url = 1;
+    optional string site_name = 2;
+    optional string site_problem_title = 3;
+    optional string contest_name = 4;
+}
+
+message ProblemJudgerData {
+    optional google.protobuf.Any data = 1;
+}
+
+message ProblemStatementData {
+    oneof statement {
+        MarkdownLatexDocument markdown = 16;
+    }
+}
+
+message SubmissionData {
+    optional google.protobuf.Any data = 1;
+}
+
+message MarkdownLatexDocument {
+    optional string text = 1;
+}

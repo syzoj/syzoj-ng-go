@@ -6,8 +6,6 @@ import (
 	"sync/atomic"
 
 	"github.com/sirupsen/logrus"
-
-	"github.com/syzoj/syzoj-ng-go/model"
 )
 
 type Database struct {
@@ -85,72 +83,4 @@ func (t *DatabaseTxn) QueryContext(ctx context.Context, query string, args ...in
 
 func (t *DatabaseTxn) QueryRowContext(ctx context.Context, query string, args ...interface{}) *sql.Row {
 	return t.tx.QueryRowContext(ctx, query, args...)
-}
-
-func (t *DatabaseTxn) GetUser(ctx context.Context, ref model.UserRef) (*model.User, error) {
-	user := new(model.User)
-	err := t.tx.QueryRowContext(ctx, "SELECT id, username, auth FROM user WHERE id=?", ref).Scan(&user.Id, &user.UserName, &user.Auth)
-	if err != nil {
-		if err == sql.ErrNoRows {
-			return nil, nil
-		}
-		return nil, err
-	}
-	return user, nil
-}
-
-func (t *DatabaseTxn) UpdateUser(ctx context.Context, ref model.UserRef, v *model.User) error {
-	if v.Id == nil || v.GetId() != ref {
-		panic("ref and v does not match")
-	}
-	_, err := t.tx.ExecContext(ctx, "UPDATE user SET username=?, auth=? WHERE id=?", v.UserName, v.Auth, v.Id)
-	return err
-}
-
-func (t *DatabaseTxn) InsertUser(ctx context.Context, v *model.User) error {
-	if v.Id == nil {
-		ref := model.NewUserRef()
-		v.Id = &ref
-	}
-	_, err := t.tx.ExecContext(ctx, "INSERT INTO user (id, username, auth) VALUES (?, ?, ?)", v.Id, v.UserName, v.Auth)
-	return err
-}
-
-func (t *DatabaseTxn) DeleteUser(ctx context.Context, ref model.UserRef) error {
-	_, err := t.tx.ExecContext(ctx, "DELETE FROM user WHERE id=?", ref)
-	return err
-}
-
-func (t *DatabaseTxn) GetProblem(ctx context.Context, ref model.ProblemRef) (*model.Problem, error) {
-	problem := new(model.Problem)
-	err := t.tx.QueryRowContext(ctx, "SELECT id, title FROM problem WHERE id=?", ref).Scan(&problem.Id, &problem.Title)
-	if err != nil {
-		if err == sql.ErrNoRows {
-			return nil, nil
-		}
-		return nil, err
-	}
-	return problem, nil
-}
-
-func (t *DatabaseTxn) UpdateProblem(ctx context.Context, ref model.ProblemRef, v *model.Problem) error {
-	if v.Id == nil || v.GetId() != ref {
-		panic("ref and v does not match")
-	}
-	_, err := t.tx.ExecContext(ctx, "UPDATE problem SET title=? WHERE id=?", v.Title, v.Id)
-	return err
-}
-
-func (t *DatabaseTxn) InsertProblem(ctx context.Context, v *model.Problem) error {
-	if v.Id == nil {
-		ref := model.NewProblemRef()
-		v.Id = &ref
-	}
-	_, err := t.tx.ExecContext(ctx, "INSERT INTO problem (id, title) VALUES (?, ?)", v.Id, v.Title)
-	return err
-}
-
-func (t *DatabaseTxn) DeleteProblem(ctx context.Context, ref model.ProblemRef) error {
-	_, err := t.tx.ExecContext(ctx, "DELETE FROM problem WHERE id=?", ref)
-	return err
 }
