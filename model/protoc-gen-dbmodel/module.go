@@ -230,7 +230,7 @@ func (v *visitor) VisitMessage(m pgs.Message) (pgs.Visitor, error) {
             }
         }
         sqlFields = append(sqlFields, "  " + sql)
-        fmt.Sprintln(os.Stderr, sql)
+        fmt.Fprintln(os.Stderr, sql)
     }
     t.SelList = strings.Join(selList, ", ")
     t.UpdateList = strings.Join(updateList, ", ")
