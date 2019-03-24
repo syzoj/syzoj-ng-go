@@ -1,4 +1,3 @@
-
 //go:generate protoc -I . model.proto --go_out=grpc=$GOPATH/src:$GOPATH/src
 //go:generate protoc -I . model.proto --gotype_out=.
 //go:generate protoc -I . model.proto --dbmodel_out=.

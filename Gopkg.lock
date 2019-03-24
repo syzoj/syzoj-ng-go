@@ -11,12 +11,15 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:d1e69ed53a8d9c021c0b6a9ef525903fc18401c71ffd12ec383c3e8f9580fe6b"
+  digest = "1:141280184bb730010cc915fa7bb9b1e4ed7f8a834c5217db7e001ff3cae4c7f3"
   name = "github.com/golang/protobuf"
   packages = [
     "jsonpb",
     "proto",
     "protoc-gen-go/descriptor",
+    "protoc-gen-go/generator",
+    "protoc-gen-go/generator/internal/remap",
+    "protoc-gen-go/plugin",
     "ptypes",
     "ptypes/any",
     "ptypes/duration",
@@ -52,12 +55,34 @@
   version = "v1.0.1"
 
 [[projects]]
+  digest = "1:d9023a3a0ba491366b49adf0beee4ea9fbd69e87a83e43cf4ea9b16166af4432"
+  name = "github.com/lyft/protoc-gen-star"
+  packages = [
+    ".",
+    "lang/go",
+  ]
+  pruneopts = "UT"
+  revision = "2c275d2c7d7e18961b415079c3655f3c7b0de0a6"
+  version = "v0.4.7"
+
+[[projects]]
   digest = "1:87c2e02fb01c27060ccc5ba7c5a407cc91147726f8f40b70cceeedbc52b1f3a8"
   name = "github.com/sirupsen/logrus"
   packages = ["."]
   pruneopts = "UT"
   revision = "e1e72e9de974bd926e5c56f83753fba2df402ce5"
   version = "v1.3.0"
+
+[[projects]]
+  digest = "1:3e39bafd6c2f4bf3c76c3bfd16a2e09e016510ad5db90dc02b88e2f565d6d595"
+  name = "github.com/spf13/afero"
+  packages = [
+    ".",
+    "mem",
+  ]
+  pruneopts = "UT"
+  revision = "f4711e4db9e9a1d3887343acb72b2bbfc2f686f5"
+  version = "v1.2.1"
 
 [[projects]]
   branch = "master"
@@ -194,11 +219,14 @@
     "github.com/go-sql-driver/mysql",
     "github.com/golang/protobuf/jsonpb",
     "github.com/golang/protobuf/proto",
+    "github.com/golang/protobuf/protoc-gen-go/descriptor",
     "github.com/golang/protobuf/ptypes",
     "github.com/golang/protobuf/ptypes/any",
     "github.com/golang/protobuf/ptypes/empty",
     "github.com/gorilla/mux",
     "github.com/gorilla/websocket",
+    "github.com/lyft/protoc-gen-star",
+    "github.com/lyft/protoc-gen-star/lang/go",
     "github.com/sirupsen/logrus",
     "github.com/syzoj/protoc-gen-gotype/gotype",
     "golang.org/x/crypto/bcrypt",

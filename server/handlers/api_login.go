@@ -25,7 +25,7 @@ func Handle_Login(ctx context.Context, req *model.LoginRequest) (*empty.Empty, e
 	}
 	defer txn.Rollback()
 	var userRef model.UserRef
-	if err = txn.QueryRowContext(ctx, "SELECT id FROM user WHERE username=?", req.GetUserName()).Scan(&userRef); err != nil {
+	if err = txn.QueryRowContext(ctx, "SELECT id FROM user WHERE user_name=?", req.GetUserName()).Scan(&userRef); err != nil {
 		if err == sql.ErrNoRows {
 			return nil, server.ErrUserNotFound
 		}
