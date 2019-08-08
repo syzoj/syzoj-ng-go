@@ -1,4 +1,4 @@
-package mysql
+package config
 
 import (
 	"database/sql"
@@ -11,7 +11,7 @@ import (
 func OpenMySQL(dbName string) (*sql.DB, error) {
 	cfg := mysql.NewConfig()
 	cfg.Net = "tcp"
-	cfg.Addr = os.Getenv(dbName + "_MYSQL_ADDR")
+	cfg.Addr = os.Getenv(dbName + "_MYSQL_HOST")
 	cfg.User = os.Getenv(dbName + "_MYSQL_USER")
 	cfg.Passwd = os.Getenv(dbName + "_MYSQL_PASSWORD")
 	cfg.DBName = os.Getenv(dbName + "_MYSQL_DATABASE")
