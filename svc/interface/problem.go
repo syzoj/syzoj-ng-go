@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"sync"
 	"time"
 
 	httplib "github.com/syzoj/syzoj-ng-go/lib/fasthttp"
@@ -75,4 +76,74 @@ func (app *App) getProblemInfo(ctx *fasthttp.RequestCtx) {
 	httplib.SendJSON(ctx, map[string]interface{}{
 		"data": json.RawMessage(val),
 	})
+}
+
+type GetProblemResponse struct {
+	Problems []*GetProblemResponseProblem `json:"problems"`
+}
+
+type GetProblemResponseProblem struct {
+	Id    string          `json:"id"`
+	Score float64         `json:"score"`
+	Info  json.RawMessage `json:"info"`
+}
+
+func (app *App) getProblems(ctx *fasthttp.RequestCtx) {
+	query := string(ctx.QueryArgs().Peek("query"))
+	if query == "" {
+		query = "*"
+	}
+	resp, err := app.esProblem.Search(app.esProblem.Search.WithIndex("problem"), app.esProblem.Search.WithQuery(query))
+	if err != nil {
+		httplib.SendInternalError(ctx, err)
+		return
+	} else if resp.IsError() {
+		log.Error(resp)
+		httplib.SendError(ctx, "Query failed")
+		return
+	}
+	defer resp.Body.Close()
+	var data struct {
+		Hits struct {
+			Hits []struct {
+				Id     string          `json:"_id"`
+				Score  float64         `json:"score"`
+				Source json.RawMessage `json:"_source"`
+			}
+		} `json:"hits"`
+	}
+	err = json.NewDecoder(resp.Body).Decode(&data)
+	if err != nil {
+		httplib.SendInternalError(ctx, err)
+		return
+	}
+	var wg sync.WaitGroup
+	resp2 := &GetProblemResponse{}
+	resp2.Problems = make([]*GetProblemResponseProblem, 0)
+	for _, hit := range data.Hits.Hits {
+		entry := &GetProblemResponseProblem{
+			Id:    hit.Id,
+			Score: hit.Score,
+		}
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			val, err := app.waitForCache(ctx, fmt.Sprintf("problem:%s:info", hit.Id), time.Second*5, func() {
+				app.automationCli.Trigger(map[string]interface{}{
+					"tags": []string{"cache/problem/*/info/request"},
+					"problem": map[string]interface{}{
+						"uid": hit.Id,
+					},
+				})
+			})
+			if err == nil {
+				entry.Info = val
+			} else {
+				log.WithError(err).Debug("Failed to get problem info")
+			}
+		}()
+		resp2.Problems = append(resp2.Problems, entry)
+	}
+	wg.Wait()
+	httplib.SendJSON(ctx, resp2)
 }

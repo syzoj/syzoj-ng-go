@@ -2,9 +2,7 @@ package util
 
 import (
 	"crypto/rand"
-	"database/sql/driver"
 	"encoding/base64"
-	"errors"
 )
 
 func RandomString(n int) string {

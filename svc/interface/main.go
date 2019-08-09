@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/buaazp/fasthttprouter"
+	"github.com/elastic/go-elasticsearch"
 	"github.com/gomodule/redigo/redis"
 	"github.com/sirupsen/logrus"
 	"github.com/syzoj/syzoj-ng-go/lib/automation"
@@ -23,6 +24,7 @@ type App struct {
 	listenPort    int
 	automationCli *automation.Client
 	httpCli       *fasthttp.Client
+	esProblem     *elasticsearch.Client
 }
 
 func (app *App) run() {
@@ -69,12 +71,20 @@ func (app *App) run() {
 	app.httpCli = &fasthttp.Client{}
 	app.automationCli = automation.NewClient(automationUrl, app.httpCli)
 
+	esProblem, err := config.OpenElastic("PROBLEM")
+	if err != nil {
+		log.WithError(err).Error("Failed to open elasticsearch for PROBLEM")
+		return
+	}
+	app.esProblem = esProblem
+
 	router := fasthttprouter.New()
 	router.POST("/user/register", app.postUserRegister)
 	router.POST("/user/login", app.postUserLogin)
 	router.GET("/user/current", app.getUserCurrent)
 	router.POST("/problem/new", app.postProblemNew)
 	router.GET("/problem/:uid/info", app.getProblemInfo)
+	router.GET("/problems", app.getProblems)
 
 	server := &fasthttp.Server{
 		ReadTimeout:  time.Second * 60,
