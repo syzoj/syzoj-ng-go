@@ -22,7 +22,7 @@ func (app *App) getUserCurrent(ctx *fasthttp.RequestCtx) {
 	uid := sess.CurrentUser.UserUid
 	val, err := app.waitForCache(ctx, fmt.Sprintf("user:%s:self", uid), time.Second*5, func() {
 		app.automationCli.Trigger(map[string]interface{}{
-			"tags": []string{"cache/user/*/self"},
+			"tags": []string{"cache/user/*/self/request"},
 			"user": map[string]interface{}{
 				"uid": uid,
 			},
