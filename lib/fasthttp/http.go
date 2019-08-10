@@ -52,3 +52,8 @@ func BadRequest(ctx *fasthttp.RequestCtx, err error) {
 	ctx.SetStatusCode(400)
 	SendError(ctx, err.Error())
 }
+
+func NotFound(ctx *fasthttp.RequestCtx, err error) {
+	ctx.SetStatusCode(404)
+	SendError(ctx, err.Error())
+}

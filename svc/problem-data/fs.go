@@ -1,18 +1,12 @@
 package main
 
 import (
-	"encoding/hex"
 	"fmt"
-	"math/rand"
 	"os"
 	"path/filepath"
-)
 
-func randomHex() string {
-	var payload [16]byte
-	rand.Read(payload[:])
-	return hex.EncodeToString(payload[:])
-}
+	"github.com/syzoj/syzoj-ng-go/util"
+)
 
 func (app *App) ensurePath(name string) (string, error) {
 	if len(name) != 32 {
@@ -32,12 +26,12 @@ func (app *App) makeTempFile() (*os.File, error) {
 	if err != nil {
 		return nil, err
 	}
-	hexName := randomHex()
+	hexName := util.RandomHex(16)
 	return os.Create(filepath.Join(tempPath, hexName))
 }
 
 func (app *App) makeTempDir() (string, error) {
-	hexName := randomHex()
+	hexName := util.RandomHex(16)
 	path := filepath.Join(app.dataPath, "temp", hexName)
 	err := os.MkdirAll(path, os.ModeDir|0755)
 	if err != nil {

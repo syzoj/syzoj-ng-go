@@ -49,13 +49,22 @@ func ParseDefault(path string) (*TestdataInfo, error) {
 	if len(cases) == 0 {
 		return nil, fmt.Errorf("cannot parse test data")
 	}
+	fset := make(fileSet)
 	info := &TestdataInfo{}
 	info.Cases = make(map[string]*Testcase, len(cases))
 	caseScore := 100. / float64(len(cases))
 	for _, testcase := range cases {
+		inpFile, err := getFileCached(path, testcase.Input, fset)
+		if err != nil {
+			return nil, err
+		}
+		outFile, err := getFileCached(path, testcase.Output, fset)
+		if err != nil {
+			return nil, err
+		}
 		info.Cases[testcase.Name] = &Testcase{
-			Input:  testcase.Input,
-			Output: testcase.Output,
+			Input:  inpFile,
+			Output: outFile,
 		}
 		info.Subtasks = append(info.Subtasks, &Subtask{
 			Cases: []string{testcase.Name},

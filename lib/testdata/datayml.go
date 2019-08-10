@@ -42,24 +42,37 @@ func ParseDataYml(path string) (*TestdataInfo, error) {
 		return nil, err
 	}
 
+	fset := make(fileSet)
 	info := &TestdataInfo{}
 	info.SpecialJudges = make(map[string]*SpecialJudge)
 	var spjName string
 	if data.SpecialJudge != nil {
 		spjName = "Spj"
 		dataSpj := data.SpecialJudge
+		spjFile, err := getFileCached(path, dataSpj.FileName, fset)
+		if err != nil {
+			return nil, err
+		}
 		info.SpecialJudges[spjName] = &SpecialJudge{
 			Language: dataSpj.Language,
-			FileName: dataSpj.FileName,
+			File:     spjFile,
 		}
 	}
 	info.Cases = make(map[string]*Testcase)
 	for _, dataSubtask := range data.Subtasks {
 		for _, dataCase := range dataSubtask.Cases {
 			if _, exists := info.Cases[dataCase]; !exists {
+				inpFile, err := getFileCached(path, strings.ReplaceAll(data.InputFile, "#", dataCase), fset)
+				if err != nil {
+					return nil, err
+				}
+				outFile, err := getFileCached(path, strings.ReplaceAll(data.OutputFile, "#", dataCase), fset)
+				if err != nil {
+					return nil, err
+				}
 				info.Cases[dataCase] = &Testcase{
-					Input:        strings.ReplaceAll(data.InputFile, "#", dataCase),
-					Output:       strings.ReplaceAll(data.OutputFile, "#", dataCase),
+					Input:        inpFile,
+					Output:       outFile,
 					Answer:       strings.ReplaceAll(data.UserOutput, "#", dataCase),
 					SpecialJudge: spjName,
 				}

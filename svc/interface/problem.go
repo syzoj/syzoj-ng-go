@@ -1,6 +1,7 @@
 package main
 
 import (
+	"database/sql"
 	"encoding/json"
 	"fmt"
 	"sync"
@@ -41,7 +42,7 @@ func (app *App) postProblemNew(ctx *fasthttp.RequestCtx) {
 		return
 	}
 	userUid := sess.CurrentUser.UserUid
-	problemUid := util.RandomString(16)
+	problemUid := util.RandomString(15)
 	problemInfoPayload, err := json.Marshal(req.Info)
 	if err != nil {
 		httplib.SendInternalError(ctx, err)
@@ -55,6 +56,45 @@ func (app *App) postProblemNew(ctx *fasthttp.RequestCtx) {
 	httplib.SendJSON(ctx, map[string]interface{}{
 		"problem": map[string]interface{}{
 			"uid": problemUid,
+		},
+	})
+}
+
+func (app *App) postProblemUploadData(ctx *fasthttp.RequestCtx) {
+	problemUid := ctx.UserValue("uid").(string)
+	sess, err := app.getSession(ctx)
+	if err != nil {
+		httplib.SendInternalError(ctx, err)
+		return
+	}
+	if sess == nil || sess.CurrentUser == nil {
+		httplib.SendError(ctx, "Not logged in")
+		return
+	}
+	userUid := sess.CurrentUser.UserUid
+
+	err = app.dbProblem.QueryRowContext(ctx, "SELECT uid FROM problems WHERE uid=? AND owner_user_uid=?", problemUid, userUid).Scan(&problemUid)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			httplib.NotFound(ctx, fmt.Errorf("Not found"))
+		} else {
+			httplib.SendInternalError(ctx, err)
+		}
+		return
+	}
+
+	// Ignore errors
+	problemDataUid := util.RandomHex(16)
+	app.dbProblem.ExecContext(ctx, "UPDATE problems SET problem_data_uid=? WHERE uid=? AND problem_data_uid IS NULL", problemDataUid, problemUid)
+	err = app.dbProblem.QueryRowContext(ctx, "SELECT problem_data_uid FROM problems WHERE uid=?", problemUid).Scan(&problemDataUid)
+	if err != nil {
+		httplib.SendInternalError(ctx, err)
+		return
+	}
+
+	httplib.SendJSON(ctx, map[string]interface{}{
+		"problem": map[string]interface{}{
+			"problem_data_uid": problemDataUid,
 		},
 	})
 }
@@ -128,9 +168,9 @@ func (app *App) getProblems(ctx *fasthttp.RequestCtx) {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			val, err := app.waitForCache(ctx, fmt.Sprintf("problem:%s:info", hit.Id), time.Second*5, func() {
+			val, err := app.waitForCache(ctx, fmt.Sprintf("problem:%s:summary", hit.Id), time.Second*5, func() {
 				app.automationCli.Trigger(map[string]interface{}{
-					"tags": []string{"cache/problem/*/info/request"},
+					"tags": []string{"cache/problem/*/summary/request"},
 					"problem": map[string]interface{}{
 						"uid": hit.Id,
 					},
@@ -139,11 +179,64 @@ func (app *App) getProblems(ctx *fasthttp.RequestCtx) {
 			if err == nil {
 				entry.Info = val
 			} else {
-				log.WithError(err).Debug("Failed to get problem info")
+				log.WithError(err).Debug("Failed to get problem summary")
 			}
 		}()
 		resp2.Problems = append(resp2.Problems, entry)
 	}
 	wg.Wait()
 	httplib.SendJSON(ctx, resp2)
+}
+
+type SubmitProblemRequest struct {
+	SubmissionInfo *SubmitProblemRequestSubmission `json:"submission_info"`
+}
+type SubmitProblemRequestSubmission struct {
+	Language string `json:"language"`
+	Code     string `json:"code"`
+}
+
+func (app *App) postProblemSubmit(ctx *fasthttp.RequestCtx) {
+	problemUid := ctx.UserValue("uid").(string)
+	var req SubmitProblemRequest
+	err := httplib.ReadBodyJSON(ctx, &req)
+	if err != nil {
+		httplib.BadRequest(ctx, err)
+		return
+	}
+	sess, err := app.getSession(ctx)
+	if err != nil {
+		httplib.SendInternalError(ctx, err)
+		return
+	}
+	if sess == nil || sess.CurrentUser == nil {
+		httplib.SendError(ctx, "Not logged in")
+		return
+	}
+	err = app.dbProblem.QueryRowContext(ctx, "SELECT uid FROM problems WHERE uid=?", problemUid).Scan(&problemUid)
+	if err != nil {
+		httplib.NotFound(ctx, fmt.Errorf("Problem not found"))
+		return
+	}
+	if req.SubmissionInfo == nil {
+		httplib.BadRequest(ctx, fmt.Errorf("Missing submission field"))
+		return
+	}
+	infoBytes, err := json.Marshal(req.SubmissionInfo)
+	if err != nil {
+		httplib.SendInternalError(ctx, err)
+		return
+	}
+	submissionUid := util.RandomString(15)
+	_, err = app.dbProblem.ExecContext(ctx, "INSERT INTO submissions (uid, problem_uid, info) VALUES (?, ?, ?)", submissionUid, problemUid, infoBytes)
+	if err != nil {
+		httplib.SendInternalError(ctx, err)
+		return
+	}
+	httplib.SendJSON(ctx, map[string]interface{}{
+		"submission": map[string]interface{}{
+			"uid": submissionUid,
+		},
+	})
+	// TODO: add it to judge queue
 }

@@ -46,7 +46,7 @@ func (app *App) getSession(ctx *fasthttp.RequestCtx) (*Session, error) {
 }
 
 func (app *App) newSession(ctx *fasthttp.RequestCtx, sess *Session) error {
-	key := util.RandomString(16)
+	key := util.RandomString(15)
 	conn, err := app.redisSession.GetContext(ctx)
 	if err != nil {
 		return err

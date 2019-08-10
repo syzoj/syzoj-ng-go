@@ -3,6 +3,7 @@ package util
 import (
 	"crypto/rand"
 	"encoding/base64"
+	"encoding/hex"
 )
 
 func RandomString(n int) string {
@@ -13,6 +14,10 @@ func RandomString(n int) string {
 	return base64.URLEncoding.EncodeToString(b)
 }
 
-func NewId() string {
-	return RandomString(12)
+func RandomHex(n int) string {
+	b := make([]byte, n)
+	if _, err := rand.Read(b); err != nil {
+		panic(err)
+	}
+	return hex.EncodeToString(b)
 }

@@ -75,7 +75,7 @@ func (app *App) postUserRegister(ctx *fasthttp.RequestCtx) {
 		httplib.SendError(ctx, "Already logged in")
 		return
 	}
-	uid := util.RandomString(16)
+	uid := util.RandomString(15)
 	if !usernameRegex.MatchString(req.UserName) {
 		httplib.SendError(ctx, "Invalid username")
 		return

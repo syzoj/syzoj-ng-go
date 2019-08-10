@@ -10,12 +10,13 @@ import (
 
 	httplib "github.com/syzoj/syzoj-ng-go/lib/fasthttp"
 	"github.com/syzoj/syzoj-ng-go/lib/testdata"
+	"github.com/syzoj/syzoj-ng-go/util"
 	"github.com/valyala/fasthttp"
 	"golang.org/x/sys/unix"
 )
 
 func (app *App) deleteProblem(ctx *fasthttp.RequestCtx) {
-	name := ctx.UserValue("name").(string)
+	name := ctx.UserValue("uid").(string)
 	reason, ok := app.tryLock(name, "delete")
 	if !ok {
 		httplib.SendConflict(ctx, fmt.Errorf("Conflicting operation: %s", reason))
@@ -41,7 +42,7 @@ func (app *App) deleteProblem(ctx *fasthttp.RequestCtx) {
 }
 
 func (app *App) putProblemData(ctx *fasthttp.RequestCtx) {
-	name := ctx.UserValue("name").(string)
+	name := ctx.UserValue("uid").(string)
 	reason, ok := app.tryLock(name, "upload-data")
 	if !ok {
 		httplib.SendConflict(ctx, fmt.Errorf("Conflicting operation: %s", reason))
@@ -77,7 +78,7 @@ func (app *App) putProblemData(ctx *fasthttp.RequestCtx) {
 }
 
 func (app *App) postProblemExtract(ctx *fasthttp.RequestCtx) {
-	name := ctx.UserValue("name").(string)
+	name := ctx.UserValue("uid").(string)
 	reason, ok := app.tryLock(name, "extract")
 	if !ok {
 		httplib.SendConflict(ctx, fmt.Errorf("Conflicting operation: %s", reason))
@@ -146,7 +147,7 @@ func (app *App) postProblemExtract(ctx *fasthttp.RequestCtx) {
 	err = unix.Renameat2(unix.AT_FDCWD, dir, unix.AT_FDCWD, targetDir, unix.RENAME_EXCHANGE)
 	if err != nil {
 		log.WithError(err).Warning("Failed to use renameat2")
-		tempDir := filepath.Join(app.dataPath, "temp", randomHex())
+		tempDir := filepath.Join(app.dataPath, "temp", util.RandomHex(16))
 		if os.Rename(targetDir, tempDir) != nil {
 			go os.RemoveAll(tempDir)
 		}
@@ -166,7 +167,7 @@ func (app *App) postProblemExtract(ctx *fasthttp.RequestCtx) {
 }
 
 func (app *App) getProblemParseData(ctx *fasthttp.RequestCtx) {
-	name := ctx.UserValue("name").(string)
+	name := ctx.UserValue("uid").(string)
 	reason, ok := app.tryLock(name, "parse-data")
 	if !ok {
 		httplib.SendConflict(ctx, fmt.Errorf("Conflicting operation: %s", reason))
@@ -186,4 +187,22 @@ func (app *App) getProblemParseData(ctx *fasthttp.RequestCtx) {
 	httplib.SendJSON(ctx, map[string]interface{}{
 		"info": info,
 	})
+}
+
+func (app *App) getProblemDownloadData(ctx *fasthttp.RequestCtx) {
+	problemUid := ctx.UserValue("uid").(string)
+	name := ctx.UserValue("name").(string)
+
+	path, err := app.ensurePath(problemUid)
+	if err != nil {
+		httplib.SendInternalError(ctx, err)
+		return
+	}
+	name = filepath.Base(name)
+	path2 := filepath.Join(path, "data", name)
+	if !strings.HasPrefix(path2, path) {
+		httplib.SendError(ctx, "Invalid name")
+		return
+	}
+	ctx.SendFile(path2)
 }

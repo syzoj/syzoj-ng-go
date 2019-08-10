@@ -83,7 +83,9 @@ func (app *App) run() {
 	router.POST("/user/login", app.postUserLogin)
 	router.GET("/user/current", app.getUserCurrent)
 	router.POST("/problem/new", app.postProblemNew)
-	router.GET("/problem/:uid/info", app.getProblemInfo)
+	router.POST("/problem/id/:uid/upload-data", app.postProblemUploadData)
+	router.POST("/problem/id/:uid/submit", app.postProblemSubmit)
+	router.GET("/problem/id/:uid/info", app.getProblemInfo)
 	router.GET("/problems", app.getProblems)
 
 	server := &fasthttp.Server{
