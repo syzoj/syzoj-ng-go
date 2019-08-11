@@ -3,10 +3,8 @@ package main
 import (
 	"database/sql"
 	"fmt"
-	"time"
 
 	"github.com/buaazp/fasthttprouter"
-	"github.com/elastic/go-elasticsearch"
 	"github.com/gomodule/redigo/redis"
 	"github.com/sirupsen/logrus"
 	"github.com/syzoj/syzoj-ng-go/lib/automation"
@@ -17,24 +15,14 @@ import (
 var log = logrus.StandardLogger()
 
 type App struct {
-	dbUser        *sql.DB
 	dbProblem     *sql.DB
 	redisSession  *redis.Pool
-	redisCache    *redis.Pool
-	listenPort    int
-	automationCli *automation.Client
 	httpCli       *fasthttp.Client
-	esProblem     *elasticsearch.Client
+	automationCli *automation.Client
+	listenPort    int
 }
 
 func (app *App) run() {
-	dbUser, err := config.OpenMySQL("USER")
-	if err != nil {
-		log.WithError(err).Error("Failed to open USER")
-		return
-	}
-	app.dbUser = dbUser
-
 	dbProblem, err := config.OpenMySQL("PROBLEM")
 	if err != nil {
 		log.WithError(err).Error("Failed to open PROBLEM")
@@ -48,13 +36,6 @@ func (app *App) run() {
 		return
 	}
 	app.redisSession = redisSession
-
-	redisCache, err := config.OpenRedis("CACHE")
-	if err != nil {
-		log.WithError(err).Error("Failed to open CACHE")
-		return
-	}
-	app.redisCache = redisCache
 
 	listenPort, err := config.GetHttpListenPort()
 	if err != nil {
@@ -71,29 +52,11 @@ func (app *App) run() {
 	app.httpCli = &fasthttp.Client{}
 	app.automationCli = automation.NewClient(automationUrl, app.httpCli)
 
-	esProblem, err := config.OpenElastic("PROBLEM")
-	if err != nil {
-		log.WithError(err).Error("Failed to open elasticsearch for PROBLEM")
-		return
-	}
-	app.esProblem = esProblem
-
 	router := fasthttprouter.New()
-	router.POST("/user/register", app.postUserRegister)
-	router.POST("/user/login", app.postUserLogin)
-	router.GET("/user/current", app.getUserCurrent)
-	router.POST("/problem/new", app.postProblemNew)
-	router.POST("/problem/id/:uid/upload-data", app.postProblemUploadData)
-	router.POST("/problem/id/:uid/submit", app.postProblemSubmit)
-	router.GET("/problem/id/:uid/info", app.getProblemInfo)
-	router.GET("/problem/short/:name/*all", app.getProblemShort)
-	router.GET("/problems", app.getProblems)
-	router.POST("/problem/id/:uid/set-short", app.postProblemSetShort)
-
-	server := &fasthttp.Server{
-		ReadTimeout:  time.Second * 60,
-		WriteTimeout: time.Second * 60,
-	}
+	router.POST("/judge-queue/enqueue", app.postEnqueue)
+	router.POST("/judge-queue/fetch", app.postFetch)
+	router.POST("/judge-queue/task/id/:uid/handle", app.postTaskHandle)
+	server := &fasthttp.Server{}
 	server.Handler = router.Handler
 	server.ListenAndServe(fmt.Sprintf(":%d", app.listenPort))
 }

@@ -12,6 +12,74 @@ import (
 	"github.com/valyala/fasthttp"
 )
 
+func (app *App) getProblemShort(ctx *fasthttp.RequestCtx) {
+	name := ctx.UserValue("name").(string)
+	all := ctx.UserValue("all").(string)
+	var problemUid string
+	err := app.dbProblem.QueryRowContext(ctx, "SELECT problem_uid FROM problem_short WHERE name=?", name).Scan(&problemUid)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			httplib.NotFound(ctx, fmt.Errorf("Not found"))
+		} else {
+			httplib.SendInternalError(ctx, err)
+		}
+		return
+	}
+	ctx.Response.Header.Set("Location", fmt.Sprintf("/problem/id/%s%s", problemUid, all))
+	ctx.Response.SetStatusCode(fasthttp.StatusMovedPermanently)
+}
+
+type ProblemSetShortNameRequest struct {
+	Name string `json:"name"`
+}
+
+func (app *App) postProblemSetShort(ctx *fasthttp.RequestCtx) {
+	problemUid := ctx.UserValue("uid").(string)
+	var req ProblemSetShortNameRequest
+	if err := httplib.ReadBodyJSON(ctx, &req); err != nil {
+		httplib.BadRequest(ctx, err)
+		return
+	}
+	name := req.Name
+	if len(name) == 0 {
+		httplib.BadRequest(ctx, fmt.Errorf("Missing name field"))
+		return
+	}
+	tx, err := app.dbProblem.BeginTx(ctx, &sql.TxOptions{Isolation: sql.LevelSerializable})
+	if err != nil {
+		httplib.SendInternalError(ctx, err)
+		return
+	}
+	var orgName string
+	err = tx.QueryRowContext(ctx, "SELECT name FROM problem_short WHERE problem_uid=?", problemUid).Scan(&orgName)
+	if err != nil && err != sql.ErrNoRows {
+		tx.Rollback()
+		httplib.SendInternalError(ctx, err)
+		return
+	}
+	log.Infof("orgName=%s name=%s", orgName, name)
+	if err == sql.ErrNoRows {
+		if _, err := tx.ExecContext(ctx, "INSERT INTO problem_short (problem_uid, name) VALUES (?, ?)", problemUid, name); err != nil {
+			tx.Rollback()
+			httplib.SendInternalError(ctx, err)
+			return
+		}
+	} else if orgName == name {
+		tx.Rollback()
+	} else {
+		if _, err := tx.ExecContext(ctx, "UPDATE problem_short SET name=? WHERE problem_uid=?", name, problemUid); err != nil {
+			tx.Rollback()
+			httplib.SendInternalError(ctx, err)
+			return
+		}
+	}
+	if err := tx.Commit(); err != nil {
+		httplib.SendInternalError(ctx, err)
+		return
+	}
+	ctx.SetStatusCode(204)
+}
+
 type ProblemInfo struct {
 	Title     string `json:"title"`
 	Statement string `json:"statement"`

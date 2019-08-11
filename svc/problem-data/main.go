@@ -51,11 +51,11 @@ func (app *App) run() {
 	app.listenPort = listenPort
 
 	router := fasthttprouter.New()
-	router.DELETE("/problem/id/:uid", app.deleteProblem)
-	router.PUT("/problem/id/:uid/data", app.putProblemData)
-	router.POST("/problem/id/:uid/extract", app.postProblemExtract)
-	router.GET("/problem/id/:uid/parse-data", app.getProblemParseData)
-	router.GET("/problem/id/:uid/download-data/:name", app.getProblemDownloadData)
+	router.DELETE("/problem-data/id/:uid", app.deleteProblem)
+	router.PUT("/problem-data/id/:uid/data", app.putProblemData)
+	router.POST("/problem-data/id/:uid/extract", app.postProblemExtract)
+	router.GET("/problem-data/id/:uid/parse-data", app.getProblemParseData)
+	router.GET("/problem-data/id/:uid/download-data/:name", app.getProblemDownloadData)
 	server := &fasthttp.Server{}
 	server.Handler = router.Handler
 	server.ListenAndServe(fmt.Sprintf(":%d", app.listenPort))

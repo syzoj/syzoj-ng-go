@@ -34,8 +34,8 @@ func (app *App) deleteProblem(ctx *fasthttp.RequestCtx) {
 	}
 	ctx.SetStatusCode(204)
 	go app.automationCli.Trigger(map[string]interface{}{
-		"tags": []string{"problem-data/*/delete", fmt.Sprintf("problem-data/%s/delete", name)},
-		"problem": map[string]interface{}{
+		"tags": []string{"problem-data/*/delete"},
+		"problem_data": map[string]interface{}{
 			"uid": name,
 		},
 	})
@@ -70,8 +70,8 @@ func (app *App) putProblemData(ctx *fasthttp.RequestCtx) {
 	}
 	ctx.SetStatusCode(204)
 	go app.automationCli.Trigger(map[string]interface{}{
-		"tags": []string{"problem-data/*/upload-data", fmt.Sprintf("problem-data/%s/upload-data", name)},
-		"problem": map[string]interface{}{
+		"tags": []string{"problem-data/*/upload-data"},
+		"problem_data": map[string]interface{}{
 			"uid": name,
 		},
 	})
@@ -159,8 +159,8 @@ func (app *App) postProblemExtract(ctx *fasthttp.RequestCtx) {
 	}
 	ctx.SetStatusCode(204)
 	go app.automationCli.Trigger(map[string]interface{}{
-		"tags": []string{"problem-data/*/extract", fmt.Sprintf("problem-data/%s/extract", name)},
-		"problem": map[string]interface{}{
+		"tags": []string{"problem-data/*/extract"},
+		"problem_data": map[string]interface{}{
 			"uid": name,
 		},
 	})
