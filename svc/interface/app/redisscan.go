@@ -1,8 +1,8 @@
 package app
 
 import (
-	"strings"
 	"context"
+	"strings"
 )
 
 // Implements the Redisscanner interface.

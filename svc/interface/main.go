@@ -34,11 +34,11 @@ func main() {
 		return
 	}
 	a := &app.App{
-		ListenAddr: fmt.Sprintf(":%d", listenPort),
-		RedisSess:  redisp,
-		RedisStats: redisp,
-		Db:         db,
-		Minio: minio,
+		ListenAddr:     fmt.Sprintf(":%d", listenPort),
+		RedisSess:      redisp,
+		RedisStats:     redisp,
+		Db:             db,
+		Minio:          minio,
 		TestdataBucket: "testdata",
 	}
 	a.Run()

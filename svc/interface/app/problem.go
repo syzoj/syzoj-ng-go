@@ -38,7 +38,7 @@ func (a *App) HandleProblemNew(c *gin.Context) {
 		c.AbortWithError(500, err)
 		return
 	}
-	a.stats.Inc(a.ctx, "user.problems:" + inf.UserId, 1)
+	a.stats.Inc(a.ctx, "user.problems:"+inf.UserId, 1)
 
 	c.JSON(200, gin.H{
 		"success":    true,
@@ -129,6 +129,7 @@ func (a *App) HandleProblemUploadTemp(c *gin.Context) {
 type UploadZipRequest struct {
 	ZipFileId string `json:"zip_file_id"`
 }
+
 // POST /api/problem/id/:problem_id/upload-data
 func (a *App) HandleProblemUploadData(c *gin.Context) {
 	ctx := c.Request.Context()

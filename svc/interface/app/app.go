@@ -7,31 +7,31 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/jmoiron/sqlx"
-	"github.com/sirupsen/logrus"
 	"github.com/minio/minio-go"
+	"github.com/sirupsen/logrus"
+	lredis "github.com/syzoj/syzoj-ng-go/lib/redis"
 	"github.com/syzoj/syzoj-ng-go/svc/interface/auth"
 	"github.com/syzoj/syzoj-ng-go/svc/interface/problem"
 	"github.com/syzoj/syzoj-ng-go/svc/interface/redisscan"
 	"github.com/syzoj/syzoj-ng-go/svc/interface/stats"
-	lredis "github.com/syzoj/syzoj-ng-go/lib/redis"
 )
 
 var log = logrus.StandardLogger()
 
 // App represents an 'interface' service.
 type App struct {
-	ListenAddr string
-	RedisSess  *lredis.PoolWrapper
-	RedisStats *lredis.PoolWrapper
-	RedisCache *lredis.PoolWrapper
-	Db         *sqlx.DB
-	Minio *minio.Client
+	ListenAddr     string
+	RedisSess      *lredis.PoolWrapper
+	RedisStats     *lredis.PoolWrapper
+	RedisCache     *lredis.PoolWrapper
+	Db             *sqlx.DB
+	Minio          *minio.Client
 	TestdataBucket string
 
-	ctx context.Context
+	ctx       context.Context
 	auth      *auth.AuthMiddleware
 	prob      *problem.ProblemService
-	stats *stats.Stats
+	stats     *stats.Stats
 	redisscan *redisscan.Redisscan
 }
 
@@ -42,8 +42,8 @@ func (app *App) Run() {
 	app.prob = problem.DefaultProblemService(app.Db, app.RedisSess, app.Minio, app.TestdataBucket)
 	app.redisscan = redisscan.DefaultRedisscan(app.RedisSess, app)
 	app.stats = &stats.Stats{
-		Redis: app.RedisStats,
-		KeyPrefix: "stats:",
+		Redis:           app.RedisStats,
+		KeyPrefix:       "stats:",
 		UpstreamCounter: app.saveCounter,
 	}
 	router := gin.Default()

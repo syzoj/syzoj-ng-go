@@ -1,18 +1,19 @@
 package problem
 
 import (
-	"bytes"
-	"io"
-	"time"
-	"database/sql"
-	"context"
 	"archive/zip"
-	"errors"
+	"bytes"
+	"context"
 	"crypto/sha256"
+	"database/sql"
 	"encoding/hex"
+	"errors"
+	"io"
+	"os"
+	"time"
 
 	"github.com/minio/minio-go"
-	"github.com/beevik/etree"
+	"github.com/syzoj/syzoj-ng-go/lib/xml"
 )
 
 var ErrLimitExceeded = errors.New("Limit exceeded")
@@ -80,14 +81,14 @@ func (s *ProblemService) DeleteTestdata(ctx context.Context, problemId string) e
 // Prepare info for judging, in XML format. The root node will be <Judge>.
 func (s *ProblemService) GetJudgeInfo(ctx context.Context, problemId string) ([]byte, error) {
 	return s.doCache(ctx, problemId, "judge", func() ([]byte, error) {
-		doc, err := s.getProblemXML(ctx, problemId)
+		root, err := s.getProblemXML(ctx, problemId)
 		if err != nil {
 			return nil, err
 		}
-		root := doc.Root()
+		xml.EncodeTo(root, os.Stdout)
 		buf := &bytes.Buffer{}
 		w := new(WarningList) // TODO: The warnings are silently ignored, output them somehow
-		if root != nil && root.Tag == "Problem" {
+		if root != nil && root.Name.Local == "Problem" {
 			judgeNode := root.SelectElement("Judge")
 			if judgeNode != nil {
 				if err := s.processJudgeNode(ctx, problemId, w, judgeNode); err != nil {
@@ -96,7 +97,7 @@ func (s *ProblemService) GetJudgeInfo(ctx context.Context, problemId string) ([]
 			} else {
 				return nil, ErrInvalidData
 			}
-			if _, err := etree.NewDocumentWithRoot(judgeNode).WriteTo(buf); err != nil {
+			if err := xml.EncodeTo(judgeNode, buf); err != nil {
 				panic(err)
 			}
 		} else {
@@ -107,30 +108,30 @@ func (s *ProblemService) GetJudgeInfo(ctx context.Context, problemId string) ([]
 }
 
 // Scans the whole subtree for <File> nodes and append metadata.
-func (s *ProblemService) processJudgeNode(ctx context.Context, problemId string, w Warner, tok etree.Token) error {
+func (s *ProblemService) processJudgeNode(ctx context.Context, problemId string, w Warner, tok xml.Token) error {
 	prefix := "problem/" + problemId + "/testdata/"
 	switch obj := tok.(type) {
-	case *etree.Element:
-		if obj.Tag == "File" {
-			attr := obj.SelectAttr("filename")
-			if attr == nil {
+	case *xml.Element:
+		if obj.Name.Local == "File" {
+			attr := obj.SelectAttrDefault("filename", "")
+			if attr == "" {
 				w.Warningf("File tag without filename attr")
 				goto done
 			}
-			objectName := prefix + attr.Value
+			objectName := prefix + attr
 			const SQLGetSHA256 = "SELECT `sha256` FROM `testdata_meta` WHERE `problem_id` = ? AND `object_name` = ?"
 			var sha256 string
 			err := s.Db.QueryRowContext(ctx, SQLGetSHA256, problemId, objectName).Scan(&sha256)
 			if err != nil {
 				if err == sql.ErrNoRows {
-					w.Warningf("File %s doesn't exist", attr.Value)
+					w.Warningf("File %s doesn't exist", attr)
 				} else {
 					return err
 				}
 			} else {
 				obj.CreateAttr("sha256", sha256)
 			}
-			
+
 			// TODO: hardcoded one hour expiration
 			url, err := s.Minio.PresignedGetObject(s.TestdataBucket, objectName, time.Hour, nil)
 			if err != nil {
@@ -139,7 +140,7 @@ func (s *ProblemService) processJudgeNode(ctx context.Context, problemId string,
 				obj.CreateAttr("url", url.String())
 			}
 		}
-		done:
+	done:
 		for _, child := range obj.Child {
 			if err := s.processJudgeNode(ctx, problemId, w, child); err != nil {
 				return err

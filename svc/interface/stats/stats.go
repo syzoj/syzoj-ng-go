@@ -17,7 +17,7 @@ var log = logrus.StandardLogger()
 
 // The stats service.
 type Stats struct {
-	Redis *lredis.PoolWrapper
+	Redis     *lredis.PoolWrapper
 	KeyPrefix string
 
 	// UpstreamCounter receives aggregated sums and save them.
@@ -27,7 +27,7 @@ type Stats struct {
 // Increases a counter.
 func (s *Stats) Inc(ctx context.Context, key string, num int64) {
 	go func() {
-		_, err := s.Redis.DoContext(ctx, "INCRBY", s.KeyPrefix + "cnt:" + key, num)
+		_, err := s.Redis.DoContext(ctx, "INCRBY", s.KeyPrefix+"cnt:"+key, num)
 		if err != nil {
 			log.WithError(err).Warning("failed to update stats")
 		}

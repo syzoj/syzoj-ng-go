@@ -4,24 +4,24 @@ import (
 	"bytes"
 	"html"
 
-	"github.com/beevik/etree"
-	"gopkg.in/russross/blackfriday.v2"
 	"github.com/microcosm-cc/bluemonday"
+	"github.com/syzoj/syzoj-ng-go/lib/xml"
+	"gopkg.in/russross/blackfriday.v2"
 )
 
-func renderStmt(buf *bytes.Buffer, w Warner, tok etree.Token) {
+func renderStmt(buf *bytes.Buffer, w Warner, tok xml.Token) {
 	switch obj := tok.(type) {
-	case *etree.Element:
+	case *xml.Element:
 		for _, ch := range obj.Child {
 			renderStmtNode(buf, w, ch)
 		}
 	}
 }
 
-func renderStmtNode(buf *bytes.Buffer, w Warner, tok etree.Token) {
+func renderStmtNode(buf *bytes.Buffer, w Warner, tok xml.Token) {
 	switch obj := tok.(type) {
-	case *etree.Element:
-		switch obj.Tag {
+	case *xml.Element:
+		switch obj.Name.Local {
 		case "Title":
 			buf.WriteString("<h1>")
 			renderText(buf, obj)
@@ -43,34 +43,20 @@ func renderStmtNode(buf *bytes.Buffer, w Warner, tok etree.Token) {
 			renderMarkdown(buf, obj)
 		case "Tag":
 		default:
-			w.Warningf("Unrecognized statement tag: %s", obj.Tag)
+			w.Warningf("Unrecognized statement tag: %s", obj.Name.Local)
 		}
 	}
 }
 
 var xssPolicy = bluemonday.UGCPolicy()
+
 // TODO: customize and use latex
-func renderMarkdown(buf *bytes.Buffer, tok etree.Token) {
-	switch obj := tok.(type) {
-	case *etree.CharData:
-		log.Infof("char data: %#v", obj)
-		res := blackfriday.Run([]byte(obj.Data))
-		bytes := xssPolicy.SanitizeBytes(res)
-		buf.Write(bytes)
-	case *etree.Element:
-		for _, child := range obj.Child {
-			renderMarkdown(buf, child)
-		}
-	}
+func renderMarkdown(buf *bytes.Buffer, tok xml.Token) {
+	res := blackfriday.Run(xml.GetCharDataBytes(tok))
+	bytes := xssPolicy.SanitizeBytes(res)
+	buf.Write(bytes)
 }
 
-func renderText(buf *bytes.Buffer, tok etree.Token) {
-	switch obj := tok.(type) {
-	case *etree.CharData:
-		buf.WriteString(html.EscapeString(obj.Data))
-	case *etree.Element:
-		for _, child := range obj.Child {
-			renderText(buf, child)
-		}
-	}
+func renderText(buf *bytes.Buffer, tok xml.Token) {
+	buf.WriteString(html.EscapeString(string(xml.GetCharDataBytes(tok))))
 }

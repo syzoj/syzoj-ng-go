@@ -5,8 +5,8 @@ import (
 	"context"
 	"time"
 
-	"github.com/sirupsen/logrus"
 	"github.com/gomodule/redigo/redis"
+	"github.com/sirupsen/logrus"
 	lredis "github.com/syzoj/syzoj-ng-go/lib/redis"
 )
 
@@ -19,11 +19,11 @@ type Redisscanner interface {
 
 // Represents a Redisscan instance.
 type Redisscan struct {
-	Redis *lredis.PoolWrapper
-	Ratio float64 // how much CPU time to use, must be between 0 and 1
+	Redis     *lredis.PoolWrapper
+	Ratio     float64 // how much CPU time to use, must be between 0 and 1
 	BatchSize int
-	Match string
-	Handler Redisscanner
+	Match     string
+	Handler   Redisscanner
 
 	cursor int64
 }
@@ -31,9 +31,9 @@ type Redisscan struct {
 // Creates a default redisscan instance with provided arguments.
 func DefaultRedisscan(r *lredis.PoolWrapper, handle Redisscanner) *Redisscan {
 	return &Redisscan{
-		Redis: r,
-		Ratio: 0.01,
-		Handler: handle,
+		Redis:     r,
+		Ratio:     0.01,
+		Handler:   handle,
 		BatchSize: 10,
 	}
 }
