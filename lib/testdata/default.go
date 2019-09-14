@@ -24,7 +24,7 @@ func ParseDefault(path string) (*TestdataInfo, error) {
 		}
 	}
 	var cases []defaultTestcase
-	for name, _ := range list {
+	for name := range list {
 		if strings.HasSuffix(name, ".in") {
 			caseName := name[:len(name)-3]
 			var outFile string

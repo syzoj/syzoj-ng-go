@@ -5,8 +5,9 @@ import (
 	"os"
 )
 
-func OpenElastic(name string) (*elasticsearch.Client, error) {
+// Creates an elasticsearch client from environment variables.
+func NewElastic(prefix string) (*elasticsearch.Client, error) {
 	return elasticsearch.NewClient(elasticsearch.Config{
-		Addresses: []string{os.Getenv(name + "_ELASTICSEARCH")},
+		Addresses: []string{os.Getenv(prefix + "ELASTICSEARCH")},
 	})
 }

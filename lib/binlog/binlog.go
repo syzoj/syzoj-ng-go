@@ -99,7 +99,7 @@ func (s *Subscriber) RunPosFile(ctx context.Context, handler EventHandler, posFi
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		for _ = range h.posSema {
+		for range h.posSema {
 			h.m.Lock()
 			curPos := h.pos
 			h.m.Unlock()

@@ -2,26 +2,25 @@ package config
 
 import (
 	"fmt"
+	"net/url"
 	"os"
 	"strconv"
-	"strings"
 
 	"github.com/sirupsen/logrus"
 )
 
 var log = logrus.StandardLogger()
 
+// Get listen port for http server from environment variable HTTP_LISTEN_PORT.
 func GetHttpListenPort() (int, error) {
 	return strconv.Atoi(os.Getenv("HTTP_LISTEN_PORT"))
 }
 
-func GetHttpURL(name string) (string, error) {
-	url := os.Getenv(name + "_HTTP_URL")
-	if strings.HasSuffix(url, "/") {
-		log.Warning(name + "_HTTP_URL" + " should not end with slash")
+// Get URL for http endpoint from environment variable HTTP_URL.
+func GetHttpURL(prefix string) (*url.URL, error) {
+	u := os.Getenv(prefix + "HTTP_URL")
+	if u == "" {
+		return nil, fmt.Errorf("Environment variable %sHTTP_URL not found", prefix)
 	}
-	if url == "" {
-		return "", fmt.Errorf("Environment variable %s_HTTP_URL not found", name)
-	}
-	return url, nil
+	return url.Parse(u)
 }
