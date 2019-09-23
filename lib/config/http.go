@@ -4,16 +4,15 @@ import (
 	"fmt"
 	"net/url"
 	"os"
-	"strconv"
 
 	"github.com/sirupsen/logrus"
 )
 
 var log = logrus.StandardLogger()
 
-// Get listen port for http server from environment variable HTTP_LISTEN_PORT.
-func GetHttpListenPort() (int, error) {
-	return strconv.Atoi(os.Getenv("HTTP_LISTEN_PORT"))
+// Get listen port for http server from environment variable HTTP_LISTEN_ADDR.
+func GetHttpListenAddr() string {
+	return os.Getenv("HTTP_LISTEN_ADDR")
 }
 
 // Get URL for http endpoint from environment variable HTTP_URL.

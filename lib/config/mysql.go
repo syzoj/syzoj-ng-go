@@ -18,6 +18,7 @@ func NewMySQL(prefix string) (*sql.DB, error) {
 	cfg.Passwd = os.Getenv(prefix + "MYSQL_PASSWORD")
 	cfg.DBName = os.Getenv(prefix + "MYSQL_DATABASE")
 	cfg.ClientFoundRows = true // Default to return matched rows instead of changed rows in an UPDATE query since that makes more sense
+	cfg.ParseTime = true
 	return sql.Open("mysql", cfg.FormatDSN())
 }
 
@@ -31,5 +32,6 @@ func NewMySQLx(prefix string) (*sqlx.DB, error) {
 	cfg.Passwd = os.Getenv(prefix + "MYSQL_PASSWORD")
 	cfg.DBName = os.Getenv(prefix + "MYSQL_DATABASE")
 	cfg.ClientFoundRows = true // Default to return matched rows instead of changed rows in an UPDATE query since that makes more sense
+	cfg.ParseTime = true
 	return sqlx.Open("mysql", cfg.FormatDSN())
 }
