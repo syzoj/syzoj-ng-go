@@ -17,4 +17,5 @@ var (
 
 	CORE_QUEUE               = RedisKey{"{core:queue:", "}"}
 	CORE_SUBMISSION_PROGRESS = RedisKey{"{core:submission:", "}:progress"}
+	CORE_SUBMISSION_DATA     = RedisKey{"{core:submission:", "}:data"}
 )

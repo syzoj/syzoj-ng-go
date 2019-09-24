@@ -7,6 +7,7 @@ import (
 	"github.com/syzoj/syzoj-ng-go/lib/config"
 	"github.com/syzoj/syzoj-ng-go/lib/life"
 	"github.com/syzoj/syzoj-ng-go/svc/app"
+	"github.com/syzoj/syzoj-ng-go/svc/judge"
 	srvredis "github.com/syzoj/syzoj-ng-go/svc/redis"
 )
 
@@ -19,8 +20,14 @@ func main() {
 		log.WithError(err).Error("failed to get redis config")
 		return
 	}
+	redisCache, err := config.NewRedis("CACHE_")
+	if err != nil {
+		log.WithError(err).Error("failed to get redis cache config")
+		return
+	}
 	judgeToken := os.Getenv("JUDGE_TOKEN")
 	r := srvredis.DefaultRedisService(redis)
+	rc := srvredis.DefaultRedisService(redisCache)
 	db, err := config.NewMySQL("")
 	if err != nil {
 		log.WithError(err).Error("failed to get mysql config")
@@ -32,13 +39,10 @@ func main() {
 		return
 	}
 	_, _ = r, minio
-	a := &app.App{
-		Db:         db,
-		ListenAddr: listenAddr,
-		JudgeToken: judgeToken,
-		Redis:      r,
+	judgeService := judge.DefaultJudgeService(db, r)
+	a := app.DefaultApp(db, r, rc, listenAddr, judgeService)
+	a.JudgeToken = judgeToken
 		//Minio:          minio,
 		//TestdataBucket: "testdata",
-	}
 	a.Run(life.SignalContext())
 }

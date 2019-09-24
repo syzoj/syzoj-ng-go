@@ -6,7 +6,7 @@ import (
 	"encoding/json"
 
 	"github.com/gin-gonic/gin"
-	"github.com/syzoj/syzoj-ng-go/svc/app/models"
+	"github.com/syzoj/syzoj-ng-go/models"
 	"github.com/volatiletech/sqlboiler/queries/qm"
 )
 

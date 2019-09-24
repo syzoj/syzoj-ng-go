@@ -9,8 +9,9 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/sirupsen/logrus"
-	"github.com/syzoj/syzoj-ng-go/svc/app/models"
+	"github.com/syzoj/syzoj-ng-go/models"
 	svcredis "github.com/syzoj/syzoj-ng-go/svc/redis"
+	"github.com/syzoj/syzoj-ng-go/svc/judge"
 	"github.com/volatiletech/sqlboiler/queries/qm"
 )
 
@@ -21,15 +22,19 @@ const GIN_USER_ID = "USER_ID"
 type App struct {
 	Db         *sql.DB
 	ListenAddr string
-	Redis      *svcredis.RedisService
+	Redis      *svcredis.RedisService // The persistent redis instance. No eviction policies allowed.
+	RedisCache *svcredis.RedisService
+	JudgeService *judge.JudgeService
 	JudgeToken string
 }
 
-func DefaultApp(db *sql.DB, redis *svcredis.RedisService, listenAddr string) *App {
+func DefaultApp(db *sql.DB, redis *svcredis.RedisService, redisCache *svcredis.RedisService, listenAddr string, judgeService *judge.JudgeService) *App {
 	return &App{
 		Db:         db,
 		ListenAddr: listenAddr,
 		Redis:      redis,
+		RedisCache: redisCache,
+		JudgeService: judgeService,
 	}
 }
 
@@ -45,7 +50,7 @@ func (a *App) Run(ctx context.Context) error {
 	router.POST("/api/login", a.postApiLogin)
 	router.GET("/api/problems", a.getApiProblems)
 	router.GET("/api/problem/:problem_id", a.getApiProblem)
-	router.GET("/api/submission-progress/:sid", a.getSubmissionProgress)
+	router.GET("/api/submission-progress/:sid", a.getTaskProgress)
 	jg := router.Group("/judge")
 	jg.Use(a.useCheckJudgeToken)
 	jg.GET("/wait-for-task", a.getJudgeWaitForTask)
