@@ -36,7 +36,7 @@ func main() {
 		Db:         db,
 		ListenAddr: listenAddr,
 		JudgeToken: judgeToken,
-		Redis:          r,
+		Redis:      r,
 		//Minio:          minio,
 		//TestdataBucket: "testdata",
 	}

@@ -1,34 +1,34 @@
 package divine
 
 import (
-	"time"
 	"hash/crc32"
 	"math/rand"
+	"time"
 )
 
 type Divine struct {
 	Fortune string `json:"fortune"`
-	Good []*Item
-	Bad []*Item
+	Good    []*Item
+	Bad     []*Item
 }
 
 type Item struct {
-	Title string `json:"title"`
+	Title  string `json:"title"`
 	Detail string `json:"detail"`
 }
 
 type item struct {
-	Title string
+	Title  string
 	Detail [2]string
 }
 
 var items = []*item{
-	&item{Title: "刷题", Detail: [2]string{"一遍过样例", ""}},
-	&item{Title: "装弱", Detail: [2]string{"我好菜啊", "你太强了"}},
-	&item{Title: "搞x", Detail: [2]string{"爱上学习", "会被掰弯"}},
-	&item{Title: "直播写代码", Detail: [2]string{"月入百万", "CE, RE and T, 身败名裂"}},
-	&item{Title: "学数论", Detail: [2]string{"思维敏捷", "咋看都不会"}},
-	&item{Title: "参加模拟赛", Detail: [2]string{"AK 虐场", "爆零"}},
+	{Title: "刷题", Detail: [2]string{"一遍过样例", ""}},
+	{Title: "装弱", Detail: [2]string{"我好菜啊", "你太强了"}},
+	{Title: "搞x", Detail: [2]string{"爱上学习", "会被掰弯"}},
+	{Title: "直播写代码", Detail: [2]string{"月入百万", "CE, RE and T, 身败名裂"}},
+	{Title: "学数论", Detail: [2]string{"思维敏捷", "咋看都不会"}},
+	{Title: "参加模拟赛", Detail: [2]string{"AK 虐场", "爆零"}},
 }
 
 func DoDivine(name string, sex int) *Divine {
