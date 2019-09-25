@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"regexp"
+	"strconv"
 	"sync"
 	"time"
 
@@ -12,8 +13,12 @@ import (
 	"github.com/gomodule/redigo/redis"
 	"github.com/gorilla/websocket"
 	"github.com/syzoj/syzoj-ng-go/lib/rediskey"
+	"github.com/syzoj/syzoj-ng-go/models"
 	"github.com/syzoj/syzoj-ng-go/svc/judge"
+	svcredis "github.com/syzoj/syzoj-ng-go/svc/redis"
 	"github.com/volatiletech/null"
+	"github.com/volatiletech/sqlboiler/boil"
+	"github.com/volatiletech/sqlboiler/queries/qm"
 )
 
 // # Judge core
@@ -77,6 +82,12 @@ func (a *App) getJudgeWaitForTask(c *gin.Context) {
 		return
 	}
 	defer conn.Close()
+	pipeline, err := a.Redis.NewPipeline(ctx)
+	if err != nil {
+		log.WithError(err).Error("failed to create redis pipeline")
+		return
+	}
+	defer pipeline.Close()
 
 	key := rediskey.CORE_QUEUE.Format("default")
 	judger := c.GetString(GIN_JUDGER)
@@ -99,7 +110,8 @@ func (a *App) getJudgeWaitForTask(c *gin.Context) {
 					log.WithError(err).Error("failed to call GET")
 					return
 				}
-				if _, err := a.Redis.DoContext(ctx, "XADD", rediskey.CORE_SUBMISSION_PROGRESS.Format(sid), "*", "type", "reset"); err != nil {
+				pipeline.Do(a.checkRedis, "XADD", rediskey.CORE_SUBMISSION_PROGRESS.Format(sid), "*", "type", "reset")
+				if err := pipeline.Flush(ctx); err != nil {
 					log.WithError(err).Error("failed to call XADD")
 					return
 				}
@@ -133,10 +145,7 @@ func (a *App) getJudgeWaitForTask(c *gin.Context) {
 			skey := rediskey.CORE_SUBMISSION_PROGRESS.Format(data.Sid)
 			switch data.Type {
 			case "progress":
-				if _, err := a.Redis.DoContext(ctx, "XADD", skey, "*", "type", "progress", "data", []byte(data.Data)); err != nil {
-					log.WithError(err).Error("failed to call XADD")
-					return
-				}
+				pipeline.Do(a.checkRedis, "XADD", skey, "*", "type", "progress", "data", []byte(data.Data))
 			case "finish":
 				res := &judge.Judge{}
 				if err := json.Unmarshal(data.Data, res); err != nil {
@@ -144,20 +153,44 @@ func (a *App) getJudgeWaitForTask(c *gin.Context) {
 					return
 				}
 				if res.Type == null.IntFrom(4) {
+					// Save submission result
+					sum := judge.GetSummary(res)
+					subm, err := models.JudgeStates(qm.Where("task_id=?", data.Sid)).One(ctx, a.Db)
+					if err != nil {
+						log.WithError(err).Error("failed to query db")
+						return
+					}
+					subm.Score = null.IntFrom(int(sum.Score.Float64))
+					subm.Pending = null.Int8From(0)
+					subm.Status = null.StringFrom(sum.Status)
+					subm.TotalTime = null.IntFrom(int(sum.Time.Float64))
+					subm.MaxMemory = null.IntFrom(int(sum.Memory.Float64))
+					progBytes, err := json.Marshal(res.Progress)
+					if err != nil {
+						panic(err)
+					}
+					subm.Result = null.StringFrom(string(progBytes))
+					if _, err := subm.Update(ctx, a.Db, boil.Blacklist()); err != nil {
+						log.WithError(err).Error("failed to update db")
+						return
+					}
+					pipeline.Do(a.checkRedis, "SET", rediskey.CORE_SUBMISSION_RESULT.Format(data.Sid), data.Data)
+					if err := pipeline.Flush(ctx); err != nil {
+						log.WithError(err).Error("failed to send redis")
+						return
+					}
 					if err := a.JudgeService.SaveTask(ctx, data.Sid, res); err != nil {
 						log.WithField("sid", data.Sid).WithError(err).Error("failed to save submission")
 						return
 					}
-					if _, err := a.Redis.DoContext(ctx, "XADD", skey, "*", "type", "done"); err != nil {
-						log.WithError(err).Error("failed to call XADD")
+					pipeline.Do(a.checkRedis, "XADD", skey, "*", "type", "done")
+					var res svcredis.RedisResult
+					pipeline.Do(res.Save, "XACK", key, "judger", data.Id)
+					if err := pipeline.Flush(ctx); err != nil {
+						log.WithError(err).Error("failed to flush to Redis")
 						return
 					}
-					// Keep submission progress for 24 hours
-					if _, err := a.Redis.DoContext(ctx, "EXPIRE", skey, 60 * 60 * 24); err != nil {
-						log.WithError(err).Error("failed to call EXPIRE")
-						return
-					}
-					n, err := redis.Int64(a.Redis.DoContext(ctx, "XACK", key, "judger", data.Id))
+					n, err := redis.Int64(res.Result, res.Err)
 					if err != nil {
 						log.WithError(err).Error("failed to call XACK")
 						return
@@ -175,7 +208,6 @@ func (a *App) getJudgeWaitForTask(c *gin.Context) {
 	}()
 	wg.Wait()
 }
-
 
 func (a *App) getTaskProgress(c *gin.Context) {
 	ctx, cancel := context.WithCancel(c.Request.Context())
@@ -209,6 +241,69 @@ func (a *App) getTaskProgress(c *gin.Context) {
 		case <-ping.C:
 			c.Render(-1, sse.Event{Event: "ping"})
 			c.Writer.Flush()
+		}
+	}
+}
+
+// Handle judge done events and update stats.
+func (a *App) handleJudgeDone(ctx context.Context) error {
+	pipe, err := a.Redis.NewPipeline(ctx)
+	if err != nil {
+		return err
+	}
+	pipe.Do(nil, "XGROUP", "CREATE", rediskey.MAIN_JUDGE_DONE, "main", "$", "MKSTREAM")
+	if err := pipe.Flush(ctx); err != nil {
+		return err
+	}
+	sema := make(chan struct{}, 1)
+	sema <- struct{}{}
+	chMsg, chErr := a.Redis.ReadStreamGroup(ctx, rediskey.MAIN_JUDGE_DONE, "main", "main", sema)
+	go func() {
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case <-time.After(time.Second):
+				pipe.Do(nil, "PING")
+				if err := pipe.Flush(ctx); err != nil {
+					log.WithError(err).Error("failed to flush to redis")
+					return
+				}
+			}
+		}
+	}()
+	for {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case err := <-chErr:
+			return err
+		case msg := <-chMsg:
+			sid := msg.Data["sid"]
+			if sid == "" {
+				log.WithField("id", msg.ID).Error("judge done stream: missing sid field")
+				continue
+			}
+			subm, err := models.JudgeStates(qm.Where("task_id=?", sid)).One(ctx, a.Db)
+			if err != nil {
+				log.WithField("sid", sid).Error("judge done stream: failed to get submission")
+				continue
+			}
+			if subm.ProblemID.Valid {
+				pid := strconv.Itoa(subm.ProblemID.Int)
+				pipe.Do(a.checkRedis, "INCR", rediskey.MAIN_PROBLEM_SUBMITS.Format(pid))
+				if subm.Status == null.StringFrom("Accepted") {
+					pipe.Do(a.checkRedis, "INCR", rediskey.MAIN_PROBLEM_ACCEPTS.Format(pid))
+				}
+				if subm.UserID.Valid {
+					uid := strconv.Itoa(subm.UserID.Int)
+					pipe.Do(a.checkRedis, "HSET", rediskey.MAIN_USER_LAST_SUBMISSION.Format(uid), pid, sid)
+					if subm.Status == null.StringFrom("Accepted") {
+						pipe.Do(a.checkRedis, "HSET", rediskey.MAIN_USER_LAST_ACCEPT.Format(uid), pid, sid)
+					}
+				}
+			}
+			pipe.Do(a.checkRedis, "XACK", rediskey.MAIN_JUDGE_DONE, "main", msg.ID)
 		}
 	}
 }

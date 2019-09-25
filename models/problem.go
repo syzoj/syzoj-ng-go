@@ -45,6 +45,7 @@ type Problem struct {
 	FileIoOutputName null.String `boil:"file_io_output_name" json:"file_io_output_name,omitempty" toml:"file_io_output_name" yaml:"file_io_output_name,omitempty"`
 	PublicizeTime    null.Time   `boil:"publicize_time" json:"publicize_time,omitempty" toml:"publicize_time" yaml:"publicize_time,omitempty"`
 	Type             null.String `boil:"type" json:"type,omitempty" toml:"type" yaml:"type,omitempty"`
+	Tags             null.String `boil:"tags" json:"tags,omitempty" toml:"tags" yaml:"tags,omitempty"`
 
 	R *problemR `boil:"-" json:"-" toml:"-" yaml:"-"`
 	L problemL  `boil:"-" json:"-" toml:"-" yaml:"-"`
@@ -72,6 +73,7 @@ var ProblemColumns = struct {
 	FileIoOutputName string
 	PublicizeTime    string
 	Type             string
+	Tags             string
 }{
 	ID:               "id",
 	Title:            "title",
@@ -94,6 +96,7 @@ var ProblemColumns = struct {
 	FileIoOutputName: "file_io_output_name",
 	PublicizeTime:    "publicize_time",
 	Type:             "type",
+	Tags:             "tags",
 }
 
 // Generated where
@@ -143,6 +146,7 @@ var ProblemWhere = struct {
 	FileIoOutputName whereHelpernull_String
 	PublicizeTime    whereHelpernull_Time
 	Type             whereHelpernull_String
+	Tags             whereHelpernull_String
 }{
 	ID:               whereHelperint{field: "`problem`.`id`"},
 	Title:            whereHelpernull_String{field: "`problem`.`title`"},
@@ -165,6 +169,7 @@ var ProblemWhere = struct {
 	FileIoOutputName: whereHelpernull_String{field: "`problem`.`file_io_output_name`"},
 	PublicizeTime:    whereHelpernull_Time{field: "`problem`.`publicize_time`"},
 	Type:             whereHelpernull_String{field: "`problem`.`type`"},
+	Tags:             whereHelpernull_String{field: "`problem`.`tags`"},
 }
 
 // ProblemRels is where relationship names are stored.
@@ -184,8 +189,8 @@ func (*problemR) NewStruct() *problemR {
 type problemL struct{}
 
 var (
-	problemAllColumns            = []string{"id", "title", "user_id", "publicizer_id", "is_anonymous", "description", "input_format", "output_format", "example", "limit_and_hint", "time_limit", "memory_limit", "additional_file_id", "ac_num", "submit_num", "is_public", "file_io", "file_io_input_name", "file_io_output_name", "publicize_time", "type"}
-	problemColumnsWithoutDefault = []string{"title", "user_id", "publicizer_id", "is_anonymous", "description", "input_format", "output_format", "example", "limit_and_hint", "time_limit", "memory_limit", "additional_file_id", "ac_num", "submit_num", "is_public", "file_io", "file_io_input_name", "file_io_output_name", "publicize_time"}
+	problemAllColumns            = []string{"id", "title", "user_id", "publicizer_id", "is_anonymous", "description", "input_format", "output_format", "example", "limit_and_hint", "time_limit", "memory_limit", "additional_file_id", "ac_num", "submit_num", "is_public", "file_io", "file_io_input_name", "file_io_output_name", "publicize_time", "type", "tags"}
+	problemColumnsWithoutDefault = []string{"title", "user_id", "publicizer_id", "is_anonymous", "description", "input_format", "output_format", "example", "limit_and_hint", "time_limit", "memory_limit", "additional_file_id", "ac_num", "submit_num", "is_public", "file_io", "file_io_input_name", "file_io_output_name", "publicize_time", "tags"}
 	problemColumnsWithDefault    = []string{"id", "type"}
 	problemPrimaryKeyColumns     = []string{"id"}
 )

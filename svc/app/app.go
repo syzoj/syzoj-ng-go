@@ -6,12 +6,13 @@ import (
 	"database/sql"
 	"encoding/json"
 	"net/http"
+	"sync"
 
 	"github.com/gin-gonic/gin"
 	"github.com/sirupsen/logrus"
 	"github.com/syzoj/syzoj-ng-go/models"
-	svcredis "github.com/syzoj/syzoj-ng-go/svc/redis"
 	"github.com/syzoj/syzoj-ng-go/svc/judge"
+	svcredis "github.com/syzoj/syzoj-ng-go/svc/redis"
 	"github.com/volatiletech/sqlboiler/queries/qm"
 )
 
@@ -20,26 +21,29 @@ var log = logrus.StandardLogger()
 const GIN_USER_ID = "USER_ID"
 
 type App struct {
-	Db         *sql.DB
-	ListenAddr string
-	Redis      *svcredis.RedisService // The persistent redis instance. No eviction policies allowed.
-	RedisCache *svcredis.RedisService
+	Db           *sql.DB
+	ListenAddr   string
+	Redis        *svcredis.RedisService // The persistent redis instance. No eviction policies allowed.
+	RedisCache   *svcredis.RedisService
 	JudgeService *judge.JudgeService
-	JudgeToken string
+	JudgeToken   string
 }
 
 func DefaultApp(db *sql.DB, redis *svcredis.RedisService, redisCache *svcredis.RedisService, listenAddr string, judgeService *judge.JudgeService) *App {
 	return &App{
-		Db:         db,
-		ListenAddr: listenAddr,
-		Redis:      redis,
-		RedisCache: redisCache,
+		Db:           db,
+		ListenAddr:   listenAddr,
+		Redis:        redis,
+		RedisCache:   redisCache,
 		JudgeService: judgeService,
 	}
 }
 
 func (a *App) Run(ctx context.Context) error {
+	var wg sync.WaitGroup
+	wg.Add(1)
 	go func() {
+		defer wg.Done()
 		if err := a.ensureQueue(ctx, "default"); err != nil {
 			log.WithError(err).Error("failed to create default queue")
 		}
@@ -55,11 +59,27 @@ func (a *App) Run(ctx context.Context) error {
 	jg.Use(a.useCheckJudgeToken)
 	jg.GET("/wait-for-task", a.getJudgeWaitForTask)
 	server := &http.Server{Addr: a.ListenAddr, Handler: router}
+	wg.Add(1)
 	go func() {
+		defer wg.Done()
 		<-ctx.Done()
 		server.Close()
 	}()
-	return server.ListenAndServe()
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		if err := server.ListenAndServe(); err != nil {
+			log.WithError(err).Error("failed to listen and serve")
+		}
+	}()
+	go func() {
+		defer wg.Done()
+		if err := a.handleJudgeDone(ctx); err != nil {
+			log.WithError(err).Error("failed to handle judge done")
+		}
+	}()
+	wg.Wait()
+	return nil
 }
 
 func (a *App) UserMiddleware(c *gin.Context) {

@@ -1,12 +1,15 @@
 package app
 
 import (
+	"bytes"
 	"database/sql"
+	"encoding/json"
 	"strconv"
-	"strings"
 
 	"github.com/gin-gonic/gin"
+	"github.com/gomodule/redigo/redis"
 	"github.com/microcosm-cc/bluemonday"
+	"github.com/syzoj/syzoj-ng-go/lib/rediskey"
 	"github.com/syzoj/syzoj-ng-go/models"
 	"github.com/volatiletech/null"
 	"github.com/volatiletech/sqlboiler/queries/qm"
@@ -15,57 +18,91 @@ import (
 
 type GetProblemsResponse struct {
 	Problems []*GetProblemsResponseProblem
-	Sqlcnt   int
 }
 
 type GetProblemsResponseProblem struct {
-	Title null.String `json:"title"`
-	Tags  []string    `json:"tags"`
+	Id         string      `json:"id"`
+	Title      null.String `json:"title"`
+	Tags       []string    `json:"tags"`
+	SubmitNum  int64       `json:"submit_num"`
+	AcceptNum  int64       `json:"accept_num"`
+	LastSubmit null.String `json:"last_submit"`
+	LastAccept null.String `json:"last_accept"`
 }
 
 func (a *App) getApiProblems(c *gin.Context) {
 	ctx := c.Request.Context()
-	sqlcnt := 0
 	resp := &GetProblemsResponse{Problems: []*GetProblemsResponseProblem{}}
-	/*
-		problems, err := models.Problems(qm.Where("is_public=1"), qm.OrderBy("id ASC"), qm.Limit(50)).All(ctx, a.Db)
-		sqlcnt++
-		if err != nil {
-			c.AbortWithError(500, err)
-			return
-		}
-		for _, problem := range problems {
-			prob := &GetProblemsResponseProblem{Tags: []string{}}
-			prob.Title = problem.Title
-			tagids, err := models.ProblemTagMaps(qm.Select("tag_id"), qm.Where("problem_id=?", problem.ID)).All(ctx, a.Db)
-			sqlcnt++
-			if err != nil {
-				log.WithError(err).Error("failed to execute SQL")
-				continue
-			}
-			for _, tagid := range tagids {
-				tag, err := models.ProblemTags(qm.Select("name", "color"), qm.Where("id=?", tagid.TagID)).One(ctx, a.Db)
-				if err != nil {
-					log.WithError(err).Error("failed to execute SQL")
-					continue
-				}
-				if tag.Name.Valid {
-					prob.Tags = append(prob.Tags, tag.Name.String)
-				}
-				sqlcnt++
-			}
-			resp.Problems = append(resp.Problems, prob)
-		}
-	*/
-	aa, err := models.Problems(qm.OrderBy("id ASC")).All(ctx, a.Db)
-	bb, err := models.ProblemTagMaps(qm.Select("tag_id")).All(ctx, a.Db)
-	cc, err := models.ProblemTags(qm.Select("name", "color")).All(ctx, a.Db)
+	problems, err := models.Problems(qm.Where("is_public=1"), qm.OrderBy("id ASC")).All(ctx, a.Db)
 	if err != nil {
 		c.AbortWithError(500, err)
 		return
 	}
-	sqlcnt = len(aa) + len(bb) + len(cc)
-	resp.Sqlcnt = sqlcnt
+	pipeline, err := a.Redis.NewPipeline(ctx)
+	if err != nil {
+		c.AbortWithError(500, err)
+		return
+	}
+	defer pipeline.Close()
+	userIdInt := c.GetInt(GIN_USER_ID)
+	var userId string
+	if userIdInt != 0 {
+		userId = strconv.Itoa(userIdInt)
+	}
+	for _, problem := range problems {
+		prob := &GetProblemsResponseProblem{Tags: []string{}}
+		prob.Title = problem.Title
+		if problem.Tags.Valid {
+			json.Unmarshal([]byte(problem.Tags.String), &prob.Tags)
+		}
+		resp.Problems = append(resp.Problems, prob)
+		probId := strconv.Itoa(problem.ID)
+		prob.Id = probId
+		pipeline.Do(func(data interface{}, err error) {
+			num, err := redis.Int64(data, err)
+			if err != nil {
+				log.WithField("problem_id", probId).WithError(err).Error("failed to get problem submit count")
+				return
+			}
+			prob.SubmitNum = num
+		}, "GET", rediskey.MAIN_PROBLEM_SUBMITS.Format(probId))
+		pipeline.Do(func(data interface{}, err error) {
+			num, err := redis.Int64(data, err)
+			if err != nil {
+				log.WithField("problem_id", probId).WithError(err).Error("failed to get problem submit count")
+				return
+			}
+			prob.AcceptNum = num
+		}, "GET", rediskey.MAIN_PROBLEM_ACCEPTS.Format(probId))
+		if userId != "" {
+			pipeline.Do(func(data interface{}, err error) {
+				sid, err := redis.String(data, err)
+				if err == redis.ErrNil {
+					return
+				}
+				if err != nil {
+					log.WithField("user_id", userId).WithError(err).Error("failed to get user last submission")
+					return
+				}
+				prob.LastSubmit = null.StringFrom(sid)
+			}, "HGET", rediskey.MAIN_USER_LAST_SUBMISSION.Format(userId), probId)
+			pipeline.Do(func(data interface{}, err error) {
+				sid, err := redis.String(data, err)
+				if err == redis.ErrNil {
+					return
+				}
+				if err != nil {
+					log.WithField("user_id", userId).WithError(err).Error("failed to get user last submission")
+					return
+				}
+				prob.LastAccept = null.StringFrom(sid)
+			}, "HGET", rediskey.MAIN_USER_LAST_ACCEPT.Format(userId), probId)
+		}
+	}
+	if err := pipeline.Flush(ctx); err != nil {
+		c.AbortWithError(500, err)
+		return
+	}
 	c.JSON(200, resp)
 }
 
@@ -96,28 +133,24 @@ func (a *App) getApiProblem(c *gin.Context) {
 		return
 	}
 
-	body := &strings.Builder{}
+	body := &bytes.Buffer{}
 	resp := &GetProblemResponse{}
 	resp.Title = problem.Title.String
 	if problem.Description.String != "" {
-		parseMarkdown(body, "# 题目描述\n\n"+problem.Description.String)
+		body.WriteString("# 题目描述\n\n" + problem.Description.String)
 	}
 	if problem.InputFormat.String != "" {
-		parseMarkdown(body, "# 输入格式\n\n"+problem.InputFormat.String)
+		body.WriteString("# 输入格式\n\n" + problem.InputFormat.String)
 	}
 	if problem.OutputFormat.String != "" {
-		parseMarkdown(body, "# 输出格式\n\n"+problem.OutputFormat.String)
+		body.WriteString("# 输出格式\n\n" + problem.OutputFormat.String)
 	}
 	if problem.Example.String != "" {
-		parseMarkdown(body, "# 样例\n\n"+problem.Example.String)
+		body.WriteString("# 样例\n\n" + problem.Example.String)
 	}
 	if problem.LimitAndHint.String != "" {
-		parseMarkdown(body, "# 数据范围与提示\n\n"+problem.LimitAndHint.String)
+		body.WriteString("# 数据范围与提示\n\n" + problem.LimitAndHint.String)
 	}
-	resp.Body = body.String()
+	resp.Body = string(bluemonday.UGCPolicy().SanitizeBytes(blackfriday.Run(body.Bytes())))
 	c.JSON(200, resp)
-}
-
-func parseMarkdown(builder *strings.Builder, body string) {
-	builder.Write(bluemonday.UGCPolicy().SanitizeBytes(blackfriday.Run([]byte(body))))
 }

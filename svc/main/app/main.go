@@ -42,7 +42,7 @@ func main() {
 	judgeService := judge.DefaultJudgeService(db, r)
 	a := app.DefaultApp(db, r, rc, listenAddr, judgeService)
 	a.JudgeToken = judgeToken
-		//Minio:          minio,
-		//TestdataBucket: "testdata",
+	//Minio:          minio,
+	//TestdataBucket: "testdata",
 	a.Run(life.SignalContext())
 }

@@ -3,26 +3,25 @@ package judge
 
 import (
 	"context"
-	"encoding/json"
 	"database/sql"
+	"time"
 
+	"github.com/gomodule/redigo/redis"
 	"github.com/sirupsen/logrus"
-	svcredis "github.com/syzoj/syzoj-ng-go/svc/redis"
 	"github.com/syzoj/syzoj-ng-go/lib/rediskey"
-	"github.com/syzoj/syzoj-ng-go/models"
-	"github.com/volatiletech/sqlboiler/boil"
-	"github.com/volatiletech/sqlboiler/queries/qm"
+	svcredis "github.com/syzoj/syzoj-ng-go/svc/redis"
 	"github.com/volatiletech/null"
 )
+
 var log = logrus.StandardLogger()
 
 type JudgeService struct {
-	Db *sql.DB
+	Db    *sql.DB
 	Redis *svcredis.RedisService
 }
 
 func DefaultJudgeService(db *sql.DB, r *svcredis.RedisService) *JudgeService {
-	return &JudgeService{Db: db,Redis: r}
+	return &JudgeService{Db: db, Redis: r}
 }
 
 func (s *JudgeService) Run(ctx context.Context) error {
@@ -89,6 +88,7 @@ type SubmissionResult struct {
 	Memory       null.Float64 `json:"memory,omitempty"`
 	Result       null.String  `json:"result,omitempty"`
 }
+
 var statusString = map[int]string{
 	1:  "Accepted",
 	2:  "Wrong Answer",
@@ -103,10 +103,17 @@ var statusString = map[int]string{
 }
 
 // TODO: updateRelatedInfo
-func (s *JudgeService) SaveTask(ctx context.Context, sid string, res *Judge) error {
+type SubmissionResultSummary struct {
+	Status string
+	Time   null.Float64
+	Memory null.Float64
+	Score  null.Float64
+}
+
+func GetSummary(res *Judge) *SubmissionResultSummary {
 	var (
 		status string
-		time   null.Float64
+		rtime  null.Float64
 		memory null.Float64
 		score  null.Float64
 	)
@@ -121,7 +128,7 @@ func (s *JudgeService) SaveTask(ctx context.Context, sid string, res *Judge) err
 			status = "System Error"
 		}
 	} else if prog.Judge != nil && prog.Judge.Subtasks != nil {
-		time = null.Float64From(0)
+		rtime = null.Float64From(0)
 		memory = null.Float64From(0)
 		for _, subtask := range prog.Judge.Subtasks {
 			if subtask == nil {
@@ -129,7 +136,7 @@ func (s *JudgeService) SaveTask(ctx context.Context, sid string, res *Judge) err
 			}
 			for _, c := range subtask.Cases {
 				if c.Result != nil {
-					time.Float64 += c.Result.Time.Float64
+					rtime.Float64 += c.Result.Time.Float64
 					if c.Result.Memory.Valid && memory.Float64 < c.Result.Memory.Float64 {
 						memory.Float64 = c.Result.Memory.Float64
 					}
@@ -145,25 +152,37 @@ func (s *JudgeService) SaveTask(ctx context.Context, sid string, res *Judge) err
 		}
 	} else {
 		status = "System Error"
-		log.Infof("no subtasks system error: %#v", prog)
 	}
-	subm, err := models.JudgeStates(qm.Where("task_id=?", sid)).One(ctx, s.Db)
-	if err != nil {
-		return err
+	return &SubmissionResultSummary{
+		Status: status,
+		Time:   rtime,
+		Memory: memory,
+		Score:  score,
 	}
-	subm.Score = null.IntFrom(int(score.Float64))
-	subm.Pending = null.Int8From(0)
-	subm.Status = null.StringFrom(status)
-	subm.TotalTime = null.IntFrom(int(time.Float64))
-	subm.MaxMemory = null.IntFrom(int(memory.Float64))
-	progBytes, err := json.Marshal(prog)
-	if err != nil {
-		return err
-	}
-	subm.Result = null.StringFrom(string(progBytes))
-	if _, err := subm.Update(ctx, s.Db, boil.Blacklist()); err != nil {
-		return err
-	}
-	return nil
 }
 
+func (s *JudgeService) SaveTask(ctx context.Context, sid string, res *Judge) error {
+
+	// Notify callbacks
+	keys, err := redis.Values(s.Redis.DoContext(ctx, "SMEMBERS", rediskey.CORE_SUBMISSION_CALLBACK.Format(sid)))
+	if err != nil {
+		return err
+	}
+	pipe, err := s.Redis.NewPipeline(ctx)
+	if err != nil {
+		return err
+	}
+	defer pipe.Close()
+	for _, key := range keys {
+		s, err := redis.String(key, nil)
+		if err != nil {
+			return err
+		}
+		pipe.Do(nil, "XADD", s, "*", "sid", sid)
+	}
+	// Make submission expire
+	pipe.Do(nil, "EXPIRE", rediskey.CORE_SUBMISSION_PROGRESS.Format(sid), int64(rediskey.DEFAULT_EXPIRE/time.Second))
+	pipe.Do(nil, "EXPIRE", rediskey.CORE_SUBMISSION_DATA.Format(sid), int64(rediskey.DEFAULT_EXPIRE/time.Second))
+	pipe.Do(nil, "EXPIRE", rediskey.CORE_SUBMISSION_CALLBACK.Format(sid), int64(rediskey.DEFAULT_EXPIRE/time.Second))
+	return pipe.Flush(ctx)
+}

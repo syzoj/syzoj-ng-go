@@ -568,7 +568,7 @@ func testProblemsSelect(t *testing.T) {
 }
 
 var (
-	problemDBTypes = map[string]string{`ID`: `int`, `Title`: `varchar`, `UserID`: `int`, `PublicizerID`: `int`, `IsAnonymous`: `tinyint`, `Description`: `text`, `InputFormat`: `text`, `OutputFormat`: `text`, `Example`: `text`, `LimitAndHint`: `text`, `TimeLimit`: `int`, `MemoryLimit`: `int`, `AdditionalFileID`: `int`, `AcNum`: `int`, `SubmitNum`: `int`, `IsPublic`: `tinyint`, `FileIo`: `tinyint`, `FileIoInputName`: `text`, `FileIoOutputName`: `text`, `PublicizeTime`: `datetime`, `Type`: `enum('traditional','submit-answer','interaction')`}
+	problemDBTypes = map[string]string{`ID`: `int`, `Title`: `varchar`, `UserID`: `int`, `PublicizerID`: `int`, `IsAnonymous`: `tinyint`, `Description`: `text`, `InputFormat`: `text`, `OutputFormat`: `text`, `Example`: `text`, `LimitAndHint`: `text`, `TimeLimit`: `int`, `MemoryLimit`: `int`, `AdditionalFileID`: `int`, `AcNum`: `int`, `SubmitNum`: `int`, `IsPublic`: `tinyint`, `FileIo`: `tinyint`, `FileIoInputName`: `text`, `FileIoOutputName`: `text`, `PublicizeTime`: `datetime`, `Type`: `enum('traditional','submit-answer','interaction')`, `Tags`: `longtext`}
 	_              = bytes.MinRead
 )
 
