@@ -183,6 +183,7 @@ func (s *JudgeService) SaveTask(ctx context.Context, sid string, res *Judge) err
 	// Make submission expire
 	pipe.Do(nil, "EXPIRE", rediskey.CORE_SUBMISSION_PROGRESS.Format(sid), int64(rediskey.DEFAULT_EXPIRE/time.Second))
 	pipe.Do(nil, "EXPIRE", rediskey.CORE_SUBMISSION_DATA.Format(sid), int64(rediskey.DEFAULT_EXPIRE/time.Second))
+	pipe.Do(nil, "EXPIRE", rediskey.CORE_SUBMISSION_RESULT.Format(sid), int64(rediskey.DEFAULT_EXPIRE/time.Second))
 	pipe.Do(nil, "EXPIRE", rediskey.CORE_SUBMISSION_CALLBACK.Format(sid), int64(rediskey.DEFAULT_EXPIRE/time.Second))
 	return pipe.Flush(ctx)
 }

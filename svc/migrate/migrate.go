@@ -87,7 +87,7 @@ func (m *MigrateService) MigrateProblemCounter(ctx context.Context) error {
 
 func (m *MigrateService) MigrateUserSubmissions(ctx context.Context) error {
 	log.Info("Migrating user submissions")
-	query, err := models.JudgeStates(qm.OrderBy("submit_time")).QueryContext(ctx, m.Db)
+	query, err := models.JudgeStates(qm.Select("status", "user_id", "problem_id"), qm.OrderBy("submit_time")).QueryContext(ctx, m.Db)
 	if err != nil {
 		return err
 	}

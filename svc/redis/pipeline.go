@@ -44,7 +44,7 @@ func (p *Pipeline) Flush(ctx context.Context) error {
 		return err
 	}
 	p.mu.Unlock()
-	ch := make(chan error)
+	ch := make(chan error, 1)
 	p.ch <- ch
 	select {
 	case <-ctx.Done():

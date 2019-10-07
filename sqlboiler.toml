@@ -1,0 +1,7 @@
+[mysql]
+  dbname = "syzoj"
+  host = "172.21.0.11"
+  port = "3306"
+  user = "root"
+  pass = "123456"
+  sslmode = "false"
