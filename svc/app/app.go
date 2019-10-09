@@ -55,6 +55,7 @@ func (a *App) Run(ctx context.Context) error {
 	router.GET("/api/problems", a.getApiProblems)
 	router.GET("/api/problem/:problem_id", a.getApiProblem)
 	router.GET("/api/submission-progress/:sid", a.getTaskProgress)
+	router.GET("/api/header", a.getHeader)
 	jg := router.Group("/judge")
 	jg.Use(a.useCheckJudgeToken)
 	jg.GET("/wait-for-task", a.getJudgeWaitForTask)

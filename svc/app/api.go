@@ -10,6 +10,29 @@ import (
 	"github.com/volatiletech/sqlboiler/queries/qm"
 )
 
+type HeaderResponse struct {
+	User *models.User `json:"user"`
+}
+
+func (a *App) getHeader(c *gin.Context) {
+	ctx := c.Request.Context()
+	resp := &HeaderResponse{}
+	userId := c.GetInt(GIN_USER_ID)
+	if userId != 0 {
+		user, err := models.Users(qm.Select("username", "is_admin"), qm.Where("id=?", userId)).One(ctx, a.Db)
+		if err != nil {
+			c.Error(err)
+			goto label1
+		}
+		resp.User = &models.User{
+			Username: user.Username,
+			IsAdmin:  user.IsAdmin,
+		}
+	}
+label1:
+	c.JSON(200, resp)
+}
+
 type LoginRequest struct {
 	UserName string `json:"username" form:"username"`
 	Password string `json:"password" form:"password"`

@@ -1,5 +1,4 @@
 // redis wraps around github.com/gomodule/redigo/redis to provide convenience functions.
-// lib/redis contains utility functions for easier interaction with github.com/gomodule/redigo/redis
 package redis
 
 import (
