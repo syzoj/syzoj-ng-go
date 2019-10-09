@@ -11,6 +11,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/sirupsen/logrus"
 	"github.com/syzoj/syzoj-ng-go/models"
+	"github.com/syzoj/syzoj-ng-go/svc/email"
 	"github.com/syzoj/syzoj-ng-go/svc/judge"
 	svcredis "github.com/syzoj/syzoj-ng-go/svc/redis"
 	"github.com/volatiletech/sqlboiler/queries/qm"
@@ -26,6 +27,7 @@ type App struct {
 	Redis        *svcredis.RedisService // The persistent redis instance. No eviction policies allowed.
 	RedisCache   *svcredis.RedisService
 	JudgeService *judge.JudgeService
+	EmailService *email.EmailService // optional
 	JudgeToken   string
 }
 
@@ -52,6 +54,7 @@ func (a *App) Run(ctx context.Context) error {
 	router.Use(a.UserMiddleware)
 	router.GET("/api/index", a.getApiIndex)
 	router.POST("/api/login", a.postApiLogin)
+	router.POST("/api/forget", a.postApiForget)
 	router.GET("/api/problems", a.getApiProblems)
 	router.GET("/api/problem/:problem_id", a.getApiProblem)
 	router.GET("/api/submission-progress/:sid", a.getTaskProgress)

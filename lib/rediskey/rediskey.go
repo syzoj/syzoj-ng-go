@@ -1,19 +1,28 @@
 package rediskey
 
 import (
+	"strings"
 	"time"
 )
 
-// A Redis key template consists of a prefix and a suffix.
-type RedisKey [2]string
+type RedisKey []string
 
-func (k RedisKey) Format(s string) string {
-	for i := 0; i < len(s); i++ {
-		if s[i] == ':' || s[i] == '{' || s[i] == '}' {
-			panic("RedisKey: Format: key contains ':', '{', or '}'")
-		}
+func (k RedisKey) Format(s ...string) string {
+	if len(s) != len(k)-1 {
+		panic("RedisKey: Format: wrong number of arguments")
 	}
-	return k[0] + s + k[1]
+	b := &strings.Builder{}
+	b.WriteString(k[0])
+	for i, v := range s {
+		for j := 0; j < len(v); j++ {
+			if v[j] == ':' || v[j] == '{' || v[j] == '}' {
+				panic("RedisKey: Format: key contains ':', '{', or '}'")
+			}
+		}
+		b.WriteString(v)
+		b.WriteString(k[i+1])
+	}
+	return b.String()
 }
 
 var (
@@ -25,11 +34,13 @@ var (
 	CORE_SUBMISSION_CALLBACK = RedisKey{"{core:submission:", "}:callback"}
 	CORE_SUBMISSION_RESULT   = RedisKey{"{core:submission:", "}:result"}
 
-	MAIN_PROBLEM_SUBMITS      = RedisKey{"{main:problem:", "}:submits"}
-	MAIN_PROBLEM_ACCEPTS      = RedisKey{"{main:problem:", "}:accepts"}
-	MAIN_USER_LAST_SUBMISSION = RedisKey{"{main:user:", "}:last_submit"}
-	MAIN_USER_LAST_ACCEPT     = RedisKey{"{main:user:", "}:last_accept"}
-	MAIN_JUDGE_DONE           = "{main:judge_done}"
+	MAIN_PROBLEM_SUBMITS                 = RedisKey{"{main:problem:", "}:submits"}
+	MAIN_PROBLEM_ACCEPTS                 = RedisKey{"{main:problem:", "}:accepts"}
+	MAIN_USER_LAST_SUBMISSION            = RedisKey{"{main:user:", "}:last_submit"}
+	MAIN_USER_LAST_ACCEPT                = RedisKey{"{main:user:", "}:last_accept"}
+	MAIN_JUDGE_DONE                      = "{main:judge_done}"
+	MAIN_EMAIL_PASSWORD_RECOVERY_RATELIM = RedisKey{"{main:email:", "}:password_recovery_ratelim"}
+	MAIN_EMAIL_PASSWORD_RECOVERY_TOKEN   = RedisKey{"{main:email:", "}:password_recovery_token:", ""}
 )
 
 // Default expiry time for keys that are no longer active.

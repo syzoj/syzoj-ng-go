@@ -17,6 +17,7 @@ var funcs = map[string]func(*migrate.MigrateService, context.Context) error{
 	"problem-tags":     (*migrate.MigrateService).MigrateProblemTags,
 	"problem-counter":  (*migrate.MigrateService).MigrateProblemCounter,
 	"user-submissions": (*migrate.MigrateService).MigrateUserSubmissions,
+	"user-email":       (*migrate.MigrateService).MigrateUserEmail,
 }
 
 func main() {

@@ -13,7 +13,7 @@ import (
 	"github.com/syzoj/syzoj-ng-go/models"
 	"github.com/volatiletech/null"
 	"github.com/volatiletech/sqlboiler/queries/qm"
-	"gopkg.in/russross/blackfriday.v2"
+	"github.com/russross/blackfriday"
 )
 
 type GetProblemsResponse struct {

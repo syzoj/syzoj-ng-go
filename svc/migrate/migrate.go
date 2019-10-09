@@ -117,6 +117,17 @@ func (m *MigrateService) MigrateUserSubmissions(ctx context.Context) error {
 	return pipeline.Flush(ctx)
 }
 
+func (m *MigrateService) MigrateUserEmail(ctx context.Context) error {
+	log.Info("Adding user email verify status column")
+	_, err := m.Db.ExecContext(ctx, "ALTER TABLE `user` ADD COLUMN `email_verified` TINYINT NOT NULL DEFAULT 0")
+	rows, err := m.Db.QueryContext(ctx, "SELECT `email_verified` FROM `user` LIMIT 1")
+	if err != nil {
+		return err
+	}
+	rows.Close()
+	return nil
+}
+
 func (m *MigrateService) All(ctx context.Context) error {
 	if err := m.MigrateProblemTags(ctx); err != nil {
 		return err
@@ -125,6 +136,9 @@ func (m *MigrateService) All(ctx context.Context) error {
 		return err
 	}
 	if err := m.MigrateUserSubmissions(ctx); err != nil {
+		return err
+	}
+	if err := m.MigrateUserEmail(ctx); err != nil {
 		return err
 	}
 	return nil
